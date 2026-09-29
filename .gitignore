@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out/
+.env
+__pycache__/
+*.pyc
+.venv/
+*.db
+*.sqlite
+.DS_Store
+Thumbs.db
+Aniimo_Teams.xlsx

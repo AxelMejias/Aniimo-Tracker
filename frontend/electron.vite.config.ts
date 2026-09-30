@@ -7,7 +7,14 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    // Con sandbox: true el preload debe ser CommonJS; el package.json es "type": "module"
+    // y sin esto se emite index.mjs, que no coincide con la ruta que carga el proceso main.
+    build: {
+      rollupOptions: {
+        output: { format: 'cjs', entryFileNames: '[name].js' }
+      }
+    }
   },
   renderer: {
     resolve: {

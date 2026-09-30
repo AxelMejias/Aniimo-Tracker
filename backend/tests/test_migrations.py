@@ -11,13 +11,14 @@ import app.infrastructure.modelos  # noqa: F401
 from alembic import command
 from app.infrastructure.database import Base
 
-TABLAS_DEL_MODELO = {
+TABLAS_CORE = {
     "usuario",
     "team",
     "aniimo_del_team",
     "material_estrella",
     "objeto_transportado",
 }
+TABLAS_DEL_MODELO = TABLAS_CORE | {"sesion"}
 
 
 @pytest.fixture
@@ -32,6 +33,14 @@ def test_upgrade_head_crea_las_tablas_del_modelo(
     command.downgrade(alembic_config, "base")
     command.upgrade(alembic_config, "head")
     assert set(inspect(base_migrable).get_table_names()) == TABLAS_DEL_MODELO | {"alembic_version"}
+
+
+def test_downgrade_de_un_paso_quita_solo_sesion(
+    base_migrable: Engine, alembic_config: Config
+) -> None:
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "-1")
+    assert set(inspect(base_migrable).get_table_names()) == TABLAS_CORE | {"alembic_version"}
 
 
 def test_downgrade_base_deja_solo_alembic_version(
@@ -76,6 +85,7 @@ def test_constraints_siguen_la_convencion_de_nombres(migrated_engine: Engine) ->
         ("usuario", "uq_usuario_nombre_usuario"),
         ("team", "uq_team_usuario_id_orden"),
         ("aniimo_del_team", "uq_aniimo_del_team_team_id_slot"),
+        ("sesion", "uq_sesion_token_hash"),
     ],
 )
 def test_los_unique_que_traduce_la_uow_tienen_nombre_estable(
@@ -89,3 +99,13 @@ def test_modelos_y_migracion_coinciden(migrated_engine: Engine) -> None:
     with migrated_engine.connect() as connection:
         diferencias = compare_metadata(MigrationContext.configure(connection), Base.metadata)
     assert diferencias == []
+
+
+def test_los_constraints_de_sesion_tienen_el_nombre_de_la_convencion(
+    migrated_engine: Engine,
+) -> None:
+    inspector = inspect(migrated_engine)
+    checks = {c["name"] for c in inspector.get_check_constraints("sesion")}
+    assert checks == {"ck_sesion_vence_despues_de_crear", "ck_sesion_expira_hasta_el_tope"}
+    fks = {fk["name"] for fk in inspector.get_foreign_keys("sesion")}
+    assert fks == {"fk_sesion_usuario_id_usuario"}

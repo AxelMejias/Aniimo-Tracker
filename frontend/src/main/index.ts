@@ -1,10 +1,15 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, session } from 'electron'
+import { pathToFileURL } from 'node:url'
+import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { crearClienteBackend } from './auth/clienteBackend'
+import { registrarManejadoresDeAuth } from './auth/ipcAuth'
+import { crearSesionEnMemoria } from './auth/sesionEnMemoria'
 import { denyPermission, denyWindowOpen, getMainWindowOptions, isAllowedNavigation } from './security'
 
 const isDev = !app.isPackaged
 const preloadPath = join(__dirname, '../preload/index.js')
 const appUrl = isDev ? 'http://localhost:5173' : join(__dirname, '../renderer/index.html')
+const allowedAppUrl = isDev ? appUrl : pathToFileURL(appUrl).href
 
 function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -24,13 +29,13 @@ function createMainWindow(): BrowserWindow {
 
 app.on('web-contents-created', (_event, contents) => {
   contents.on('will-navigate', (navigationEvent, targetUrl) => {
-    if (!isAllowedNavigation(targetUrl, isDev ? appUrl : `file://${appUrl}`)) {
+    if (!isAllowedNavigation(targetUrl, allowedAppUrl)) {
       navigationEvent.preventDefault()
     }
   })
 
   contents.on('will-redirect', (navigationEvent, targetUrl) => {
-    if (!isAllowedNavigation(targetUrl, isDev ? appUrl : `file://${appUrl}`)) {
+    if (!isAllowedNavigation(targetUrl, allowedAppUrl)) {
       navigationEvent.preventDefault()
     }
   })
@@ -42,6 +47,12 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => {
     callback(denyPermission())
   })
+
+  registrarManejadoresDeAuth(
+    ipcMain,
+    crearClienteBackend(fetch, crearSesionEnMemoria()),
+    allowedAppUrl
+  )
 
   createMainWindow()
 

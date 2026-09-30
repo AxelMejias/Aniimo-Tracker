@@ -12,7 +12,7 @@ from app.domain.entidades import (
     Usuario,
     ValoresDeStat,
 )
-from tests.fabricas import persistir_team, persistir_usuario
+from tests.fabricas import persistir_sesion, persistir_team, persistir_usuario, sesion_de_prueba
 
 
 def test_round_trip_de_usuario(session_factory: sessionmaker[Session]) -> None:
@@ -165,3 +165,21 @@ def test_actualizar_usuario_conserva_igualdad(session_factory: sessionmaker[Sess
         uow.commit()
     with UnitOfWork(session_factory) as uow:
         assert uow.usuarios.obtener(usuario.id) == cambiado
+
+
+def test_round_trip_de_sesion(session_factory: sessionmaker[Session]) -> None:
+    usuario = persistir_usuario(session_factory)
+    sesion = persistir_sesion(session_factory, sesion_de_prueba(usuario))
+    with UnitOfWork(session_factory) as uow:
+        assert uow.sesiones.obtener(sesion.id) == sesion
+
+
+def test_actualizar_sesion_persiste_la_renovacion(session_factory: sessionmaker[Session]) -> None:
+    usuario = persistir_usuario(session_factory)
+    sesion = persistir_sesion(session_factory, sesion_de_prueba(usuario))
+    renovada = dataclasses.replace(sesion, expira_en=sesion.expira_en.replace(minute=45))
+    with UnitOfWork(session_factory) as uow:
+        uow.sesiones.actualizar(renovada)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.sesiones.obtener(sesion.id) == renovada

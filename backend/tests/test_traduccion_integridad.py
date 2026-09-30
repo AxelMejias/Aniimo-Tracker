@@ -18,7 +18,7 @@ from app.domain.errores import (
     SlotInvalido,
 )
 from app.infrastructure.modelos import AniimoDelTeamModelo, TeamModelo
-from tests.fabricas import persistir_team, persistir_usuario
+from tests.fabricas import persistir_sesion, persistir_team, persistir_usuario, sesion_de_prueba
 
 
 def _team_invalido(usuario_id: UUID, **campos: object) -> TeamModelo:
@@ -139,3 +139,15 @@ def test_la_misma_uow_queda_revertida_despues_del_error(
             uow.commit()
     with UnitOfWork(session_factory) as uow:
         assert uow.usuarios.obtener(nuevo.id) is None
+
+
+def test_token_hash_repetido_es_error_de_integridad_generico(
+    session_factory: sessionmaker[Session],
+) -> None:
+    usuario = persistir_usuario(session_factory)
+    persistir_sesion(session_factory, sesion_de_prueba(usuario))
+    with UnitOfWork(session_factory) as uow:
+        uow.sesiones.agregar(sesion_de_prueba(usuario))
+        with pytest.raises(ErrorDeIntegridad) as info:
+            uow.commit()
+    assert type(info.value) is ErrorDeIntegridad

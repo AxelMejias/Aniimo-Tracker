@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     backend_port: int = 8000
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     log_level: str = "INFO"
+    token_expire_minutes: int = Field(default=30, ge=1, le=1440)
+    session_max_hours: int = Field(default=12, ge=1, le=168)
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -35,3 +37,11 @@ class Settings(BaseSettings):
                 "BACKEND_HOST solo permite direcciones de loopback (127.0.0.1 o localhost)"
             )
         return value
+
+    @model_validator(mode="after")
+    def _inactivity_within_absolute_cap(self) -> Self:
+        if self.token_expire_minutes > self.session_max_hours * 60:
+            raise ValueError(
+                "TOKEN_EXPIRE_MINUTES (inactividad) no puede superar SESSION_MAX_HOURS"
+            )
+        return self

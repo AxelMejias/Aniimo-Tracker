@@ -1,10 +1,11 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import String, insert, literal
+from sqlalchemy import String, delete, func, insert, literal, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -13,6 +14,7 @@ from app.infrastructure.modelos import (
     AniimoDelTeamModelo,
     MaterialEstrellaModelo,
     ObjetoTransportadoModelo,
+    SesionModelo,
     TeamModelo,
     UsuarioModelo,
 )
@@ -87,6 +89,21 @@ def _objeto(padres: Padres, **campos: object) -> ObjetoTransportadoModelo:
         "rareza": Rareza.RARA,
     }
     return ObjetoTransportadoModelo(**{**base, **campos})
+
+
+_AHORA = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+
+
+def _sesion(padres: Padres, **campos: object) -> SesionModelo:
+    base: dict[str, object] = {
+        "id": uuid4(),
+        "usuario_id": padres.usuario_id,
+        "token_hash": "a" * 64,
+        "creada_en": _AHORA,
+        "expira_en": _AHORA + timedelta(minutes=30),
+        "vence_en": _AHORA + timedelta(hours=12),
+    }
+    return SesionModelo(**{**base, **campos})
 
 
 def _casos_de_stats() -> list[tuple[str, Callable[[Padres], Any], str]]:
@@ -193,6 +210,23 @@ CASOS_INVALIDOS: list[tuple[str, Callable[[Padres], Any], str]] = [
         lambda p: _material(p, nombre=""),
         "ck_material_estrella_nombre_no_vacio",
     ),
+    (
+        "sesion_vence_en_igual_a_creada_en",
+        lambda p: _sesion(p, vence_en=_AHORA, expira_en=_AHORA),
+        "ck_sesion_vence_despues_de_crear",
+    ),
+    (
+        "sesion_vence_en_anterior_a_creada_en",
+        lambda p: _sesion(
+            p, vence_en=_AHORA - timedelta(hours=1), expira_en=_AHORA - timedelta(hours=1)
+        ),
+        "ck_sesion_vence_despues_de_crear",
+    ),
+    (
+        "sesion_expira_en_posterior_a_vence_en",
+        lambda p: _sesion(p, expira_en=_AHORA + timedelta(hours=13)),
+        "ck_sesion_expira_hasta_el_tope",
+    ),
     ("objeto_nivel_0", lambda p: _objeto(p, nivel=0), "ck_objeto_transportado_nivel_minimo"),
     (
         "objeto_nombre_vacio",
@@ -286,3 +320,27 @@ def test_la_base_acepta_personalidades_validas_y_vacia(
 ) -> None:
     session.add(_aniimo(padres, personalidad=personalidad))
     session.flush()
+
+
+def test_la_base_rechaza_dos_sesiones_con_el_mismo_token_hash(
+    session: Session, padres: Padres
+) -> None:
+    session.add(_sesion(padres))
+    session.flush()
+    session.add(_sesion(padres))
+    with pytest.raises(IntegrityError) as info:
+        session.flush()
+    assert _nombre_del_constraint(info.value) == "uq_sesion_token_hash"
+
+
+def test_la_base_acepta_expira_en_igual_a_vence_en(session: Session, padres: Padres) -> None:
+    limite = _AHORA + timedelta(hours=1)
+    session.add(_sesion(padres, expira_en=limite, vence_en=limite))
+    session.flush()
+
+
+def test_borrar_un_usuario_borra_sus_sesiones(session: Session, padres: Padres) -> None:
+    session.add(_sesion(padres))
+    session.flush()
+    session.execute(delete(UsuarioModelo).where(UsuarioModelo.id == padres.usuario_id))
+    assert session.scalar(select(func.count()).select_from(SesionModelo)) == 0

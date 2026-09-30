@@ -1,7 +1,9 @@
 .home-page {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-md);
   min-height: 100vh;
   background-color: var(--color-background);
   font-family: var(--font-family-base);
@@ -11,4 +13,24 @@
 .home-page__title {
   color: var(--color-text);
   font-size: var(--font-size-heading);
+}
+
+.home-page__user {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body);
+}
+
+.home-page__username {
+  color: var(--color-text);
+}
+
+.home-page__logout {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
 }

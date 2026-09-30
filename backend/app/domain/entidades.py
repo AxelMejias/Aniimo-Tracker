@@ -1,7 +1,7 @@
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from uuid import UUID, uuid4
 
@@ -54,6 +54,26 @@ class Usuario:
     def __post_init__(self) -> None:
         object.__setattr__(self, "nombre_usuario", normalizar_nombre_usuario(self.nombre_usuario))
         _no_vacio("nombre_usuario", self.nombre_usuario)
+
+
+@dataclass(frozen=True, slots=True)
+class Sesion:
+    usuario_id: UUID
+    token_hash: str
+    creada_en: datetime
+    expira_en: datetime
+    vence_en: datetime
+    id: UUID = field(default_factory=uuid4)
+
+    def __post_init__(self) -> None:
+        if self.expira_en > self.vence_en:
+            raise ValorInvalido("expira_en")
+
+    def vigente(self, ahora: datetime) -> bool:
+        return ahora < self.expira_en and ahora < self.vence_en
+
+    def renovada(self, ahora: datetime, inactividad: timedelta) -> "Sesion":
+        return replace(self, expira_en=min(ahora + inactividad, self.vence_en))
 
 
 @dataclass(frozen=True, slots=True)

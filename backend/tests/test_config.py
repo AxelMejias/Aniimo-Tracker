@@ -55,3 +55,62 @@ def test_cors_origins_multiple_comma_separated(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:5174")
     settings = Settings(_env_file=None)
     assert settings.cors_origins == ["http://localhost:5173", "http://localhost:5174"]
+
+
+def _base_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:pass@127.0.0.1:5432/aniimo")
+    monkeypatch.delenv("TOKEN_EXPIRE_MINUTES", raising=False)
+    monkeypatch.delenv("SESSION_MAX_HOURS", raising=False)
+
+
+def test_session_durations_default_to_30_minutes_and_12_hours(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _base_env(monkeypatch)
+    settings = Settings(_env_file=None)
+    assert settings.token_expire_minutes == 30
+    assert settings.session_max_hours == 12
+
+
+def test_session_durations_are_read_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    _base_env(monkeypatch)
+    monkeypatch.setenv("TOKEN_EXPIRE_MINUTES", "45")
+    monkeypatch.setenv("SESSION_MAX_HOURS", "24")
+    settings = Settings(_env_file=None)
+    assert settings.token_expire_minutes == 45
+    assert settings.session_max_hours == 24
+
+
+@pytest.mark.parametrize(
+    ("variable", "valor"),
+    [
+        ("TOKEN_EXPIRE_MINUTES", "0"),
+        ("TOKEN_EXPIRE_MINUTES", "1441"),
+        ("SESSION_MAX_HOURS", "0"),
+        ("SESSION_MAX_HOURS", "169"),
+    ],
+)
+def test_session_durations_out_of_range_name_the_variable(
+    monkeypatch: pytest.MonkeyPatch, variable: str, valor: str
+) -> None:
+    _base_env(monkeypatch)
+    monkeypatch.setenv(variable, valor)
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(_env_file=None)
+    assert variable.lower() in str(exc_info.value).lower()
+
+
+def test_inactivity_longer_than_absolute_cap_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    _base_env(monkeypatch)
+    monkeypatch.setenv("TOKEN_EXPIRE_MINUTES", "780")
+    monkeypatch.setenv("SESSION_MAX_HOURS", "12")
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(_env_file=None)
+    assert "inactividad" in str(exc_info.value).lower()
+
+
+def test_inactivity_equal_to_absolute_cap_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    _base_env(monkeypatch)
+    monkeypatch.setenv("TOKEN_EXPIRE_MINUTES", "720")
+    monkeypatch.setenv("SESSION_MAX_HOURS", "12")
+    assert Settings(_env_file=None).token_expire_minutes == 720

@@ -5,6 +5,8 @@ from uuid import uuid4
 
 import pytest
 from alembic.config import Config
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -19,6 +21,8 @@ from app.domain.entidades import (
     ValoresDeStat,
 )
 from app.infrastructure.database import make_engine
+from app.main import create_app
+from tests.fabricas import HasherEspia, RelojFalso
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -79,6 +83,33 @@ def session_factory(migrated_engine: Engine) -> Iterator[sessionmaker[Session]]:
     yield factory
     outer.rollback()
     connection.close()
+
+
+@pytest.fixture
+def reloj() -> RelojFalso:
+    return RelojFalso()
+
+
+@pytest.fixture
+def hasher_espia() -> HasherEspia:
+    return HasherEspia()
+
+
+@pytest.fixture
+def app_api(
+    test_settings: Settings,
+    session_factory: sessionmaker[Session],
+    hasher_espia: HasherEspia,
+    reloj: RelojFalso,
+) -> FastAPI:
+    return create_app(
+        test_settings, session_factory=session_factory, hasher=hasher_espia, reloj=reloj
+    )
+
+
+@pytest.fixture
+def cliente_api(app_api: FastAPI) -> TestClient:
+    return TestClient(app_api)
 
 
 @pytest.fixture

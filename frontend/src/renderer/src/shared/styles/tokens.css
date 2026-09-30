@@ -4,11 +4,16 @@
   --color-text: #f2f3f5;
   --color-text-muted: #9aa0ac;
   --color-accent: #5b8cff;
+  --color-border: #2c313b;
+  --color-error: #ff7b7b;
 
   --font-family-base:
     system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-size-heading: 1.75rem;
   --font-size-body: 1rem;
+  --font-size-small: 0.875rem;
+
+  --radius-md: 0.5rem;
 
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;

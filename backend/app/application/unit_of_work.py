@@ -19,6 +19,7 @@ from app.domain.errores import (
 )
 from app.infrastructure.repositorios import (
     AniimoDelTeamRepository,
+    SesionRepository,
     TeamRepository,
     UsuarioRepository,
 )
@@ -54,6 +55,7 @@ class UnitOfWork:
         self.usuarios = UsuarioRepository(self.session)
         self.teams = TeamRepository(self.session)
         self.aniimos = AniimoDelTeamRepository(self.session)
+        self.sesiones = SesionRepository(self.session)
         return self
 
     def __exit__(

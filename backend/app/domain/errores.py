@@ -59,6 +59,16 @@ class SlotOcupado(ErrorDeIntegridad):
         super().__init__("El slot ya está ocupado")
 
 
+class CredencialesInvalidas(ErrorDeDominio):
+    def __init__(self) -> None:
+        super().__init__("Credenciales inválidas")
+
+
+class SesionInvalida(ErrorDeDominio):
+    def __init__(self) -> None:
+        super().__init__("No autenticado")
+
+
 class EntidadNoEncontrada(ErrorDeDominio):
     def __init__(self) -> None:
         super().__init__("La entidad no existe")

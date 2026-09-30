@@ -1,4 +1,7 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { buildExposedApi } from './api'
 
-contextBridge.exposeInMainWorld('aniimo', buildExposedApi())
+contextBridge.exposeInMainWorld(
+  'aniimo',
+  buildExposedApi((canal, ...args) => ipcRenderer.invoke(canal, ...args))
+)

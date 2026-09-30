@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -7,7 +8,13 @@ from app.application.unit_of_work import UnitOfWork
 from app.domain.entidades import AniimoDelTeam, MaterialEstrella, Team, Usuario
 from app.domain.errores import EntidadNoEncontrada
 from app.infrastructure.modelos import TeamModelo, UsuarioModelo
-from tests.fabricas import persistir_aniimo, persistir_team, persistir_usuario
+from tests.fabricas import (
+    persistir_aniimo,
+    persistir_sesion,
+    persistir_team,
+    persistir_usuario,
+    sesion_de_prueba,
+)
 
 
 def test_los_repositorios_devuelven_entidades_de_dominio(
@@ -110,3 +117,66 @@ def test_listar_aniimos_por_team_ordena_por_slot_y_trae_hijos(
     with UnitOfWork(session_factory) as uow:
         assert uow.aniimos.listar_por_team(team.id) == [slot1, slot3]
         assert uow.aniimos.listar_por_team(otro_team.id) == [ajeno]
+
+
+def test_obtener_sesion_por_token_hash(session_factory: sessionmaker[Session]) -> None:
+    usuario = persistir_usuario(session_factory)
+    sesion = persistir_sesion(session_factory, sesion_de_prueba(usuario, token_hash="b" * 64))
+    persistir_sesion(session_factory, sesion_de_prueba(usuario, token_hash="c" * 64))
+    with UnitOfWork(session_factory) as uow:
+        assert uow.sesiones.obtener_por_token_hash("b" * 64) == sesion
+
+
+def test_obtener_sesion_con_hash_inexistente_devuelve_none(
+    session_factory: sessionmaker[Session],
+) -> None:
+    usuario = persistir_usuario(session_factory)
+    persistir_sesion(session_factory, sesion_de_prueba(usuario))
+    with UnitOfWork(session_factory) as uow:
+        assert uow.sesiones.obtener_por_token_hash("z" * 64) is None
+
+
+def test_borrar_vencidas_de_un_usuario_no_toca_las_vigentes_ni_las_de_otros(
+    session_factory: sessionmaker[Session],
+) -> None:
+    a = persistir_usuario(session_factory, "a")
+    b = persistir_usuario(session_factory, "b")
+    ahora = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    creada = ahora - timedelta(hours=1)
+    vencida_a = sesion_de_prueba(
+        a,
+        "1" * 64,
+        creada,
+        expira_en=ahora - timedelta(minutes=1),
+        vence_en=ahora + timedelta(hours=1),
+    )
+    vigente_a = sesion_de_prueba(a, "2" * 64, creada, expira_en=ahora + timedelta(minutes=5))
+    vencida_b = sesion_de_prueba(b, "3" * 64, creada, expira_en=ahora - timedelta(minutes=1))
+    for sesion in (vencida_a, vigente_a, vencida_b):
+        persistir_sesion(session_factory, sesion)
+    with UnitOfWork(session_factory) as uow:
+        uow.sesiones.borrar_vencidas_de(a.id, ahora)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.sesiones.obtener_por_token_hash("1" * 64) is None
+        assert uow.sesiones.obtener_por_token_hash("2" * 64) == vigente_a
+        assert uow.sesiones.obtener_por_token_hash("3" * 64) == vencida_b
+
+
+def test_borrar_vencidas_incluye_las_que_pasaron_el_tope_absoluto(
+    session_factory: sessionmaker[Session],
+) -> None:
+    usuario = persistir_usuario(session_factory)
+    ahora = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    tope = ahora - timedelta(seconds=1)
+    persistir_sesion(
+        session_factory,
+        sesion_de_prueba(
+            usuario, creada_en=ahora - timedelta(hours=12), expira_en=tope, vence_en=tope
+        ),
+    )
+    with UnitOfWork(session_factory) as uow:
+        uow.sesiones.borrar_vencidas_de(usuario.id, ahora)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.sesiones.obtener_por_token_hash("a" * 64) is None

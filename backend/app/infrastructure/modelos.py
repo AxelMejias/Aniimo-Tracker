@@ -81,6 +81,27 @@ class UsuarioModelo(Base):
     teams: Mapped[list["TeamModelo"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True
     )
+    sesiones: Mapped[list["SesionModelo"]] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class SesionModelo(Base):
+    __tablename__ = "sesion"
+    __table_args__ = (
+        CheckConstraint("vence_en > creada_en", name="vence_despues_de_crear"),
+        CheckConstraint("expira_en <= vence_en", name="expira_hasta_el_tope"),
+        UniqueConstraint("token_hash"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    usuario_id: Mapped[UUID] = mapped_column(
+        ForeignKey("usuario.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(CHAR(64))
+    creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expira_en: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    vence_en: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class TeamModelo(Base):

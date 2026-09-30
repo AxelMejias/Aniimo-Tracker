@@ -3,6 +3,7 @@ from app.domain.entidades import (
     AniimoDelTeam,
     MaterialEstrella,
     ObjetoTransportado,
+    Sesion,
     Team,
     Usuario,
     ValoresDeStat,
@@ -11,6 +12,7 @@ from app.infrastructure.modelos import (
     AniimoDelTeamModelo,
     MaterialEstrellaModelo,
     ObjetoTransportadoModelo,
+    SesionModelo,
     TeamModelo,
     UsuarioModelo,
 )
@@ -58,6 +60,26 @@ def volcar_usuario(usuario: Usuario, fila: UsuarioModelo) -> None:
     fila.nombre_usuario = usuario.nombre_usuario
     fila.password_hash = usuario.password_hash
     fila.creado_en = usuario.creado_en
+
+
+def sesion_a_dominio(fila: SesionModelo) -> Sesion:
+    return Sesion(
+        usuario_id=fila.usuario_id,
+        token_hash=fila.token_hash,
+        creada_en=fila.creada_en,
+        expira_en=fila.expira_en,
+        vence_en=fila.vence_en,
+        id=fila.id,
+    )
+
+
+def volcar_sesion(sesion: Sesion, fila: SesionModelo) -> None:
+    fila.id = sesion.id
+    fila.usuario_id = sesion.usuario_id
+    fila.token_hash = sesion.token_hash
+    fila.creada_en = sesion.creada_en
+    fila.expira_en = sesion.expira_en
+    fila.vence_en = sesion.vence_en
 
 
 def team_a_dominio(fila: TeamModelo) -> Team:

@@ -1,22 +1,25 @@
 from collections.abc import Callable, Sequence
+from datetime import datetime
 from typing import Generic, Protocol, TypeVar
 from uuid import UUID
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, delete, or_, select
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
-from app.domain.entidades import AniimoDelTeam, Team, Usuario, normalizar_nombre_usuario
+from app.domain.entidades import AniimoDelTeam, Sesion, Team, Usuario, normalizar_nombre_usuario
 from app.domain.errores import EntidadNoEncontrada
 from app.infrastructure.mapeo import (
     aniimo_a_dominio,
+    sesion_a_dominio,
     team_a_dominio,
     usuario_a_dominio,
     volcar_aniimo,
+    volcar_sesion,
     volcar_team,
     volcar_usuario,
 )
-from app.infrastructure.modelos import AniimoDelTeamModelo, TeamModelo, UsuarioModelo
+from app.infrastructure.modelos import AniimoDelTeamModelo, SesionModelo, TeamModelo, UsuarioModelo
 
 
 class ConId(Protocol):
@@ -114,3 +117,21 @@ class AniimoDelTeamRepository(BaseRepository[AniimoDelTeam, AniimoDelTeamModelo]
             .order_by(AniimoDelTeamModelo.slot)
         )
         return self._convertir(consulta)
+
+
+class SesionRepository(BaseRepository[Sesion, SesionModelo]):
+    def __init__(self, session: Session) -> None:
+        super().__init__(session, SesionModelo, sesion_a_dominio, volcar_sesion)
+
+    def obtener_por_token_hash(self, token_hash: str) -> Sesion | None:
+        consulta = select(SesionModelo).where(SesionModelo.token_hash == token_hash)
+        sesiones = self._convertir(consulta)
+        return sesiones[0] if sesiones else None
+
+    def borrar_vencidas_de(self, usuario_id: UUID, ahora: datetime) -> None:
+        self._session.execute(
+            delete(SesionModelo).where(
+                SesionModelo.usuario_id == usuario_id,
+                or_(SesionModelo.expira_en <= ahora, SesionModelo.vence_en <= ahora),
+            )
+        )

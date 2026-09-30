@@ -4,6 +4,8 @@ import { app, BrowserWindow, ipcMain, session } from 'electron'
 import { crearClienteBackend } from './auth/clienteBackend'
 import { registrarManejadoresDeAuth } from './auth/ipcAuth'
 import { crearSesionEnMemoria } from './auth/sesionEnMemoria'
+import { crearClienteTeams } from './teams/clienteTeams'
+import { registrarManejadoresDeTeams } from './teams/ipcTeams'
 import { denyPermission, denyWindowOpen, getMainWindowOptions, isAllowedNavigation } from './security'
 
 const isDev = !app.isPackaged
@@ -48,11 +50,9 @@ app.whenReady().then(() => {
     callback(denyPermission())
   })
 
-  registrarManejadoresDeAuth(
-    ipcMain,
-    crearClienteBackend(fetch, crearSesionEnMemoria()),
-    allowedAppUrl
-  )
+  const sesion = crearSesionEnMemoria()
+  registrarManejadoresDeAuth(ipcMain, crearClienteBackend(fetch, sesion), allowedAppUrl)
+  registrarManejadoresDeTeams(ipcMain, crearClienteTeams(fetch, sesion), allowedAppUrl)
 
   createMainWindow()
 

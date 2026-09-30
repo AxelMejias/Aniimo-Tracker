@@ -5,12 +5,10 @@ import type {
   ResultadoAuth,
   ResultadoSesion
 } from '../../shared/auth'
+import { crearPeticion, type FetchFn } from '../backend/peticion'
 import type { SesionEnMemoria } from './sesionEnMemoria'
 
-export const URL_BASE_BACKEND = 'http://127.0.0.1:8000/api'
-const TIEMPO_MAXIMO_MS = 10_000
-
-export type FetchFn = (url: string, init: RequestInit) => Promise<Response>
+export { URL_BASE_BACKEND, type FetchFn } from '../backend/peticion'
 
 export interface ClienteBackend {
   registrarse(credenciales: Credenciales): Promise<ResultadoAuth>
@@ -79,29 +77,15 @@ async function errorDeRespuesta(respuesta: Response): Promise<ErrorDeAuth> {
 }
 
 export function crearClienteBackend(fetchFn: FetchFn, sesion: SesionEnMemoria): ClienteBackend {
+  const peticion = crearPeticion(fetchFn, sesion)
+
   async function pedir(
     metodo: 'GET' | 'POST',
     ruta: string,
     cuerpo?: unknown
   ): Promise<Response | ErrorDeAuth> {
-    const cabeceras: Record<string, string> = {}
-    if (cuerpo !== undefined) {
-      cabeceras['Content-Type'] = 'application/json'
-    }
-    const actual = sesion.obtener()
-    if (actual !== null) {
-      cabeceras.Authorization = `Bearer ${actual.token}`
-    }
-    try {
-      return await fetchFn(`${URL_BASE_BACKEND}${ruta}`, {
-        method: metodo,
-        headers: cabeceras,
-        body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
-        signal: AbortSignal.timeout(TIEMPO_MAXIMO_MS)
-      })
-    } catch {
-      return error('sin-conexion')
-    }
+    const respuesta = await peticion(metodo, ruta, cuerpo === undefined ? undefined : { json: cuerpo })
+    return respuesta ?? error('sin-conexion')
   }
 
   async function iniciarSesion(credenciales: Credenciales): Promise<ResultadoAuth> {

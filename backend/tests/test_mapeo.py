@@ -37,7 +37,7 @@ def test_round_trip_de_irisalis_completa(
     usuario = persistir_usuario(session_factory)
     team = persistir_team(session_factory, usuario)
     guardado = dataclasses.replace(
-        irisalis, team_id=team.id, elemento=Elemento.HIELO, rol=Rol.SANADOR
+        irisalis, team_id=team.id, elemento=Elemento.HIELO, rol=Rol.CURACION
     )
     with UnitOfWork(session_factory) as uow:
         uow.aniimos.agregar(guardado)

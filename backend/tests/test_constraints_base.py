@@ -5,19 +5,22 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import String, delete, func, insert, literal, select
+from sqlalchemy import Insert, String, delete, func, insert, literal, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.catalogos import PosicionObjeto, Rareza, Stat
+from app.domain.imagenes import TAMANO_MAXIMO, TipoDeImagen
 from app.infrastructure.modelos import (
     AniimoDelTeamModelo,
+    ImagenAniimoModelo,
     MaterialEstrellaModelo,
     ObjetoTransportadoModelo,
     SesionModelo,
     TeamModelo,
     UsuarioModelo,
 )
+from tests.imagenes_de_prueba import PNG, WEBP, con_relleno
 
 
 @dataclass(frozen=True)
@@ -344,3 +347,81 @@ def test_borrar_un_usuario_borra_sus_sesiones(session: Session, padres: Padres) 
     session.flush()
     session.execute(delete(UsuarioModelo).where(UsuarioModelo.id == padres.usuario_id))
     assert session.scalar(select(func.count()).select_from(SesionModelo)) == 0
+
+
+def _insertar_imagen(padres: Padres, tipo: str, datos: bytes) -> Insert:
+    return insert(ImagenAniimoModelo).values(
+        aniimo_del_team_id=padres.aniimo_id,
+        tipo=literal(tipo, String),
+        datos=datos,
+    )
+
+
+@pytest.mark.parametrize(
+    ("tipo", "datos", "constraint"),
+    [
+        ("image/svg+xml", PNG, "ck_imagen_aniimo_tipo"),
+        ("image/gif", PNG, "ck_imagen_aniimo_tipo"),
+        ("image/png", b"", "ck_imagen_aniimo_tamano"),
+        ("image/png", con_relleno(PNG, TAMANO_MAXIMO + 1), "ck_imagen_aniimo_tamano"),
+    ],
+    ids=["svg", "gif", "vacia", "un_byte_de_mas"],
+)
+def test_la_base_rechaza_imagenes_invalidas(
+    session: Session, padres: Padres, tipo: str, datos: bytes, constraint: str
+) -> None:
+    with pytest.raises(IntegrityError) as info:
+        session.execute(_insertar_imagen(padres, tipo, datos))
+    assert _nombre_del_constraint(info.value) == constraint
+
+
+@pytest.mark.parametrize(
+    ("tipo", "datos"),
+    [
+        (TipoDeImagen.PNG, con_relleno(PNG, TAMANO_MAXIMO)),
+        (TipoDeImagen.WEBP, WEBP),
+        (TipoDeImagen.JPEG, b"\xff\xd8\xff"),
+    ],
+    ids=["tope_exacto", "webp", "un_byte"],
+)
+def test_la_base_acepta_imagenes_validas(
+    session: Session, padres: Padres, tipo: TipoDeImagen, datos: bytes
+) -> None:
+    session.add(ImagenAniimoModelo(aniimo_del_team_id=padres.aniimo_id, tipo=tipo, datos=datos))
+    session.flush()
+
+
+def _contar_imagenes(session: Session) -> int:
+    return session.scalar(select(func.count()).select_from(ImagenAniimoModelo)) or 0
+
+
+def test_borrar_el_aniimo_borra_su_imagen(session: Session, padres: Padres) -> None:
+    session.add(
+        ImagenAniimoModelo(aniimo_del_team_id=padres.aniimo_id, tipo=TipoDeImagen.PNG, datos=PNG)
+    )
+    session.flush()
+    session.execute(delete(AniimoDelTeamModelo).where(AniimoDelTeamModelo.id == padres.aniimo_id))
+    assert _contar_imagenes(session) == 0
+
+
+def test_borrar_el_team_borra_las_imagenes_de_sus_aniimo(session: Session, padres: Padres) -> None:
+    session.add(
+        ImagenAniimoModelo(aniimo_del_team_id=padres.aniimo_id, tipo=TipoDeImagen.PNG, datos=PNG)
+    )
+    session.flush()
+    session.execute(delete(TeamModelo).where(TeamModelo.id == padres.team_id))
+    assert _contar_imagenes(session) == 0
+
+
+def test_la_base_rechaza_dos_imagenes_para_el_mismo_aniimo(
+    session: Session, padres: Padres
+) -> None:
+    session.add(
+        ImagenAniimoModelo(aniimo_del_team_id=padres.aniimo_id, tipo=TipoDeImagen.PNG, datos=PNG)
+    )
+    session.flush()
+    session.add(
+        ImagenAniimoModelo(aniimo_del_team_id=padres.aniimo_id, tipo=TipoDeImagen.WEBP, datos=WEBP)
+    )
+    with pytest.raises(IntegrityError):
+        session.flush()

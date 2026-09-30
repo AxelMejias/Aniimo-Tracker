@@ -5,8 +5,17 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.unit_of_work import UnitOfWork
-from app.domain.entidades import AniimoDelTeam, MaterialEstrella, Team, Usuario
+from app.domain.catalogos import PosicionObjeto, Rareza
+from app.domain.entidades import (
+    AniimoDelTeam,
+    ImagenAniimo,
+    MaterialEstrella,
+    ObjetoTransportado,
+    Team,
+    Usuario,
+)
 from app.domain.errores import EntidadNoEncontrada
+from app.domain.imagenes import TipoDeImagen
 from app.infrastructure.modelos import TeamModelo, UsuarioModelo
 from tests.fabricas import (
     persistir_aniimo,
@@ -15,6 +24,7 @@ from tests.fabricas import (
     persistir_usuario,
     sesion_de_prueba,
 )
+from tests.imagenes_de_prueba import JPEG, PNG, WEBP
 
 
 def test_los_repositorios_devuelven_entidades_de_dominio(
@@ -180,3 +190,115 @@ def test_borrar_vencidas_incluye_las_que_pasaron_el_tope_absoluto(
         uow.commit()
     with UnitOfWork(session_factory) as uow:
         assert uow.sesiones.obtener_por_token_hash("a" * 64) is None
+
+
+def test_team_por_id_restringido_al_duenio(session_factory: sessionmaker[Session]) -> None:
+    a = persistir_usuario(session_factory, "a")
+    b = persistir_usuario(session_factory, "b")
+    team = persistir_team(session_factory, a)
+    with UnitOfWork(session_factory) as uow:
+        assert uow.teams.obtener_de_usuario(team.id, a.id) == team
+        assert uow.teams.obtener_de_usuario(team.id, b.id) is None
+        assert uow.teams.obtener_de_usuario(uuid4(), a.id) is None
+
+
+def test_aniimo_por_slot_ocupado_y_vacio(session_factory: sessionmaker[Session]) -> None:
+    usuario = persistir_usuario(session_factory)
+    team = persistir_team(session_factory, usuario)
+    aniimo = AniimoDelTeam(
+        team_id=team.id,
+        slot=2,
+        nombre="Dos",
+        materiales=(MaterialEstrella(1, "Polvo", 3, 5),),
+        objetos=(ObjetoTransportado(PosicionObjeto.EQUIPADO, "Anillo", Rareza.RARA),),
+    )
+    persistir_aniimo(session_factory, aniimo)
+    with UnitOfWork(session_factory) as uow:
+        assert uow.aniimos.obtener_por_slot(team.id, 2) == aniimo
+        assert uow.aniimos.obtener_por_slot(team.id, 4) is None
+        assert uow.aniimos.obtener_por_slot(uuid4(), 2) is None
+
+
+def test_listar_aniimo_de_varios_teams_sin_traer_los_de_otros(
+    session_factory: sessionmaker[Session],
+) -> None:
+    usuario = persistir_usuario(session_factory)
+    t1 = persistir_team(session_factory, usuario, orden=1)
+    t2 = persistir_team(session_factory, usuario, orden=2)
+    t3 = persistir_team(session_factory, usuario, orden=3)
+    material = (MaterialEstrella(1, "Polvo", 1, 2),)
+    aniimos = [
+        AniimoDelTeam(team_id=t1.id, slot=1, nombre="A", materiales=material),
+        AniimoDelTeam(team_id=t1.id, slot=3, nombre="B"),
+        AniimoDelTeam(
+            team_id=t2.id,
+            slot=2,
+            nombre="C",
+            objetos=(ObjetoTransportado(PosicionObjeto.ALTERNATIVO, "Anillo", Rareza.EPICA),),
+        ),
+        AniimoDelTeam(team_id=t3.id, slot=1, nombre="Ajeno"),
+    ]
+    for aniimo in aniimos:
+        persistir_aniimo(session_factory, aniimo)
+    with UnitOfWork(session_factory) as uow:
+        obtenidos = uow.aniimos.listar_por_teams([t1.id, t2.id])
+        assert sorted(obtenidos, key=lambda a: a.nombre) == aniimos[:3]
+        assert uow.aniimos.listar_por_teams([]) == []
+
+
+def _aniimo_persistido(session_factory: sessionmaker[Session]) -> AniimoDelTeam:
+    usuario = persistir_usuario(session_factory)
+    team = persistir_team(session_factory, usuario)
+    aniimo = AniimoDelTeam(team_id=team.id, slot=1, nombre="Irisalis")
+    persistir_aniimo(session_factory, aniimo)
+    return aniimo
+
+
+def test_imagen_round_trip_y_reemplazo(session_factory: sessionmaker[Session]) -> None:
+    aniimo = _aniimo_persistido(session_factory)
+    primera = ImagenAniimo(aniimo.id, TipoDeImagen.PNG, PNG)
+    with UnitOfWork(session_factory) as uow:
+        assert uow.imagenes.obtener(aniimo.id) is None
+        uow.imagenes.guardar(primera)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.imagenes.obtener(aniimo.id) == primera
+    segunda = ImagenAniimo(aniimo.id, TipoDeImagen.WEBP, WEBP)
+    with UnitOfWork(session_factory) as uow:
+        uow.imagenes.guardar(segunda)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.imagenes.obtener(aniimo.id) == segunda
+
+
+def test_borrar_imagen_es_idempotente(session_factory: sessionmaker[Session]) -> None:
+    aniimo = _aniimo_persistido(session_factory)
+    with UnitOfWork(session_factory) as uow:
+        uow.imagenes.guardar(ImagenAniimo(aniimo.id, TipoDeImagen.JPEG, JPEG))
+        uow.commit()
+    for _ in range(2):
+        with UnitOfWork(session_factory) as uow:
+            uow.imagenes.borrar(aniimo.id)
+            uow.commit()
+        with UnitOfWork(session_factory) as uow:
+            assert uow.imagenes.obtener(aniimo.id) is None
+            assert uow.aniimos.obtener(aniimo.id) == aniimo
+
+
+def test_ids_con_imagen_devuelve_solo_los_que_tienen(
+    session_factory: sessionmaker[Session],
+) -> None:
+    usuario = persistir_usuario(session_factory)
+    team = persistir_team(session_factory, usuario)
+    aniimos = [AniimoDelTeam(team_id=team.id, slot=n, nombre=f"A{n}") for n in (1, 2, 3)]
+    for aniimo in aniimos:
+        persistir_aniimo(session_factory, aniimo)
+    with UnitOfWork(session_factory) as uow:
+        for aniimo in (aniimos[0], aniimos[2]):
+            uow.imagenes.guardar(ImagenAniimo(aniimo.id, TipoDeImagen.PNG, PNG))
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        todos = [a.id for a in aniimos]
+        assert uow.imagenes.ids_con_imagen(todos) == {aniimos[0].id, aniimos[2].id}
+        assert uow.imagenes.ids_con_imagen([]) == set()
+        assert uow.imagenes.ids_con_imagen([aniimos[1].id, uuid4()]) == set()

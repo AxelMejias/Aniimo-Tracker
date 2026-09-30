@@ -4,7 +4,7 @@ import {
   type Credenciales
 } from '../../shared/auth'
 
-function esObjetoPlano(valor: unknown): valor is Record<string, unknown> {
+export function esObjetoPlano(valor: unknown): valor is Record<string, unknown> {
   if (typeof valor !== 'object' || valor === null) {
     return false
   }

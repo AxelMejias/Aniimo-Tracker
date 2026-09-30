@@ -7,18 +7,27 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.unit_of_work import UnitOfWork
 from app.domain.catalogos import Stat
-from app.domain.entidades import Team, Usuario
+from app.domain.entidades import AniimoDelTeam, Team, Usuario
 from app.domain.errores import (
     DespertaresInconsistentes,
     ErrorDeDominio,
     ErrorDeIntegridad,
+    ImagenDemasiadoGrande,
     LimiteDeTeamsAlcanzado,
     PersonalidadInvalida,
     PotencialFueraDeRango,
     SlotInvalido,
 )
-from app.infrastructure.modelos import AniimoDelTeamModelo, TeamModelo
-from tests.fabricas import persistir_sesion, persistir_team, persistir_usuario, sesion_de_prueba
+from app.domain.imagenes import TAMANO_MAXIMO, TipoDeImagen
+from app.infrastructure.modelos import AniimoDelTeamModelo, ImagenAniimoModelo, TeamModelo
+from tests.fabricas import (
+    persistir_aniimo,
+    persistir_sesion,
+    persistir_team,
+    persistir_usuario,
+    sesion_de_prueba,
+)
+from tests.imagenes_de_prueba import PNG, con_relleno
 
 
 def _team_invalido(usuario_id: UUID, **campos: object) -> TeamModelo:
@@ -151,3 +160,22 @@ def test_token_hash_repetido_es_error_de_integridad_generico(
         with pytest.raises(ErrorDeIntegridad) as info:
             uow.commit()
     assert type(info.value) is ErrorDeIntegridad
+
+
+def test_imagen_de_mas_de_un_mebibyte_lanza_imagen_demasiado_grande(
+    session_factory: sessionmaker[Session],
+) -> None:
+    usuario = persistir_usuario(session_factory)
+    team = persistir_team(session_factory, usuario)
+    aniimo = AniimoDelTeam(team_id=team.id, slot=1, nombre="A")
+    persistir_aniimo(session_factory, aniimo)
+    with UnitOfWork(session_factory) as uow:
+        uow.session.add(
+            ImagenAniimoModelo(
+                aniimo_del_team_id=aniimo.id,
+                tipo=TipoDeImagen.PNG,
+                datos=con_relleno(PNG, TAMANO_MAXIMO + 1),
+            )
+        )
+        with pytest.raises(ImagenDemasiadoGrande):
+            uow.commit()

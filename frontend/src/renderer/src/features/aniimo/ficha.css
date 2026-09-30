@@ -1,0 +1,138 @@
+.ficha {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+}
+
+.ficha__titulo {
+  margin: 0;
+  font-size: var(--font-size-title);
+}
+
+.ficha__estado {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.ficha__acciones {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.ficha button,
+.ficha__estado button {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+}
+
+.ficha__guardar {
+  border-color: var(--color-accent);
+}
+
+.ficha button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.bloque {
+  margin: 0;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.bloque__titulo {
+  padding: 0 var(--space-sm);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+}
+
+.bloque__contenido {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-md);
+}
+
+.fila-de-stat,
+.fila-de-material,
+.fila-de-objeto,
+.personalidad,
+.imagen-del-aniimo {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-sm);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.campo--casilla {
+  flex-direction: row;
+  align-items: center;
+}
+
+.campo__etiqueta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.campo__control {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-body);
+  padding: var(--space-sm);
+}
+
+.campo__control[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+
+.campo__error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+}
+
+.derivado {
+  margin: 0;
+  align-self: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.imagen-del-aniimo__ayuda {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.imagen-del-aniimo__vista {
+  max-width: 12rem;
+  max-height: 12rem;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}
+
+.imagen-del-aniimo__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}

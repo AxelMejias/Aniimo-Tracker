@@ -1,6 +1,7 @@
 from app.domain.catalogos import Stat
 from app.domain.entidades import (
     AniimoDelTeam,
+    ImagenAniimo,
     MaterialEstrella,
     ObjetoTransportado,
     Sesion,
@@ -10,6 +11,7 @@ from app.domain.entidades import (
 )
 from app.infrastructure.modelos import (
     AniimoDelTeamModelo,
+    ImagenAniimoModelo,
     MaterialEstrellaModelo,
     ObjetoTransportadoModelo,
     SesionModelo,
@@ -163,3 +165,13 @@ def _volcar_objetos(objetos: tuple[ObjetoTransportado, ...], fila: AniimoDelTeam
         hijo.efecto_nucleo_notas = objeto.efecto_nucleo_notas
         nuevos.append(hijo)
     fila.objetos = nuevos
+
+
+def imagen_a_dominio(fila: ImagenAniimoModelo) -> ImagenAniimo:
+    return ImagenAniimo(aniimo_id=fila.aniimo_del_team_id, tipo=fila.tipo, datos=fila.datos)
+
+
+def volcar_imagen(imagen: ImagenAniimo, fila: ImagenAniimoModelo) -> None:
+    fila.aniimo_del_team_id = imagen.aniimo_id
+    fila.tipo = imagen.tipo
+    fila.datos = imagen.datos

@@ -22,7 +22,7 @@ from app.domain.entidades import (
 )
 from app.infrastructure.database import make_engine
 from app.main import create_app
-from tests.fabricas import HasherEspia, RelojFalso
+from tests.fabricas import ClienteAutenticado, HasherEspia, RelojFalso, autenticar
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -163,3 +163,13 @@ def irisalis() -> AniimoDelTeam:
         notas_habilidades="Habilidad 1: ataque electrico | Habilidad 2: curacion",
         notas="Aniimo de referencia",
     )
+
+
+@pytest.fixture
+def usuario_a(cliente_api: TestClient) -> ClienteAutenticado:
+    return autenticar(cliente_api, "usuario_a")
+
+
+@pytest.fixture
+def usuario_b(cliente_api: TestClient) -> ClienteAutenticado:
+    return autenticar(cliente_api, "usuario_b")

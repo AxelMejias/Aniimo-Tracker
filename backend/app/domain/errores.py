@@ -72,3 +72,23 @@ class SesionInvalida(ErrorDeDominio):
 class EntidadNoEncontrada(ErrorDeDominio):
     def __init__(self) -> None:
         super().__init__("La entidad no existe")
+
+
+class TeamNoEncontrado(EntidadNoEncontrada):
+    def __init__(self) -> None:
+        super(EntidadNoEncontrada, self).__init__("No encontrado")
+
+
+class AniimoNoEncontrado(EntidadNoEncontrada):
+    def __init__(self) -> None:
+        super(EntidadNoEncontrada, self).__init__("No encontrado")
+
+
+class ImagenInvalida(ErrorDeValidacion):
+    def __init__(self) -> None:
+        super().__init__("La imagen no es un PNG, JPEG o WebP válido")
+
+
+class ImagenDemasiadoGrande(ErrorDeValidacion):
+    def __init__(self) -> None:
+        super().__init__("La imagen supera el tamaño máximo permitido")

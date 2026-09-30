@@ -15,9 +15,10 @@ class Elemento(StrEnum):
 
 class Rol(StrEnum):
     DPS = "dps"
-    SOPORTE = "soporte"
-    SANADOR = "sanador"
-    TANQUE = "tanque"
+    AYUDA = "ayuda"
+    CURACION = "curacion"
+    REGEN = "regen"
+    BREAK = "break"
 
 
 class PotencialInnato(StrEnum):

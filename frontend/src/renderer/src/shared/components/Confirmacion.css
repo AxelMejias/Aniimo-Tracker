@@ -1,0 +1,25 @@
+.confirmacion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.confirmacion__mensaje {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+}
+
+.confirmacion__acciones {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.confirmacion__confirmar {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}

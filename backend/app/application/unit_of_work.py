@@ -9,6 +9,8 @@ from app.domain.errores import (
     DespertaresInconsistentes,
     ErrorDeDominio,
     ErrorDeIntegridad,
+    ImagenDemasiadoGrande,
+    ImagenInvalida,
     LimiteDeTeamsAlcanzado,
     NombreUsuarioDuplicado,
     PersonalidadInvalida,
@@ -19,6 +21,7 @@ from app.domain.errores import (
 )
 from app.infrastructure.repositorios import (
     AniimoDelTeamRepository,
+    ImagenAniimoRepository,
     SesionRepository,
     TeamRepository,
     UsuarioRepository,
@@ -29,6 +32,8 @@ _ERROR_POR_CONSTRAINT: dict[str, type[ErrorDeDominio]] = {
     "uq_team_usuario_id_orden": PosicionDeTeamOcupada,
     "uq_aniimo_del_team_team_id_slot": SlotOcupado,
     "ck_team_orden_rango": LimiteDeTeamsAlcanzado,
+    "ck_imagen_aniimo_tamano": ImagenDemasiadoGrande,
+    "ck_imagen_aniimo_tipo": ImagenInvalida,
     "ck_aniimo_del_team_slot_rango": SlotInvalido,
     "ck_aniimo_del_team_personalidad_formato": PersonalidadInvalida,
     "ck_aniimo_del_team_despertares_consistentes": DespertaresInconsistentes,
@@ -56,6 +61,7 @@ class UnitOfWork:
         self.teams = TeamRepository(self.session)
         self.aniimos = AniimoDelTeamRepository(self.session)
         self.sesiones = SesionRepository(self.session)
+        self.imagenes = ImagenAniimoRepository(self.session)
         return self
 
     def __exit__(

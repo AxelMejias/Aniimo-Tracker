@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CANALES_AUTH } from '../shared/auth'
+import { CANALES_TEAMS } from '../shared/teams'
+import { fichaDeReferencia } from '../../tests/fixtures/ficha'
 import { buildExposedApi, type Invocar } from './api'
 
 const credenciales = { nombreUsuario: 'axel', contrasena: 'una-clave-larga' }
@@ -19,10 +21,10 @@ function valoresRecorridos(raiz: unknown, vistos = new Set<unknown>()): unknown[
 }
 
 describe('buildExposedApi', () => {
-  it('devuelve un objeto congelado con solo appName y auth', () => {
+  it('devuelve un objeto congelado con solo appName, auth y teams', () => {
     const { api } = construir()
     expect(Object.isFrozen(api)).toBe(true)
-    expect(Object.keys(api).sort()).toEqual(['appName', 'auth'])
+    expect(Object.keys(api).sort()).toEqual(['appName', 'auth', 'teams'])
     expect(api.appName).toBe('Aniimo Team Tracker')
   })
 
@@ -38,6 +40,63 @@ describe('buildExposedApi', () => {
     for (const funcion of Object.values(api.auth)) {
       expect(typeof funcion).toBe('function')
     }
+  })
+
+  it('teams esta congelado y tiene solo las diez funciones', () => {
+    const { api } = construir()
+    expect(Object.isFrozen(api.teams)).toBe(true)
+    expect(Object.keys(api.teams).sort()).toEqual([
+      'borrar',
+      'borrarImagen',
+      'crear',
+      'guardarFicha',
+      'guardarImagen',
+      'listar',
+      'obtenerFicha',
+      'obtenerImagen',
+      'renombrar',
+      'vaciarSlot'
+    ])
+    for (const funcion of Object.values(api.teams)) {
+      expect(typeof funcion).toBe('function')
+    }
+  })
+
+  it('cada funcion de teams invoca su canal fijo con el payload', async () => {
+    const { api, invoke } = construir()
+    const pedido = { teamId: 'x', slot: 1 }
+    await api.teams.listar()
+    await api.teams.crear({ nombre: 'Raid' })
+    await api.teams.renombrar({ teamId: 'x', nombre: 'Raid' })
+    await api.teams.borrar({ teamId: 'x' })
+    await api.teams.obtenerFicha(pedido)
+    await api.teams.vaciarSlot(pedido)
+    await api.teams.obtenerImagen(pedido)
+    await api.teams.borrarImagen(pedido)
+    const ficha = { ...pedido, ficha: fichaDeReferencia() }
+    await api.teams.guardarFicha(ficha)
+    const imagen = { ...pedido, tipo: 'image/png' as const, datos: new Uint8Array([1]) }
+    await api.teams.guardarImagen(imagen)
+    expect(invoke.mock.calls).toEqual([
+      [CANALES_TEAMS.listar],
+      [CANALES_TEAMS.crear, { nombre: 'Raid' }],
+      [CANALES_TEAMS.renombrar, { teamId: 'x', nombre: 'Raid' }],
+      [CANALES_TEAMS.borrar, { teamId: 'x' }],
+      [CANALES_TEAMS.obtenerFicha, pedido],
+      [CANALES_TEAMS.vaciarSlot, pedido],
+      [CANALES_TEAMS.obtenerImagen, pedido],
+      [CANALES_TEAMS.borrarImagen, pedido],
+      [CANALES_TEAMS.guardarFicha, ficha],
+      [CANALES_TEAMS.guardarImagen, imagen]
+    ])
+  })
+
+  it('las funciones de teams devuelven el resultado del main sin transformarlo', async () => {
+    const { api } = construir({ ok: false, error: 'no-encontrado' })
+    expect(await api.teams.obtenerFicha({ teamId: 'x', slot: 1 })).toEqual({
+      ok: false,
+      error: 'no-encontrado'
+    })
   })
 
   it('iniciarSesion invoca su canal fijo con las credenciales y devuelve el resultado', async () => {

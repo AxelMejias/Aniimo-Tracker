@@ -14,7 +14,7 @@ CATALOGOS = {
         "sagrado",
         "oscuro",
     ],
-    Rol: ["dps", "soporte", "sanador", "tanque"],
+    Rol: ["dps", "ayuda", "curacion", "regen", "break"],
     PotencialInnato: ["comun", "bueno", "elite", "perfecto"],
     Rareza: ["rara", "epica", "legendaria"],
     PosicionObjeto: ["equipado", "alternativo"],

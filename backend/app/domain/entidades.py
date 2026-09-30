@@ -8,12 +8,15 @@ from uuid import UUID, uuid4
 from app.domain.catalogos import Elemento, PosicionObjeto, PotencialInnato, Rareza, Rol, Stat
 from app.domain.errores import (
     DespertaresInconsistentes,
+    ImagenDemasiadoGrande,
+    ImagenInvalida,
     LimiteDeTeamsAlcanzado,
     PersonalidadInvalida,
     PotencialFueraDeRango,
     SlotInvalido,
     ValorInvalido,
 )
+from app.domain.imagenes import TAMANO_MAXIMO, TipoDeImagen, detectar_tipo
 
 _PERSONALIDAD = re.compile(r"[EI][NS][TF][JP]")
 _MAX_MATERIALES = 3
@@ -193,3 +196,18 @@ class AniimoDelTeam:
             raise ValorInvalido("objetos")
         object.__setattr__(self, "materiales", materiales)
         object.__setattr__(self, "objetos", objetos)
+
+
+@dataclass(frozen=True, slots=True)
+class ImagenAniimo:
+    aniimo_id: UUID
+    tipo: TipoDeImagen
+    datos: bytes
+
+    def __post_init__(self) -> None:
+        if not self.datos:
+            raise ImagenInvalida
+        if len(self.datos) > TAMANO_MAXIMO:
+            raise ImagenDemasiadoGrande
+        if detectar_tipo(self.datos) is not self.tipo:
+            raise ImagenInvalida

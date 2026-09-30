@@ -1,28 +1,19 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { instalarApi } from '../../../tests/fixtures/apiFalsa'
 import App from './App'
 
-function instalarApi(nombreUsuario: string | null): void {
-  Object.defineProperty(window, 'aniimo', {
-    value: {
-      appName: 'Aniimo Team Tracker',
-      auth: {
-        obtenerSesion: async () => ({ ok: true, nombreUsuario }),
-        iniciarSesion: async () => ({ ok: false, error: 'error-inesperado' }),
-        registrarse: async () => ({ ok: false, error: 'error-inesperado' }),
-        cerrarSesion: async () => ({ ok: true, nombreUsuario: null })
-      }
-    },
-    configurable: true,
-    writable: true
+function instalarApiConSesion(nombreUsuario: string | null): void {
+  instalarApi({
+    auth: { obtenerSesion: async () => ({ ok: true, nombreUsuario }) }
   })
 }
 
 afterEach(cleanup)
 
 describe('App con sesion', () => {
-  beforeEach(() => instalarApi('axel'))
+  beforeEach(() => instalarApiConSesion('axel'))
 
   it('shows the app heading', async () => {
     render(<App />)
@@ -37,7 +28,7 @@ describe('App con sesion', () => {
 })
 
 describe('App sin sesion', () => {
-  beforeEach(() => instalarApi(null))
+  beforeEach(() => instalarApiConSesion(null))
 
   it('shows the app heading in the login screen', async () => {
     render(<App />)

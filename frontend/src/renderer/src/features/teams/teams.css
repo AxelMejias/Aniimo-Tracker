@@ -1,0 +1,142 @@
+.lista-de-teams {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.lista-de-teams__estado {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body);
+}
+
+.lista-de-teams__nuevo {
+  align-self: flex-start;
+}
+
+.lista-de-teams__crear {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+}
+
+.lista-de-teams__crear label,
+.tarjeta-team__renombrar label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.lista-de-teams__crear input,
+.tarjeta-team__renombrar input {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  padding: var(--space-sm);
+}
+
+.lista-de-teams__mensaje,
+.tarjeta-team__mensaje {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+}
+
+.tarjeta-team {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.tarjeta-team__encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.tarjeta-team__nombre {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-title);
+}
+
+.tarjeta-team__acciones,
+.tarjeta-team__renombrar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+}
+
+.tarjeta-team__slots {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.tarjeta-aniimo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  min-height: 9rem;
+  padding: var(--space-md);
+  text-align: left;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+}
+
+.tarjeta-aniimo--vacia {
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  color: var(--color-text-muted);
+}
+
+.tarjeta-aniimo__marcador,
+.tarjeta-aniimo__imagen {
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-md);
+}
+
+.tarjeta-aniimo__marcador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-heading);
+}
+
+.tarjeta-aniimo__imagen {
+  object-fit: cover;
+}
+
+.tarjeta-aniimo__nombre {
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+}
+
+.tarjeta-aniimo__dato {
+  color: var(--color-text-muted);
+}

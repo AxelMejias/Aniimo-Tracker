@@ -17,7 +17,11 @@ function instalarApi(sobrescribir: Partial<AuthApi> = {}) {
     ...sobrescribir
   }
   Object.defineProperty(window, 'aniimo', {
-    value: { appName: 'Aniimo Team Tracker', auth },
+    value: {
+      appName: 'Aniimo Team Tracker',
+      auth,
+      teams: { listar: async () => ({ ok: true, teams: [] }) }
+    },
     configurable: true,
     writable: true
   })

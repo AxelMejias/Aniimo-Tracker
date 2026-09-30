@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
 from app.api.limite_de_intentos import crear_limitadores
+from app.api.teams import router as teams_router
 from app.application.auth import HasherDeContrasenas, ServicioDeAuth
+from app.application.teams import ServicioDeTeams
 from app.core.config import Settings
 from app.core.errors import register_error_handlers
 from app.core.reloj import ahora_utc
@@ -35,6 +37,7 @@ def create_app(
         tope=timedelta(hours=settings.session_max_hours),
         reloj=reloj,
     )
+    app.state.servicio_de_teams = ServicioDeTeams(app.state.session_factory)
     app.state.limitadores = crear_limitadores(reloj)
     register_error_handlers(app)
     app.add_middleware(
@@ -46,4 +49,5 @@ def create_app(
     )
     app.include_router(health_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
+    app.include_router(teams_router, prefix="/api")
     return app

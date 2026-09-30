@@ -10,6 +10,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
+    LargeBinary,
     SmallInteger,
     String,
     Text,
@@ -20,10 +21,15 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, MappedColumn, mapped_column, relationship
 
 from app.domain.catalogos import Elemento, PosicionObjeto, PotencialInnato, Rareza, Rol, Stat
+from app.domain.imagenes import TAMANO_MAXIMO, TipoDeImagen
 from app.infrastructure.database import Base
 
+# Holgado a proposito: un tipo fuera del catalogo (p. ej. image/svg+xml) debe llegar al CHECK y no
+# fallar antes por largo de columna.
+_LONGITUD_TIPO_DE_IMAGEN = 32
 
-def _enum(catalogo: type[StrEnum], nombre: str) -> Enum:
+
+def _enum(catalogo: type[StrEnum], nombre: str, longitud: int | None = None) -> Enum:
     # Se guarda el código en minúscula y un CHECK rechaza cualquier valor fuera del catálogo.
     return Enum(
         catalogo,
@@ -31,7 +37,7 @@ def _enum(catalogo: type[StrEnum], nombre: str) -> Enum:
         native_enum=False,
         create_constraint=True,
         values_callable=lambda miembros: [m.value for m in miembros],
-        length=max(len(m.value) for m in catalogo),
+        length=longitud or max(len(m.value) for m in catalogo),
     )
 
 
@@ -216,3 +222,21 @@ class ObjetoTransportadoModelo(Base):
     nivel: Mapped[int] = mapped_column(SmallInteger, server_default=text("1"))
     contrato: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     efecto_nucleo_notas: Mapped[str | None] = mapped_column(Text)
+
+
+class ImagenAniimoModelo(Base):
+    __tablename__ = "imagen_aniimo"
+    __table_args__ = (
+        CheckConstraint(f"octet_length(datos) BETWEEN 1 AND {TAMANO_MAXIMO}", name="tamano"),
+    )
+
+    aniimo_del_team_id: Mapped[UUID] = mapped_column(
+        ForeignKey("aniimo_del_team.id", ondelete="CASCADE"), primary_key=True
+    )
+    tipo: Mapped[TipoDeImagen] = mapped_column(
+        _enum(TipoDeImagen, "tipo", longitud=_LONGITUD_TIPO_DE_IMAGEN)
+    )
+    datos: Mapped[bytes] = mapped_column(LargeBinary)
+    actualizada_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

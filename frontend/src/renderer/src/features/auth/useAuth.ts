@@ -11,6 +11,7 @@ export interface UseAuth {
   iniciarSesion(credenciales: Credenciales): Promise<ErrorDeAuth | null>
   registrarse(credenciales: Credenciales): Promise<ErrorDeAuth | null>
   cerrarSesion(): Promise<void>
+  sesionVencida(): void
 }
 
 export function useAuth(): UseAuth {
@@ -61,5 +62,9 @@ export function useAuth(): UseAuth {
     setEstado({ tipo: 'anonimo', aviso: null })
   }, [])
 
-  return { estado, iniciarSesion, registrarse, cerrarSesion }
+  const sesionVencida = useCallback(() => {
+    setEstado({ tipo: 'anonimo', aviso: { ok: false, error: 'sesion-vencida' } })
+  }, [])
+
+  return { estado, iniciarSesion, registrarse, cerrarSesion, sesionVencida }
 }

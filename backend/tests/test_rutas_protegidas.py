@@ -14,6 +14,16 @@ PUBLICAS = {
 PROTEGIDAS = {
     ("POST", "/api/auth/logout"),
     ("GET", "/api/auth/me"),
+    ("GET", "/api/teams"),
+    ("POST", "/api/teams"),
+    ("PATCH", "/api/teams/{team_id}"),
+    ("DELETE", "/api/teams/{team_id}"),
+    ("GET", "/api/teams/{team_id}/aniimo/{slot}"),
+    ("PUT", "/api/teams/{team_id}/aniimo/{slot}"),
+    ("DELETE", "/api/teams/{team_id}/aniimo/{slot}"),
+    ("GET", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
+    ("PUT", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
+    ("DELETE", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
 }
 
 
@@ -55,3 +65,14 @@ def test_una_ruta_nueva_sin_dependencia_es_detectada(app_api: FastAPI) -> None:
 
     desprotegidas = _con_usuario_actual(app_api, protegidas=False) - PUBLICAS
     assert desprotegidas == {("GET", "/api/olvidada")}
+
+
+def test_todas_las_rutas_de_teams_declaran_usuario_actual(app_api: FastAPI) -> None:
+    de_teams = {
+        (metodo, path)
+        for path, metodos, _ in _rutas(app_api)
+        if path.startswith("/api/teams")
+        for metodo in metodos
+    }
+    assert len(de_teams) == 10
+    assert de_teams <= _con_usuario_actual(app_api, protegidas=True)

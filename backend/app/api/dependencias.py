@@ -5,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.api.limite_de_intentos import LimitadoresDeAuth
 from app.application.auth import ServicioDeAuth
+from app.application.teams import ServicioDeTeams
 from app.domain.entidades import Sesion, Usuario
 from app.domain.errores import SesionInvalida
 
@@ -13,6 +14,11 @@ _bearer = HTTPBearer(auto_error=False)
 
 def servicio_de_auth(request: Request) -> ServicioDeAuth:
     servicio: ServicioDeAuth = request.app.state.servicio_de_auth
+    return servicio
+
+
+def servicio_de_teams(request: Request) -> ServicioDeTeams:
+    servicio: ServicioDeTeams = request.app.state.servicio_de_teams
     return servicio
 
 

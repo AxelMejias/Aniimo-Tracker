@@ -1,11 +1,26 @@
 import os
+from collections.abc import Iterator
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
+from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
+from alembic import command
 from app.core.config import Settings
+from app.domain.catalogos import PosicionObjeto, PotencialInnato, Rareza, Stat
+from app.domain.entidades import (
+    AniimoDelTeam,
+    MaterialEstrella,
+    ObjetoTransportado,
+    ValoresDeStat,
+)
 from app.infrastructure.database import make_engine
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
@@ -35,3 +50,85 @@ def test_engine(test_database_url: str) -> Engine:
             "`docker compose up -d db-test` antes de correr los tests."
         ) from exc
     return engine
+
+
+@pytest.fixture(scope="session")
+def alembic_config(test_database_url: str) -> Config:
+    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    config.attributes["sqlalchemy.url"] = test_database_url
+    return config
+
+
+@pytest.fixture(scope="session")
+def migrated_engine(test_engine: Engine, alembic_config: Config) -> Engine:
+    command.upgrade(alembic_config, "head")
+    return test_engine
+
+
+@pytest.fixture
+def session_factory(migrated_engine: Engine) -> Iterator[sessionmaker[Session]]:
+    connection = migrated_engine.connect()
+    outer = connection.begin()
+    factory = sessionmaker(
+        bind=connection,
+        autoflush=False,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
+    yield factory
+    outer.rollback()
+    connection.close()
+
+
+@pytest.fixture
+def irisalis() -> AniimoDelTeam:
+    stats = {
+        Stat.PS: ValoresDeStat(valor_actual=11321, potencial=11, bono_estrellas_incluido=120),
+        Stat.ATQ: ValoresDeStat(valor_actual=723, potencial=20, notas="Tope de potencial"),
+        Stat.DEF_FISICA: ValoresDeStat(valor_actual=258, potencial=5),
+        Stat.DEF_MAGICA: ValoresDeStat(valor_actual=270, potencial=4),
+        Stat.REGEN: ValoresDeStat(valor_actual=388, potencial=20, bono_estrellas_incluido=15),
+        Stat.QUIEBRE: ValoresDeStat(valor_actual=309, potencial=6),
+    }
+    return AniimoDelTeam(
+        team_id=uuid4(),
+        slot=1,
+        nombre="Irisalis",
+        elemento=None,
+        rol=None,
+        potencial_innato=PotencialInnato.PERFECTO,
+        personalidad="ENFJ",
+        nivel=60,
+        cp=3475,
+        stats=stats,
+        estrella_actual=2,
+        nivel_requerido_siguiente_etapa=65,
+        ganancia_despertar=3,
+        ganancia_seis_potenciales=1,
+        despertares_usados=28,
+        despertares_total=43,
+        materiales=(
+            MaterialEstrella(posicion=1, nombre="Polvo estelar", tengo=413, necesito=60),
+            MaterialEstrella(posicion=2, nombre="Fragmento", tengo=1, necesito=2),
+            MaterialEstrella(posicion=3, nombre="Esencia", tengo=3, necesito=10),
+        ),
+        objetos=(
+            ObjetoTransportado(
+                posicion=PosicionObjeto.EQUIPADO,
+                nombre="Corona antigua",
+                rareza=Rareza.LEGENDARIA,
+                nivel=15,
+                contrato=True,
+                efecto_nucleo_notas="Efecto de nucleo de prueba",
+            ),
+            ObjetoTransportado(
+                posicion=PosicionObjeto.ALTERNATIVO,
+                nombre="Anillo simple",
+                rareza=Rareza.RARA,
+                nivel=4,
+            ),
+        ),
+        notas_habilidades="Habilidad 1: ataque electrico | Habilidad 2: curacion",
+        notas="Aniimo de referencia",
+    )

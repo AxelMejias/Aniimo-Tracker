@@ -2,6 +2,8 @@ node_modules/
 dist/
 out/
 .env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 .venv/
@@ -10,3 +12,14 @@ __pycache__/
 .DS_Store
 Thumbs.db
 Aniimo_Teams.xlsx
+notas privadas/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+coverage/
+htmlcov/
+.coverage
+*.log
+frontend/out/
+frontend/release/
+.vite/

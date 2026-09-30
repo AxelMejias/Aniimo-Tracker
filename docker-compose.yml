@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:16.4-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aniimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-aniimo}
+    volumes:
+      - aniimo-db-data:/var/lib/postgresql/data
+
+  db-test:
+    image: postgres:16.4-alpine
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aniimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-aniimo}
+    tmpfs:
+      - /var/lib/postgresql/data
+
+volumes:
+  aniimo-db-data:

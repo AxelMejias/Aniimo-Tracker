@@ -1,0 +1,14 @@
+.home-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: var(--color-background);
+  font-family: var(--font-family-base);
+  padding: var(--space-lg);
+}
+
+.home-page__title {
+  color: var(--color-text);
+  font-size: var(--font-size-heading);
+}

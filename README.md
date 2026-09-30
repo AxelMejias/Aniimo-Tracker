@@ -1,52 +1,55 @@
 # Aniimo Team Tracker
 
-A free, non-commercial desktop companion app for **Aniimo** (PC) that lets players keep track of their own Aniimo teams and compare them with friends.
+Free desktop app for Aniimo (PC) to keep track of your teams and compare them with friends.
 
-> **Status:** early planning / closed test between a few friends. Nothing is released yet.
+Unofficial fan project, not affiliated with or endorsed by the Aniimo developers or publisher. Game names and trademarks belong to their owners.
 
-> **Disclaimer:** this is an unofficial fan project. It is **not affiliated with, endorsed by, or sponsored by** the developers or publisher of Aniimo. All game names, art and trademarks belong to their respective owners.
+Right now it's a closed test between a few friends. Nothing is released yet.
 
-## What it is
+## Why
 
-Aniimo has many progression systems (level, Resonance star-ups, Capability Awakening, Potential, personality, Held Items). Keeping track of all of them across several teams is tedious. This tool gives players one place to record and view that information.
+Between level, stars, Capability Awakening, Potential, personality and Held Items, there's a lot to keep track of for every Aniimo, and it gets messy once you have a few teams. We were doing it in a spreadsheet, so this is the spreadsheet turned into an app.
 
-## Planned features
+## Features
 
-- **Team tracker:** up to 4 Aniimo per team, with level, star rank, Capability Awakening progress, Potential per stat, personality, Held Items and CP.
-- **Friend profiles:** view friends' teams and compare stats side by side.
-- **Optional overlay window:** a small always-on-top window that can be placed on a second monitor.
-- **Progression data:** stat growth per level and per Potential point, measured by hand from an untrained Aniimo, so the numbers shown come from observed data instead of guesses.
+- Team tracker: up to 4 teams of 4 Aniimo. Each Aniimo has its level, star stage, Capability Awakening progress, Potential per stat, personality, Held Items and CP.
+- Friends: add friends and compare teams and stats side by side.
+- Overlay (optional): a small always-on-top window you can move to a second monitor. It's a separate window, it doesn't draw inside the game.
+- Later on: how stats grow with each upgrade, based on data players enter.
 
-## What it does NOT do
+## How data gets in
 
-This project is designed to stay clearly within the game's rules:
+You type it in. The app does not:
 
-- It does **not** read or modify the game's memory.
-- It does **not** inject code into the game, hook the game process or modify game files.
-- It does **not** intercept or alter network traffic.
-- It does **not** automate gameplay or give any in-game advantage.
-- It is **not** monetized: no ads, no paywall, no data selling.
+- read or modify game memory
+- inject code or hook the game process
+- touch game files
+- intercept network traffic
+- automate anything in the game or give any in-game advantage
 
-Data is entered by the player (manually, and possibly from the player's own screenshots). If the game's developers offer an official API or an approved integration method, that is the only kind of automatic data source this project would consider.
+No game art is included or downloaded. If you want an image for an Aniimo, you add it yourself.
 
-## Tech stack (planned)
+If the developers ever offer an official API or an approved way to read a player's own data, that's the only automatic source this project would use.
 
-- Desktop app: Electron, React, TypeScript
-- Backend for friend profiles: Python, FastAPI
-- Runs locally during the closed test
+## Stack
 
-## Roadmap
+- Desktop: Electron, React, TypeScript
+- Backend: Python, FastAPI, PostgreSQL
+- Everything runs locally for now
 
-1. Manual team tracker (profiles, teams, editable Aniimo cards)
+## Plan
+
+1. Manual tracker with accounts, teams and editable Aniimo cards
 2. Friend profiles and stat comparison
 3. Overlay window with second-monitor support
-4. Data collection of stat growth and, later, automatic calculations
-5. Official API integration, only if the developers allow it
+4. Official API integration, only if the developers approve it
+
+It's free and will stay free: no ads, no paywall, no selling data.
 
 ## Contact
 
-Maintainer: Axel ([@AxelMejias](https://github.com/AxelMejias)). If you are part of the Aniimo team and have concerns about this project, please contact me and I will adjust or remove anything that conflicts with your rules.
+Axel ([@AxelMejias](https://github.com/AxelMejias)). If you're part of the Aniimo team and something here goes against your rules, let me know and I'll change it or take it down.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

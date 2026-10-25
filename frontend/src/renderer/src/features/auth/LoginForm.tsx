@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactElement } from 'react'
 import type { Credenciales, ErrorDeAuth } from '../../../../shared/auth'
+import { leerCuentaDeTest } from './cuentaDeTest'
 import { mensajeDeError } from './mensajes'
 
 interface LoginFormProps {
@@ -13,6 +14,16 @@ export default function LoginForm({ alEnviar, aviso }: LoginFormProps): ReactEle
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
 
+  const cuentaDeTest = leerCuentaDeTest()
+
+  async function iniciar(credenciales: Credenciales): Promise<void> {
+    setEnviando(true)
+    const error = await alEnviar(credenciales)
+    setContrasena('')
+    setMensaje(error === null ? null : mensajeDeError(error))
+    setEnviando(false)
+  }
+
   async function enviar(evento: FormEvent<HTMLFormElement>): Promise<void> {
     evento.preventDefault()
     if (enviando) {
@@ -22,11 +33,7 @@ export default function LoginForm({ alEnviar, aviso }: LoginFormProps): ReactEle
       setMensaje('Completá usuario y contraseña')
       return
     }
-    setEnviando(true)
-    const error = await alEnviar({ nombreUsuario, contrasena })
-    setContrasena('')
-    setMensaje(error === null ? null : mensajeDeError(error))
-    setEnviando(false)
+    await iniciar({ nombreUsuario, contrasena })
   }
 
   const textoDeAviso = mensaje ?? (aviso === null ? null : mensajeDeError(aviso))
@@ -65,6 +72,16 @@ export default function LoginForm({ alEnviar, aviso }: LoginFormProps): ReactEle
       <button className="auth-form__submit" type="submit" disabled={enviando}>
         Iniciar sesión
       </button>
+      {cuentaDeTest !== null && (
+        <button
+          className="auth-screen__toggle"
+          type="button"
+          disabled={enviando}
+          onClick={() => void iniciar(cuentaDeTest)}
+        >
+          Cuenta test
+        </button>
+      )}
     </form>
   )
 }

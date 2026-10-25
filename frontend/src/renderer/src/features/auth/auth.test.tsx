@@ -61,7 +61,46 @@ async function enviarRegistro(nombre: string, contrasena: string): Promise<void>
   fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllEnvs()
+})
+
+describe('cuenta de test', () => {
+  it('en desarrollo con la cuenta configurada entra con un click', async () => {
+    vi.stubEnv('VITE_CUENTA_TEST_USUARIO', 'probador')
+    vi.stubEnv('VITE_CUENTA_TEST_CONTRASENA', 'clave-de-prueba-1')
+    const auth = instalarApi()
+    render(<App />)
+    await verLogin()
+    fireEvent.click(screen.getByRole('button', { name: 'Cuenta test' }))
+    await waitFor(() =>
+      expect(auth.iniciarSesion).toHaveBeenCalledWith({
+        nombreUsuario: 'probador',
+        contrasena: 'clave-de-prueba-1'
+      })
+    )
+  })
+
+  it('sin la cuenta configurada no muestra el boton', async () => {
+    vi.stubEnv('VITE_CUENTA_TEST_USUARIO', '')
+    vi.stubEnv('VITE_CUENTA_TEST_CONTRASENA', '')
+    instalarApi()
+    render(<App />)
+    await verLogin()
+    expect(screen.queryByRole('button', { name: 'Cuenta test' })).not.toBeInTheDocument()
+  })
+
+  it('fuera de desarrollo no muestra el boton aunque este configurada', async () => {
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_CUENTA_TEST_USUARIO', 'probador')
+    vi.stubEnv('VITE_CUENTA_TEST_CONTRASENA', 'clave-de-prueba-1')
+    instalarApi()
+    render(<App />)
+    await verLogin()
+    expect(screen.queryByRole('button', { name: 'Cuenta test' })).not.toBeInTheDocument()
+  })
+})
 
 describe('arranque', () => {
   it('sin sesion muestra el formulario de login', async () => {

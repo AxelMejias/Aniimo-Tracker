@@ -18,6 +18,12 @@ import {
   type ResultadoSesion
 } from '../shared/auth'
 import {
+  CANALES_CALCULO,
+  type PedidoCalcular,
+  type ResultadoCalcular,
+  type ResultadoCatalogo
+} from '../shared/calculo'
+import {
   CANALES_OVERLAY,
   type PedidoAbrirOverlay,
   type ResultadoOverlay,
@@ -79,12 +85,18 @@ export interface OverlayApi {
   obtenerSeleccion(): Promise<ResultadoSeleccion>
 }
 
+export interface CalculoApi {
+  obtenerCatalogo(): Promise<ResultadoCatalogo>
+  calcular(pedido: PedidoCalcular): Promise<ResultadoCalcular>
+}
+
 export interface AniimoApi {
   readonly appName: string
   readonly auth: Readonly<AuthApi>
   readonly teams: Readonly<TeamsApi>
   readonly amigos: Readonly<AmigosApi>
   readonly overlay: Readonly<OverlayApi>
+  readonly calculo: Readonly<CalculoApi>
 }
 
 // El main valida remitente y payload y solo responde con estos tipos.
@@ -129,11 +141,16 @@ export function buildExposedApi(invocar: Invocar): Readonly<AniimoApi> {
     cerrar: () => tipado(invocar(CANALES_OVERLAY.cerrar)),
     obtenerSeleccion: () => tipado(invocar(CANALES_OVERLAY.obtenerSeleccion))
   }
+  const calculo: CalculoApi = {
+    obtenerCatalogo: () => tipado(invocar(CANALES_CALCULO.obtenerCatalogo)),
+    calcular: (pedido) => tipado(invocar(CANALES_CALCULO.calcular, pedido))
+  }
   return Object.freeze({
     appName: 'Aniimo Team Tracker',
     auth: Object.freeze(auth),
     teams: Object.freeze(teams),
     amigos: Object.freeze(amigos),
-    overlay: Object.freeze(overlay)
+    overlay: Object.freeze(overlay),
+    calculo: Object.freeze(calculo)
   })
 }

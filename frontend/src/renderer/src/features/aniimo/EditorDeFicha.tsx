@@ -227,7 +227,7 @@ export default function EditorDeFicha({
           />
         }
       />
-      <BloqueDeStats {...propiedades} />
+      <BloqueDeStats {...propiedades} alSesionVencida={alSesionVencida} />
       <BloqueDeEntrenamiento {...propiedades} />
       <BloqueDeObjetos {...propiedades} />
       <BloqueDeNotas {...propiedades} />

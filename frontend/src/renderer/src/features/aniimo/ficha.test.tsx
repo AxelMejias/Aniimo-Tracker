@@ -5,6 +5,7 @@ import { fichaDeReferencia, fichaGuardadaDeReferencia } from '../../../../../tes
 import { instalarApi } from '../../../../../tests/fixtures/apiFalsa'
 import type { Ficha } from '../../../../shared/teams'
 import FichaAniimo from './FichaAniimo'
+import FichaDeSoloLectura from './FichaDeSoloLectura'
 import type { Recodificador } from './recodificarImagen'
 
 afterEach(cleanup)
@@ -593,5 +594,22 @@ describe('notas privadas', () => {
     guardar()
     await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
     expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.notasPrivadas).toBe(false)
+  })
+})
+
+describe('sugerencia de stats', () => {
+  it('el editor de la ficha propia la ofrece plegada', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    expect(screen.getByRole('button', { name: 'Sugerencia de stats' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+  })
+
+  it('la ficha de solo lectura no la ofrece', () => {
+    instalarApi()
+    render(<FichaDeSoloLectura ficha={fichaGuardadaDeReferencia()} imagen={null} />)
+    expect(screen.queryByText('Sugerencia de stats')).toBeNull()
   })
 })

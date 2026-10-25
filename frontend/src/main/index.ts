@@ -5,6 +5,8 @@ import { pathToFileURL } from 'node:url'
 import { app, BrowserWindow, ipcMain, screen, session } from 'electron'
 import { crearClienteAmigos } from './amigos/clienteAmigos'
 import { registrarManejadoresDeAmigos } from './amigos/ipcAmigos'
+import { crearClienteCalculo } from './calculo/clienteCalculo'
+import { registrarManejadoresDeCalculo } from './calculo/ipcCalculo'
 import { crearClienteBackend } from './auth/clienteBackend'
 import { registrarManejadoresDeAuth } from './auth/ipcAuth'
 import { crearSesionEnMemoria } from './auth/sesionEnMemoria'
@@ -77,6 +79,7 @@ app.whenReady().then(() => {
   registrarManejadoresDeAuth(ipcMain, crearClienteBackend(fetch, sesion), allowedAppUrl)
   registrarManejadoresDeTeams(ipcMain, crearClienteTeams(fetch, sesion), allowedAppUrl)
   registrarManejadoresDeAmigos(ipcMain, crearClienteAmigos(fetch, sesion), allowedAppUrl)
+  registrarManejadoresDeCalculo(ipcMain, crearClienteCalculo(fetch, sesion), allowedAppUrl)
 
   const rutaDeLimites = join(app.getPath('userData'), 'overlay.json')
   const controlador: ControladorOverlay = crearControladorOverlay({

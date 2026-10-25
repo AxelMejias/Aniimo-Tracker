@@ -8,6 +8,7 @@ import {
   ROLES,
   STATS
 } from '../../../../shared/catalogos'
+import PanelDeSugerencia from '../calculo/PanelDeSugerencia'
 import {
   CampoDeArea,
   CampoDeCasilla,
@@ -134,12 +135,17 @@ export function DatosGenerales({
   )
 }
 
+interface PropsDeBloqueDeStats extends PropsDeBloque {
+  readonly alSesionVencida: () => void
+}
+
 export function BloqueDeStats({
   formulario,
   errores,
   deshabilitado,
-  alCambiar
-}: PropsDeBloque): ReactElement {
+  alCambiar,
+  alSesionVencida
+}: PropsDeBloqueDeStats): ReactElement {
   return (
     <Bloque titulo="Stats">
       {STATS.map(({ codigo, etiqueta }) => {
@@ -186,6 +192,12 @@ export function BloqueDeStats({
           </div>
         )
       })}
+      <PanelDeSugerencia
+        formulario={formulario}
+        deshabilitado={deshabilitado}
+        alCambiar={alCambiar}
+        alSesionVencida={alSesionVencida}
+      />
     </Bloque>
   )
 }

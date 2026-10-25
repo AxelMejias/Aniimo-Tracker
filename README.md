@@ -70,6 +70,18 @@ backend/app/
 
 The desktop app is organized by feature (`auth`, `teams`, `aniimo`) with its own tests.
 
+## Loading growth data
+
+The optional "Sugerencia de stats" panel on your own Aniimo card suggests stats and CP from a data file you fill in by hand with values you measured yourself. It never changes the card unless you press "Usar", and nothing is saved until you press "Guardar". The file that ships with the repo only has made-up sample data (names start with "EJEMPLO"); it is not game data.
+
+- **File:** `backend/datos/catalogo_crecimiento.json` (UTF-8, up to 1 MiB).
+- **Top level:** `version` (a label you choose), `es_ejemplo` (`true` for sample data, `false` for real data), `redondeo` (`abajo`, `cercano` or `arriba`) and `interpolacion` (`lineal` estimates levels between two measured levels and marks them "aprox."; `ninguna` only accepts measured levels). Levels outside the measured range are never extrapolated.
+- **`especies`:** each with an `id` (lowercase letters, digits and dashes), a `nombre` and `base`, the measured value of each of the 6 stats (`ps`, `atq`, `def_fisica`, `def_magica`, `regen`, `quiebre`) as a list of `{nivel, valor}` points in increasing level order.
+- **`potencial`, `estrellas`, `personalidad`:** optional. Each entry is a modifier `{tipo, valor}`, where `tipo` is `porcentaje` (the value is a percentage, `5` means 5%) or `plano` (a fixed amount). `potencial` is multiplied by the potential points of the stat, `estrellas` adds every stage up to the current star, and `personalidad` adds one entry per letter (`E`, `I`, `N`, `S`, `T`, `F`, `J`, `P`).
+- **`objetos`:** optional list of held items, each with an `id`, a `nombre` and `niveles` (item levels 1 to 99, exact levels only) with the modifiers it gives to each stat. Only the equipped item adds.
+- **`cp`:** optional CP formula: `constante` + the final value of each stat times its weight in `pesos` + `por_punto_de_potencial` times the sum of the 6 potentials. Without it the panel shows the CP as "sin datos".
+- **Loading real data:** replace the sample entries, set `es_ejemplo` to `false` and change `version`. Then run `python -m app.validar_catalogo` from `backend/` (it prints the exact field that is wrong, or a summary and exit code 0 when the file is valid) and restart the backend. If the file is invalid the app still works and the panel says the calculation is not available.
+
 ## Run it
 
 Requirements: Docker, Python 3.11+ and Node.js.

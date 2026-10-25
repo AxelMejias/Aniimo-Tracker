@@ -3,11 +3,13 @@ import logging
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic_core import ErrorDetails
 
 from app.domain.errores import (
     AmistadExistente,
     AmistadNoEncontrada,
     AniimoNoEncontrado,
+    CalculoNoDisponible,
     CredencialesInvalidas,
     ErrorDeValidacion,
     ImagenDemasiadoGrande,
@@ -23,6 +25,16 @@ from app.domain.errores import (
 )
 
 logger = logging.getLogger("app")
+
+# El cálculo no tiene campos que el cliente deba conocer por nombre: no se devuelve ni la clave.
+PREFIJO_SIN_ECO_DE_CAMPOS = "/api/calculo"
+
+
+def _ubicacion(error: ErrorDetails, ocultar_campos_extra: bool) -> list[int | str]:
+    ubicacion = list(error["loc"])
+    if ocultar_campos_extra and error["type"] == "extra_forbidden":
+        ubicacion[-1] = "(campo extra)"
+    return ubicacion
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -80,6 +92,14 @@ def register_error_handlers(app: FastAPI) -> None:
             content={"detail": "Conflicto al guardar, intentá de nuevo"},
         )
 
+    @app.exception_handler(CalculoNoDisponible)
+    async def handle_calculo_no_disponible(
+        request: Request, exc: CalculoNoDisponible
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": str(exc)}
+        )
+
     @app.exception_handler(ImagenInvalida)
     async def handle_imagen_invalida(request: Request, exc: ImagenInvalida) -> JSONResponse:
         return JSONResponse(
@@ -103,8 +123,9 @@ def register_error_handlers(app: FastAPI) -> None:
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
         # El manejador por defecto devuelve el valor enviado ("input"), p. ej. una contraseña.
+        ocultar = request.url.path.startswith(PREFIJO_SIN_ECO_DE_CAMPOS)
         errores = [
-            {"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
+            {"loc": _ubicacion(error, ocultar), "msg": error["msg"], "type": error["type"]}
             for error in exc.errors()
         ]
         return JSONResponse(status_code=422, content={"detail": errores})

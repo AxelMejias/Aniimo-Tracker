@@ -222,3 +222,27 @@ def test_notas_privadas_faltante_responde_422_y_no_guarda(
     assert respuesta.status_code == 422
     assert any(e["loc"] == ["body", "notas_privadas"] for e in respuesta.json()["detail"])
     assert usuario_a.get(_ruta(team_id, 1)).json() == {"aniimo": None}
+
+
+def test_la_ficha_guarda_exactamente_lo_recibido_aunque_el_calculo_sugiera_otra_cosa(
+    usuario_a: ClienteAutenticado, team_id: str
+) -> None:
+    ficha = ficha_de_referencia()
+    ficha["cp"] = 1
+    ficha["stats"]["atq"]["valor_actual"] = 999
+
+    usuario_a.put(_ruta(team_id, 1), json=ficha)
+
+    guardada = usuario_a.get(_ruta(team_id, 1)).json()["aniimo"]
+    assert guardada["cp"] == 1
+    assert guardada["stats"]["atq"]["valor_actual"] == 999
+
+
+@pytest.mark.parametrize("campo", [{"calcular_stats": True}, {"especie_id": "ejemplo-a"}])
+def test_la_ficha_rechaza_pedidos_de_calculo_y_no_guarda_nada(
+    usuario_a: ClienteAutenticado, team_id: str, campo: dict[str, Any]
+) -> None:
+    respuesta = usuario_a.put(_ruta(team_id, 1), json={**ficha_de_referencia(), **campo})
+
+    assert respuesta.status_code == 422
+    assert usuario_a.get(_ruta(team_id, 1)).json() == {"aniimo": None}

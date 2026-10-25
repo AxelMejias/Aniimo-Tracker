@@ -1,0 +1,69 @@
+{
+  "version": "ejemplo-1",
+  "es_ejemplo": true,
+  "redondeo": "abajo",
+  "interpolacion": "lineal",
+  "especies": [
+    {
+      "id": "ejemplo-a",
+      "nombre": "EJEMPLO Aniimo A",
+      "base": {
+        "ps": [{"nivel": 1, "valor": 1000}, {"nivel": 60, "valor": 6900}],
+        "atq": [{"nivel": 1, "valor": 100}, {"nivel": 60, "valor": 690}],
+        "def_fisica": [{"nivel": 1, "valor": 50}, {"nivel": 60, "valor": 340}],
+        "def_magica": [{"nivel": 1, "valor": 60}, {"nivel": 60, "valor": 350}],
+        "regen": [{"nivel": 1, "valor": 70}, {"nivel": 60, "valor": 360}],
+        "quiebre": [{"nivel": 1, "valor": 80}, {"nivel": 60, "valor": 370}]
+      }
+    },
+    {
+      "id": "ejemplo-b",
+      "nombre": "EJEMPLO Aniimo B",
+      "base": {
+        "ps": [{"nivel": 1, "valor": 2000}, {"nivel": 60, "valor": 8000}],
+        "atq": [{"nivel": 1, "valor": 200}, {"nivel": 30, "valor": 500}, {"nivel": 60, "valor": 800}],
+        "def_fisica": [{"nivel": 1, "valor": 100}, {"nivel": 60, "valor": 400}],
+        "def_magica": [{"nivel": 1, "valor": 110}, {"nivel": 60, "valor": 410}],
+        "regen": [{"nivel": 1, "valor": 120}, {"nivel": 60, "valor": 420}],
+        "quiebre": [{"nivel": 1, "valor": 130}, {"nivel": 60, "valor": 430}]
+      }
+    }
+  ],
+  "potencial": {
+    "atq": {"tipo": "porcentaje", "valor": 1},
+    "ps": {"tipo": "plano", "valor": 10},
+    "def_fisica": {"tipo": "plano", "valor": 2}
+  },
+  "estrellas": [
+    {"estrella": 1, "modificadores": {"atq": [{"tipo": "plano", "valor": 10}]}},
+    {"estrella": 2, "modificadores": {"atq": [{"tipo": "plano", "valor": 20}], "ps": [{"tipo": "plano", "valor": 100}]}}
+  ],
+  "personalidad": {
+    "E": {"atq": [{"tipo": "porcentaje", "valor": 5}]},
+    "I": {"def_fisica": [{"tipo": "porcentaje", "valor": 5}]},
+    "N": {"ps": [{"tipo": "porcentaje", "valor": 3}]}
+  },
+  "objetos": [
+    {
+      "id": "ejemplo-objeto-x",
+      "nombre": "EJEMPLO Objeto X",
+      "niveles": [
+        {"nivel": 1, "modificadores": {"atq": [{"tipo": "porcentaje", "valor": 10}, {"tipo": "plano", "valor": 5}]}},
+        {"nivel": 2, "modificadores": {"atq": [{"tipo": "porcentaje", "valor": 12}, {"tipo": "plano", "valor": 8}]}}
+      ]
+    },
+    {
+      "id": "ejemplo-objeto-y",
+      "nombre": "EJEMPLO Objeto Y",
+      "niveles": [
+        {"nivel": 1, "modificadores": {"ps": [{"tipo": "plano", "valor": 50}]}},
+        {"nivel": 2, "modificadores": {"def_fisica": [{"tipo": "porcentaje", "valor": 4}]}}
+      ]
+    }
+  ],
+  "cp": {
+    "constante": 100,
+    "pesos": {"atq": 1},
+    "por_punto_de_potencial": 2
+  }
+}

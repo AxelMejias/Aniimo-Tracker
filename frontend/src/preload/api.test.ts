@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CANALES_AMIGOS } from '../shared/amigos'
 import { CANALES_AUTH } from '../shared/auth'
+import { CANALES_CALCULO } from '../shared/calculo'
 import { CANALES_OVERLAY } from '../shared/overlay'
 import { CANALES_TEAMS } from '../shared/teams'
+import { pedidoDeReferencia } from '../../tests/fixtures/calculo'
 import { fichaDeReferencia } from '../../tests/fixtures/ficha'
 import { buildExposedApi, type Invocar } from './api'
 
@@ -23,10 +25,17 @@ function valoresRecorridos(raiz: unknown, vistos = new Set<unknown>()): unknown[
 }
 
 describe('buildExposedApi', () => {
-  it('devuelve un objeto congelado con solo appName, auth, teams, amigos y overlay', () => {
+  it('devuelve un objeto congelado con solo appName, auth, teams, amigos, overlay y calculo', () => {
     const { api } = construir()
     expect(Object.isFrozen(api)).toBe(true)
-    expect(Object.keys(api).sort()).toEqual(['amigos', 'appName', 'auth', 'overlay', 'teams'])
+    expect(Object.keys(api).sort()).toEqual([
+      'amigos',
+      'appName',
+      'auth',
+      'calculo',
+      'overlay',
+      'teams'
+    ])
     expect(api.appName).toBe('Aniimo Team Tracker')
   })
 
@@ -157,6 +166,34 @@ describe('buildExposedApi', () => {
       [CANALES_OVERLAY.cerrar],
       [CANALES_OVERLAY.obtenerSeleccion]
     ])
+  })
+
+  it('calculo esta congelado y tiene solo obtenerCatalogo y calcular', () => {
+    const { api } = construir()
+    expect(Object.isFrozen(api.calculo)).toBe(true)
+    expect(Object.keys(api.calculo).sort()).toEqual(['calcular', 'obtenerCatalogo'])
+    for (const funcion of Object.values(api.calculo)) {
+      expect(typeof funcion).toBe('function')
+    }
+  })
+
+  it('cada funcion del calculo invoca su canal fijo con el payload', async () => {
+    const { api, invoke } = construir()
+    await api.calculo.obtenerCatalogo()
+    await api.calculo.calcular(pedidoDeReferencia())
+    expect(invoke.mock.calls).toEqual([
+      [CANALES_CALCULO.obtenerCatalogo],
+      [CANALES_CALCULO.calcular, pedidoDeReferencia()]
+    ])
+  })
+
+  it('las funciones del calculo devuelven el resultado del main sin transformarlo', async () => {
+    const { api } = construir({ ok: false, error: 'no-disponible' })
+    expect(await api.calculo.obtenerCatalogo()).toEqual({ ok: false, error: 'no-disponible' })
+    expect(await api.calculo.calcular(pedidoDeReferencia())).toEqual({
+      ok: false,
+      error: 'no-disponible'
+    })
   })
 
   it('las funciones del overlay devuelven el resultado del main sin transformarlo', async () => {

@@ -1,5 +1,5 @@
 import { vi, type Mock } from 'vitest'
-import type { AmigosApi, AuthApi, OverlayApi, TeamsApi } from '../../src/preload/api'
+import type { AmigosApi, AuthApi, CalculoApi, OverlayApi, TeamsApi } from '../../src/preload/api'
 import type {
   Amigo,
   ResultadoBuscar,
@@ -12,6 +12,7 @@ import type {
   Solicitud
 } from '../../src/shared/amigos'
 import type { ResultadoAuth, ResultadoSesion } from '../../src/shared/auth'
+import type { ResultadoCalcular, ResultadoCatalogo } from '../../src/shared/calculo'
 import type { ResultadoOverlay, ResultadoSeleccion } from '../../src/shared/overlay'
 import type {
   FichaDeAmigo,
@@ -24,6 +25,7 @@ import type {
   TeamDeAmigo,
   TeamResumen
 } from '../../src/shared/teams'
+import { catalogoDeReferencia, sugerenciaDeReferencia } from './calculo'
 import { fichaDeReferencia, omitir } from './ficha'
 
 export const SESION_DE_AXEL: ResultadoSesion = { ok: true, nombreUsuario: 'axel' }
@@ -88,6 +90,7 @@ export interface ApiFalsa {
   readonly teams: Record<keyof TeamsApi, Mock>
   readonly amigos: Record<keyof AmigosApi, Mock>
   readonly overlay: Record<keyof OverlayApi, Mock>
+  readonly calculo: Record<keyof CalculoApi, Mock>
 }
 
 interface Sobrescrituras {
@@ -95,6 +98,7 @@ interface Sobrescrituras {
   readonly teams?: Partial<TeamsApi>
   readonly amigos?: Partial<AmigosApi>
   readonly overlay?: Partial<OverlayApi>
+  readonly calculo?: Partial<CalculoApi>
 }
 
 type Funcion = (...args: never[]) => unknown
@@ -167,10 +171,21 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     obtenerSeleccion: async (): Promise<ResultadoSeleccion> => ({ ok: true, seleccion: null }),
     ...sobrescribir.overlay
   })
+  const calculo = comoMocks<CalculoApi>({
+    obtenerCatalogo: async (): Promise<ResultadoCatalogo> => ({
+      ok: true,
+      catalogo: catalogoDeReferencia()
+    }),
+    calcular: async (): Promise<ResultadoCalcular> => ({
+      ok: true,
+      sugerencia: sugerenciaDeReferencia()
+    }),
+    ...sobrescribir.calculo
+  })
   Object.defineProperty(window, 'aniimo', {
-    value: { appName: 'Aniimo Team Tracker', auth, teams, amigos, overlay },
+    value: { appName: 'Aniimo Team Tracker', auth, teams, amigos, overlay, calculo },
     configurable: true,
     writable: true
   })
-  return { auth, teams, amigos, overlay }
+  return { auth, teams, amigos, overlay, calculo }
 }

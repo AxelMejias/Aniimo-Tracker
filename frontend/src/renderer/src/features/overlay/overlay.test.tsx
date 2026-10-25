@@ -70,6 +70,15 @@ describe('ficha en solo lectura', () => {
     expect(screen.getAllByText('Vacío')).toHaveLength(3)
   })
 
+  it('no ofrece la sugerencia de stats ni pide el catalogo de calculo', async () => {
+    const api = conSeleccion()
+    render(<OverlayApp />)
+    fireEvent.click(await screen.findByRole('button', { name: /Irisalis/ }))
+    expect(await screen.findByText(/Ficha de solo lectura/)).toBeInTheDocument()
+    expect(screen.queryByText('Sugerencia de stats')).toBeNull()
+    expect(api.calculo.obtenerCatalogo).not.toHaveBeenCalled()
+  })
+
   it('muestra las notas propias aunque esten marcadas privadas', async () => {
     conSeleccion(PRINCIPAL, {
       teams: {

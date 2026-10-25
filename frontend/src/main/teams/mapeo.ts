@@ -46,14 +46,14 @@ export function lista(valor: unknown): unknown[] {
   return valor
 }
 
-function entero(valor: unknown): number {
+export function entero(valor: unknown): number {
   if (typeof valor !== 'number' || !Number.isSafeInteger(valor)) {
     throw new RespuestaInvalida()
   }
   return valor
 }
 
-function enteroONulo(valor: unknown): number | null {
+export function enteroONulo(valor: unknown): number | null {
   return valor === null ? null : entero(valor)
 }
 
@@ -68,7 +68,7 @@ function textoONulo(valor: unknown): string | null {
   return valor === null ? null : texto(valor)
 }
 
-function booleano(valor: unknown): boolean {
+export function booleano(valor: unknown): boolean {
   if (typeof valor !== 'boolean') {
     throw new RespuestaInvalida()
   }

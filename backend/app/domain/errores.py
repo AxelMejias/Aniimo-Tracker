@@ -112,3 +112,13 @@ class ImagenInvalida(ErrorDeValidacion):
 class ImagenDemasiadoGrande(ErrorDeValidacion):
     def __init__(self) -> None:
         super().__init__("La imagen supera el tamaño máximo permitido")
+
+
+class EspecieDesconocida(ValorInvalido):
+    def __init__(self) -> None:
+        super().__init__("especie_id")
+
+
+class CalculoNoDisponible(ErrorDeDominio):
+    def __init__(self) -> None:
+        super().__init__("El cálculo no está disponible: el catálogo de crecimiento es inválido")

@@ -208,6 +208,12 @@ describe('ficha de un amigo en solo lectura', () => {
     expect(document.querySelectorAll('[style]')).toHaveLength(0)
   })
 
+  it('no ofrece la sugerencia de stats ni pide el catalogo de calculo', async () => {
+    const api = await abrirIrisalis()
+    expect(screen.queryByText('Sugerencia de stats')).toBeNull()
+    expect(api.calculo.obtenerCatalogo).not.toHaveBeenCalled()
+  })
+
   it('las notas en null se muestran como Sin notas sin mencionar notas privadas', async () => {
     const base = fichaDeAmigoDePrueba()
     const sinNotas = fichaDeAmigoDePrueba({

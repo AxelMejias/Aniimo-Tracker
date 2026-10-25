@@ -1,18 +1,29 @@
 from dataclasses import replace
+from datetime import date
 from decimal import Decimal
 
 from app.domain.catalogos import PosicionObjeto, Stat
 from app.domain.crecimiento import (
+    AumentoDeCupo,
+    BonoDePotencialDeObjeto,
+    CambioConocido,
     Catalogo,
+    Confianza,
     EntradaDeCalculo,
     Especie,
     EtapaDeEstrella,
+    EtapaDeEstrellaConBonos,
+    EtapasDeEstrella,
     FormulaDeCp,
     Interpolacion,
+    LetraDePersonalidad,
     Modificador,
     NivelDeObjeto,
     ObjetoDeLaEntrada,
     ObjetoDelCatalogo,
+    OtroEfecto,
+    ParametrosDeDespertar,
+    ParametrosDePotencial,
     PuntoMedido,
     Redondeo,
     TipoDeModificador,
@@ -41,25 +52,89 @@ def base_de_ejemplo() -> dict[Stat, tuple[PuntoMedido, ...]]:
     }
 
 
+def letra(
+    nombre: str,
+    modificadores: dict[Stat, tuple[Modificador, ...]] | None = None,
+    otros: tuple[OtroEfecto, ...] = (),
+    *,
+    confirmada: bool = True,
+) -> LetraDePersonalidad:
+    return LetraDePersonalidad(
+        nombre=nombre,
+        letra_confirmada=confirmada,
+        confianza=Confianza.MEDIDO,
+        modificadores=modificadores or {},
+        otros=otros,
+    )
+
+
+def personalidad_de_ejemplo() -> dict[str, LetraDePersonalidad]:
+    return {
+        "E": letra(
+            "Energetic",
+            {Stat.ATQ: (mod(PORCENTAJE, 2),), Stat.QUIEBRE: (mod(PORCENTAJE, 2),)},
+        ),
+        "I": letra("Instinctive", {Stat.REGEN: (mod(PORCENTAJE, 4),)}, confirmada=False),
+        "N": letra("Nimble", otros=(OtroEfecto("Prob. de crítico", Decimal(5)),)),
+        "F": letra("Faithful", {Stat.DEF_MAGICA: (mod(PORCENTAJE, 6),)}, confirmada=False),
+        "J": letra("Judicious", {Stat.PS: (mod(PORCENTAJE, 4),)}, confirmada=False),
+    }
+
+
+def parametros_de_potencial(**cambios: object) -> ParametrosDePotencial:
+    parametros = ParametrosDePotencial(
+        confianza=Confianza.MEDIDO,
+        por_punto=Decimal("0.8"),
+        salto_cada=4,
+        salto_porcentaje=Decimal(4),
+        cuenta_estrella=True,
+        cuenta_objeto=True,
+    )
+    return replace(parametros, **cambios)  # type: ignore[arg-type]
+
+
 def catalogo_de_ejemplo(**cambios: object) -> Catalogo:
     catalogo = Catalogo(
-        version="ejemplo-1",
+        formato=2,
+        version="ejemplo-2",
         es_ejemplo=True,
+        estimacion_verificada=False,
+        fecha_parche=date(2026, 9, 23),
+        cambios_conocidos=(
+            CambioConocido(date(2026, 9, 23), "Actualizacion del 23/09", Confianza.FAN),
+        ),
         redondeo=Redondeo.ABAJO,
         interpolacion=Interpolacion.LINEAL,
         especies=(
             Especie(id="ejemplo-a", nombre="EJEMPLO Aniimo A", base=base_de_ejemplo()),
             Especie(id="ejemplo-b", nombre="EJEMPLO Aniimo B", base=base_de_ejemplo()),
         ),
-        potencial={Stat.ATQ: mod(PORCENTAJE, 1), Stat.PS: mod(PLANO, 10)},
-        estrellas=(
-            EtapaDeEstrella(estrella=1, modificadores={Stat.ATQ: (mod(PLANO, 10),)}),
-            EtapaDeEstrella(estrella=2, modificadores={Stat.ATQ: (mod(PLANO, 20),)}),
+        potencial=parametros_de_potencial(),
+        etapas_de_estrella=EtapasDeEstrella(
+            Confianza.MEDIDO,
+            (
+                EtapaDeEstrellaConBonos(etapa=5, bono_potencial=1, bono_cupo=5),
+                EtapaDeEstrellaConBonos(etapa=6, bono_potencial=1, bono_cupo=8),
+                EtapaDeEstrellaConBonos(etapa=7, bono_potencial=2, bono_cupo=10),
+            ),
         ),
-        personalidad={
-            "E": {Stat.ATQ: (mod(PORCENTAJE, 5),)},
-            "N": {Stat.PS: (mod(PLANO, 7),)},
-        },
+        despertar=ParametrosDeDespertar(
+            Confianza.MEDIDO,
+            (
+                AumentoDeCupo(nivel=1, suma=5),
+                AumentoDeCupo(nivel=45, suma=5),
+                AumentoDeCupo(nivel=55, suma=10),
+                AumentoDeCupo(nivel=60, suma=10),
+            ),
+        ),
+        estrellas=(
+            EtapaDeEstrella(etapa=1, modificadores={Stat.ATQ: (mod(PLANO, 10),)}),
+            EtapaDeEstrella(
+                etapa=2,
+                modificadores={Stat.ATQ: (mod(PLANO, 20),), Stat.PS: (mod(PLANO, 100),)},
+            ),
+        ),
+        personalidad=personalidad_de_ejemplo(),
         objetos=(
             ObjetoDelCatalogo(
                 id="ejemplo-objeto-x",
@@ -69,7 +144,12 @@ def catalogo_de_ejemplo(**cambios: object) -> Catalogo:
                         nivel=1,
                         modificadores={Stat.ATQ: (mod(PORCENTAJE, 10), mod(PLANO, 5))},
                     ),
+                    NivelDeObjeto(
+                        nivel=2,
+                        modificadores={Stat.ATQ: (mod(PORCENTAJE, 12), mod(PLANO, 8))},
+                    ),
                 ),
+                bono_potencial=BonoDePotencialDeObjeto(desde_nivel=2, stats={Stat.ATQ: 2}),
             ),
             ObjetoDelCatalogo(
                 id="ejemplo-objeto-y",
@@ -95,7 +175,7 @@ def entrada(
     *,
     especie_id: str = "ejemplo-a",
     nivel: int = 60,
-    estrella_actual: int = 0,
+    etapa_estrella: int = 0,
     personalidad: str | None = None,
     objetos: tuple[ObjetoDeLaEntrada, ...] = (),
     **puntos: int,
@@ -104,7 +184,7 @@ def entrada(
         especie_id=especie_id,
         nivel=nivel,
         potenciales=potenciales(**puntos),
-        estrella_actual=estrella_actual,
+        etapa_estrella=etapa_estrella,
         personalidad=personalidad,
         objetos=objetos,
     )

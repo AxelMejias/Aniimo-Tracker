@@ -65,6 +65,7 @@ export default function FichaDeSoloLectura({ ficha, imagen }: FichaDeSoloLectura
         <Dato etiqueta="Personalidad" valor={ficha.personalidad ?? SIN_DATO} />
         <Dato etiqueta="Nivel" valor={ficha.nivel} />
         <Dato etiqueta="CP" valor={ficha.cp} />
+        <Dato etiqueta="Parche del juego" valor={ficha.fechaParche ?? 'desconocido'} />
       </Grupo>
       <Grupo titulo="Stats">
         {STATS.map(({ codigo, etiqueta }) => {
@@ -82,6 +83,10 @@ export default function FichaDeSoloLectura({ ficha, imagen }: FichaDeSoloLectura
       </Grupo>
       <Grupo titulo="Entrenamiento">
         <Dato etiqueta="Estrella actual" valor={entrenamiento.estrellaActual} />
+        <Dato
+          etiqueta="Etapa de estrella"
+          valor={ficha.etapaEstrella === null ? 'sin cargar' : `T${ficha.etapaEstrella}`}
+        />
         <Dato
           etiqueta="Nivel requerido de la siguiente etapa"
           valor={entrenamiento.nivelRequeridoSiguienteEtapa ?? SIN_DATO}

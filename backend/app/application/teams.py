@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -35,6 +36,8 @@ class DatosDeFicha:
     personalidad: str | None
     nivel: int
     cp: int
+    fecha_parche: date | None
+    etapa_estrella: int | None
     stats: Mapping[Stat, ValoresDeStat]
     estrella_actual: int
     nivel_requerido_siguiente_etapa: int | None

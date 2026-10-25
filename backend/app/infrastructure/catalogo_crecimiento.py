@@ -1,5 +1,7 @@
 import json
+import re
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Literal
@@ -16,15 +18,25 @@ from pydantic_core import ErrorDetails
 
 from app.domain.catalogos import Stat
 from app.domain.crecimiento import (
+    AumentoDeCupo,
+    BonoDePotencialDeObjeto,
+    CambioConocido,
     Catalogo,
+    Confianza,
     Especie,
     EtapaDeEstrella,
+    EtapaDeEstrellaConBonos,
+    EtapasDeEstrella,
     FormulaDeCp,
     Interpolacion,
+    LetraDePersonalidad,
     Modificador,
     ModificadoresPorStat,
     NivelDeObjeto,
     ObjetoDelCatalogo,
+    OtroEfecto,
+    ParametrosDeDespertar,
+    ParametrosDePotencial,
     PuntoMedido,
     Redondeo,
     TipoDeModificador,
@@ -35,7 +47,14 @@ TAMANO_MAXIMO = 1024 * 1024
 
 StatClave = Literal["ps", "atq", "def_fisica", "def_magica", "regen", "quiebre"]
 LetraClave = Literal["E", "I", "N", "S", "T", "F", "J", "P"]
+ConfianzaClave = Literal["oficial", "medido", "fan", "inferido", "contradictorio", "ejemplo"]
 _PATRON_ID = r"^[a-z0-9-]{1,50}$"
+_PATRON_FECHA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_FECHA_MINIMA = date(2020, 1, 1)
+_FECHA_MAXIMA = date(2099, 12, 31)
+_MENSAJE_FORMATO_ANTERIOR = (
+    "formato: el catálogo tiene el formato anterior (C-08); este backend requiere formato 2"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +74,25 @@ def _sin_tipos_repetidos(modificadores: list["ModificadorDatos"]) -> list["Modif
     return modificadores
 
 
+def _a_fecha(valor: str) -> date:
+    if _PATRON_FECHA.fullmatch(valor) is None:
+        raise ValueError("debe tener el formato AAAA-MM-DD")
+    try:
+        fecha = date.fromisoformat(valor)
+    except ValueError:
+        raise ValueError("no es una fecha válida") from None
+    if not _FECHA_MINIMA <= fecha <= _FECHA_MAXIMA:
+        raise ValueError("debe estar entre 2020-01-01 y 2099-12-31")
+    return fecha
+
+
+def _fecha_valida(valor: str) -> str:
+    _a_fecha(valor)
+    return valor
+
+
+Porcentaje = Annotated[Decimal, BeforeValidator(_a_decimal), Field(ge=0, le=100)]
+Fecha = Annotated[str, AfterValidator(_fecha_valida)]
 Peso = Annotated[Decimal, BeforeValidator(_a_decimal), Field(ge=-1000, le=1000)]
 Constante = Annotated[Decimal, BeforeValidator(_a_decimal), Field(ge=-9_999_999, le=9_999_999)]
 
@@ -100,8 +138,61 @@ class EspecieDatos(_Datos):
 
 
 class EstrellaDatos(_Datos):
-    estrella: int = Field(ge=1, le=99)
+    etapa: int = Field(ge=1, le=7)
     modificadores: ModificadoresDatos
+
+
+class SaltoDatos(_Datos):
+    cada: int = Field(ge=1, le=20)
+    porcentaje: Porcentaje
+
+
+class PotencialDatos(_Datos):
+    confianza: ConfianzaClave
+    por_punto: Porcentaje
+    salto: SaltoDatos
+    cuenta_estrella: bool
+    cuenta_objeto: bool
+
+
+class EtapaConBonosDatos(_Datos):
+    etapa: int = Field(ge=1, le=7)
+    bono_potencial: int = Field(ge=0, le=20)
+    bono_cupo: int = Field(ge=0, le=999)
+
+
+class EtapasDeEstrellaDatos(_Datos):
+    confianza: ConfianzaClave
+    etapas: list[EtapaConBonosDatos] = Field(min_length=1, max_length=7)
+
+
+class AumentoDatos(_Datos):
+    nivel: int = Field(ge=1, le=999)
+    suma: int = Field(ge=0, le=999)
+
+
+class DespertarDatos(_Datos):
+    confianza: ConfianzaClave
+    aumentos_por_nivel: list[AumentoDatos] = Field(min_length=1, max_length=100)
+
+
+class OtroEfectoDatos(_Datos):
+    descripcion: str = Field(min_length=1, max_length=60)
+    porcentaje: Peso
+
+
+class LetraDatos(_Datos):
+    nombre: str = Field(min_length=1, max_length=30)
+    letra_confirmada: bool
+    confianza: ConfianzaClave
+    modificadores: ModificadoresDatos
+    otros: list[OtroEfectoDatos] = Field(default_factory=list, max_length=3)
+
+
+class CambioConocidoDatos(_Datos):
+    fecha: Fecha
+    descripcion: str = Field(min_length=1, max_length=200)
+    confianza: ConfianzaClave
 
 
 class NivelDeObjetoDatos(_Datos):
@@ -109,9 +200,15 @@ class NivelDeObjetoDatos(_Datos):
     modificadores: ModificadoresDatos
 
 
+class BonoDePotencialDatos(_Datos):
+    desde_nivel: int = Field(ge=1, le=99)
+    stats: dict[StatClave, Annotated[int, Field(ge=1, le=10)]] = Field(min_length=1, max_length=6)
+
+
 class ObjetoDatos(_Datos):
     id: str = Field(pattern=_PATRON_ID)
     nombre: str = Field(min_length=1, max_length=50)
+    bono_potencial: BonoDePotencialDatos | None = None
     niveles: list[NivelDeObjetoDatos] = Field(min_length=1, max_length=99)
 
 
@@ -122,14 +219,20 @@ class CpDatos(_Datos):
 
 
 class CatalogoDatos(_Datos):
+    formato: Literal[2]
     version: str = Field(min_length=1, max_length=50)
     es_ejemplo: bool
+    estimacion_verificada: bool
+    fecha_parche: Fecha
+    cambios_conocidos: list[CambioConocidoDatos] = Field(default_factory=list, max_length=50)
     redondeo: Literal["abajo", "cercano", "arriba"]
     interpolacion: Literal["ninguna", "lineal"]
     especies: list[EspecieDatos] = Field(min_length=1, max_length=500)
-    potencial: dict[StatClave, ModificadorDatos] | None = None
-    estrellas: list[EstrellaDatos] | None = Field(default=None, max_length=99)
-    personalidad: dict[LetraClave, ModificadoresDatos] | None = None
+    potencial: PotencialDatos | None = None
+    etapas_de_estrella: EtapasDeEstrellaDatos | None = None
+    despertar: DespertarDatos | None = None
+    estrellas: list[EstrellaDatos] | None = Field(default=None, max_length=7)
+    personalidad: dict[LetraClave, LetraDatos] | None = None
     objetos: list[ObjetoDatos] | None = Field(default=None, max_length=500)
     cp: CpDatos | None = None
 
@@ -197,12 +300,14 @@ def _enteros(items: object, campo: str) -> list[tuple[int, int]]:
     return encontrados
 
 
-def _niveles_no_crecientes(items: object, ruta: str, campo: str) -> list[str]:
+def _niveles_no_crecientes(
+    items: object, ruta: str, campo: str, anterior: str = "el nivel anterior"
+) -> list[str]:
     errores: list[str] = []
     maximo: int | None = None
     for posicion, valor in _enteros(items, campo):
         if maximo is not None and valor <= maximo:
-            errores.append(f"{ruta}[{posicion}].{campo}: debe ser mayor que el nivel anterior")
+            errores.append(f"{ruta}[{posicion}].{campo}: debe ser mayor que {anterior}")
         maximo = valor if maximo is None else max(maximo, valor)
     return errores
 
@@ -222,6 +327,37 @@ def _repetidos(items: object, ruta: str, campo: str, motivo: str) -> list[str]:
     return errores
 
 
+def _fechas_no_crecientes(items: object, ruta: str) -> list[str]:
+    if not isinstance(items, list):
+        return []
+    errores: list[str] = []
+    ultima: date | None = None
+    for posicion, item in enumerate(items):
+        texto = item.get("fecha") if isinstance(item, dict) else None
+        try:
+            fecha = _a_fecha(texto) if isinstance(texto, str) else None
+        except ValueError:
+            fecha = None
+        if fecha is None:
+            continue
+        if ultima is not None and fecha <= ultima:
+            errores.append(f"{ruta}[{posicion}].fecha: debe ser posterior a la fecha anterior")
+        ultima = fecha if ultima is None else max(ultima, fecha)
+    return errores
+
+
+def _primer_nivel_de_despertar(items: object, ruta: str) -> list[str]:
+    enteros = _enteros(items, "nivel")
+    if enteros and enteros[0][0] == 0 and enteros[0][1] != 1:
+        return [f"{ruta}[0].nivel: el primer nivel debe ser 1"]
+    return []
+
+
+def _seccion(datos: dict[object, object], nombre: str) -> dict[object, object]:
+    seccion = datos.get(nombre)
+    return seccion if isinstance(seccion, dict) else {}
+
+
 def _reglas_cruzadas(datos: object) -> list[str]:
     if not isinstance(datos, dict):
         return []
@@ -233,7 +369,15 @@ def _reglas_cruzadas(datos: object) -> list[str]:
         for stat in Stat:
             curva = base.get(stat.value) if isinstance(base, dict) else None
             errores += _niveles_no_crecientes(curva, f"especies[{i}].base.{stat.value}", "nivel")
-    errores += _repetidos(datos.get("estrellas"), "estrellas", "estrella", "estrella repetida")
+    errores += _repetidos(datos.get("estrellas"), "estrellas", "etapa", "etapa repetida")
+    errores += _fechas_no_crecientes(datos.get("cambios_conocidos"), "cambios_conocidos")
+    etapas = _seccion(datos, "etapas_de_estrella").get("etapas")
+    errores += _niveles_no_crecientes(
+        etapas, "etapas_de_estrella.etapas", "etapa", "la etapa anterior"
+    )
+    aumentos = _seccion(datos, "despertar").get("aumentos_por_nivel")
+    errores += _primer_nivel_de_despertar(aumentos, "despertar.aumentos_por_nivel")
+    errores += _niveles_no_crecientes(aumentos, "despertar.aumentos_por_nivel", "nivel")
     objetos = datos.get("objetos")
     errores += _repetidos(objetos, "objetos", "id", "id repetido")
     for i, objeto in enumerate(objetos if isinstance(objetos, list) else []):
@@ -247,6 +391,43 @@ def _modificadores(datos: ModificadoresDatos) -> ModificadoresPorStat:
         Stat(stat): tuple(Modificador(TipoDeModificador(m.tipo), m.valor) for m in lista)
         for stat, lista in datos.items()
     }
+
+
+def _potencial(datos: PotencialDatos) -> ParametrosDePotencial:
+    return ParametrosDePotencial(
+        confianza=Confianza(datos.confianza),
+        por_punto=datos.por_punto,
+        salto_cada=datos.salto.cada,
+        salto_porcentaje=datos.salto.porcentaje,
+        cuenta_estrella=datos.cuenta_estrella,
+        cuenta_objeto=datos.cuenta_objeto,
+    )
+
+
+def _letra(datos: LetraDatos) -> LetraDePersonalidad:
+    return LetraDePersonalidad(
+        nombre=datos.nombre,
+        letra_confirmada=datos.letra_confirmada,
+        confianza=Confianza(datos.confianza),
+        modificadores=_modificadores(datos.modificadores),
+        otros=tuple(OtroEfecto(o.descripcion, o.porcentaje) for o in datos.otros),
+    )
+
+
+def _objeto(datos: ObjetoDatos) -> ObjetoDelCatalogo:
+    bono = datos.bono_potencial
+    return ObjetoDelCatalogo(
+        id=datos.id,
+        nombre=datos.nombre,
+        niveles=tuple(
+            NivelDeObjeto(n.nivel, _modificadores(n.modificadores)) for n in datos.niveles
+        ),
+        bono_potencial=None
+        if bono is None
+        else BonoDePotencialDeObjeto(
+            bono.desde_nivel, {Stat(stat): puntos for stat, puntos in bono.stats.items()}
+        ),
+    )
 
 
 def _a_dominio(datos: CatalogoDatos) -> Catalogo:
@@ -268,38 +449,46 @@ def _a_dominio(datos: CatalogoDatos) -> Catalogo:
             pesos={Stat(stat): peso for stat, peso in datos.cp.pesos.items()},
             por_punto_de_potencial=datos.cp.por_punto_de_potencial,
         )
+    etapas = datos.etapas_de_estrella
+    despertar = datos.despertar
     return Catalogo(
+        formato=datos.formato,
         version=datos.version,
         es_ejemplo=datos.es_ejemplo,
+        estimacion_verificada=datos.estimacion_verificada,
+        fecha_parche=_a_fecha(datos.fecha_parche),
+        cambios_conocidos=tuple(
+            CambioConocido(_a_fecha(c.fecha), c.descripcion, Confianza(c.confianza))
+            for c in datos.cambios_conocidos
+        ),
         redondeo=Redondeo(datos.redondeo),
         interpolacion=Interpolacion(datos.interpolacion),
         especies=especies,
-        potencial=None
-        if datos.potencial is None
-        else {
-            Stat(stat): Modificador(TipoDeModificador(m.tipo), m.valor)
-            for stat, m in datos.potencial.items()
-        },
+        potencial=None if datos.potencial is None else _potencial(datos.potencial),
+        etapas_de_estrella=None
+        if etapas is None
+        else EtapasDeEstrella(
+            Confianza(etapas.confianza),
+            tuple(
+                EtapaDeEstrellaConBonos(e.etapa, e.bono_potencial, e.bono_cupo)
+                for e in etapas.etapas
+            ),
+        ),
+        despertar=None
+        if despertar is None
+        else ParametrosDeDespertar(
+            Confianza(despertar.confianza),
+            tuple(AumentoDeCupo(a.nivel, a.suma) for a in despertar.aumentos_por_nivel),
+        ),
         estrellas=None
         if datos.estrellas is None
         else tuple(
-            EtapaDeEstrella(e.estrella, _modificadores(e.modificadores)) for e in datos.estrellas
+            EtapaDeEstrella(e.etapa, _modificadores(e.modificadores)) for e in datos.estrellas
         ),
         personalidad=None
         if datos.personalidad is None
-        else {letra: _modificadores(m) for letra, m in datos.personalidad.items()},
-        objetos=None
-        if datos.objetos is None
-        else tuple(
-            ObjetoDelCatalogo(
-                id=o.id,
-                nombre=o.nombre,
-                niveles=tuple(
-                    NivelDeObjeto(n.nivel, _modificadores(n.modificadores)) for n in o.niveles
-                ),
-            )
-            for o in datos.objetos
-        ),
+        else {letra: _letra(dl) for letra, dl in datos.personalidad.items()},
+        objetos=None if datos.objetos is None else tuple(_objeto(o) for o in datos.objetos),
         cp=cp,
     )
 
@@ -330,10 +519,16 @@ def _leer_json(ruta: Path) -> object | ErrorDeCatalogo:
         return ErrorDeCatalogo(("archivo: no es JSON válido",))
 
 
+def _es_formato_2(valor: object) -> bool:
+    return isinstance(valor, int) and not isinstance(valor, bool) and valor == 2
+
+
 def leer_catalogo(ruta: Path) -> Catalogo | ErrorDeCatalogo:
     crudo = _leer_json(ruta)
     if isinstance(crudo, ErrorDeCatalogo):
         return crudo
+    if isinstance(crudo, dict) and not _es_formato_2(crudo.get("formato")):
+        return ErrorDeCatalogo((_MENSAJE_FORMATO_ANTERIOR,))
     errores: list[str] = []
     datos: CatalogoDatos | None = None
     try:

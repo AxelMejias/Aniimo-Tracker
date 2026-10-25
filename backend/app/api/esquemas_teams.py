@@ -13,6 +13,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.api.fecha_de_parche import FechaDeParche, a_fecha
 from app.application.teams import DatosDeFicha, FichaGuardada, ResumenDeSlot, ResumenDeTeam
 from app.domain.catalogos import Elemento, PosicionObjeto, PotencialInnato, Rareza, Rol, Stat
 from app.domain.entidades import AniimoDelTeam, MaterialEstrella, ObjetoTransportado, ValoresDeStat
@@ -145,6 +146,8 @@ class FichaBase(BaseModel):
     personalidad: Personalidad
     nivel: Annotated[int, Field(ge=1, le=999)]
     cp: Annotated[int, _ENTERO_GRANDE]
+    fecha_parche: FechaDeParche | None = None
+    etapa_estrella: Annotated[int, Field(ge=0, le=7)] | None = None
     stats: StatsFicha
     entrenamiento: EntrenamientoFicha
     objetos: Annotated[list[ObjetoFicha], Field(max_length=2)]
@@ -172,6 +175,8 @@ class FichaEntrada(FichaBase):
             personalidad=self.personalidad,
             nivel=self.nivel,
             cp=self.cp,
+            fecha_parche=None if self.fecha_parche is None else a_fecha(self.fecha_parche),
+            etapa_estrella=self.etapa_estrella,
             stats={stat: ValoresDeStat(**getattr(self.stats, stat).model_dump()) for stat in Stat},
             estrella_actual=entrenamiento.estrella_actual,
             nivel_requerido_siguiente_etapa=entrenamiento.nivel_requerido_siguiente_etapa,
@@ -196,6 +201,8 @@ def campos_de_ficha(aniimo: AniimoDelTeam) -> dict[str, object]:
         "personalidad": aniimo.personalidad,
         "nivel": aniimo.nivel,
         "cp": aniimo.cp,
+        "fecha_parche": None if aniimo.fecha_parche is None else aniimo.fecha_parche.isoformat(),
+        "etapa_estrella": aniimo.etapa_estrella,
         "stats": StatsFicha(**{stat: StatFicha(**asdict(aniimo.stats[stat])) for stat in Stat}),
         "entrenamiento": _entrenamiento_de(aniimo),
         "objetos": [ObjetoFicha(**asdict(o)) for o in aniimo.objetos],

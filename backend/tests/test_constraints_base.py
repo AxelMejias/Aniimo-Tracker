@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -183,6 +183,26 @@ CASOS_INVALIDOS: list[tuple[str, Callable[[Padres], Any], str]] = [
         "estrella_negativa",
         lambda p: _aniimo(p, estrella_actual=-1),
         "ck_aniimo_del_team_estrella_actual_no_negativa",
+    ),
+    (
+        "fecha_parche_2100",
+        lambda p: _aniimo(p, fecha_parche=date(2100, 1, 1)),
+        "ck_aniimo_del_team_fecha_parche_rango",
+    ),
+    (
+        "fecha_parche_2019",
+        lambda p: _aniimo(p, fecha_parche=date(2019, 12, 31)),
+        "ck_aniimo_del_team_fecha_parche_rango",
+    ),
+    (
+        "etapa_estrella_8",
+        lambda p: _aniimo(p, etapa_estrella=8),
+        "ck_aniimo_del_team_etapa_estrella_rango",
+    ),
+    (
+        "etapa_estrella_negativa",
+        lambda p: _aniimo(p, etapa_estrella=-1),
+        "ck_aniimo_del_team_etapa_estrella_rango",
     ),
     (
         "nivel_requerido_0",

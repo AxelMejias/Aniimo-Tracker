@@ -312,3 +312,32 @@ def test_ficha_privada_es_igual_a_una_ficha_sin_notas(red: Red, team_de_b: str) 
     assert {k: v for k, v in privada.items() if k != "slot"} == {
         k: v for k, v in vacia.items() if k != "slot"
     }
+
+
+def test_el_amigo_ve_la_fecha_de_parche_y_la_etapa_de_estrella(red: Red) -> None:
+    team_id = _crear_team(red.b)
+    _guardar(red.b, team_id, fecha_parche="2026-10-26", etapa_estrella=6)
+
+    ficha = _ficha(red.a, red.b.id, team_id).json()["aniimo"]
+
+    assert ficha["fecha_parche"] == "2026-10-26"
+    assert ficha["etapa_estrella"] == 6
+    assert ficha["entrenamiento"]["estrella_actual"] == 2
+
+
+def test_el_amigo_ve_fecha_y_etapa_nulas_cuando_no_estan_cargadas(red: Red) -> None:
+    team_id = _crear_team(red.b)
+    _guardar(red.b, team_id, fecha_parche=None, etapa_estrella=None)
+
+    ficha = _ficha(red.a, red.b.id, team_id).json()["aniimo"]
+
+    assert (ficha["fecha_parche"], ficha["etapa_estrella"]) == (None, None)
+
+
+def test_las_notas_privadas_no_ocultan_la_fecha_ni_la_etapa(red: Red) -> None:
+    team_id = _crear_team(red.b)
+    _guardar(red.b, team_id, notas_privadas=True, fecha_parche="2026-10-26", etapa_estrella=3)
+
+    ficha = _ficha(red.a, red.b.id, team_id).json()["aniimo"]
+
+    assert (ficha["fecha_parche"], ficha["etapa_estrella"]) == ("2026-10-26", 3)

@@ -3,7 +3,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response
 
 from app.api.dependencias import servicio_de_calculo, usuario_actual
-from app.api.esquemas_calculo import CalculoEntrada, CalculoSalida, CatalogoSalida
+from app.api.esquemas_calculo import (
+    CalculoEntrada,
+    CalculoSalida,
+    CatalogoSalida,
+    PotencialEntrada,
+    PotencialSalida,
+)
 from app.application.calculo import ServicioDeCalculo
 from app.domain.entidades import Usuario
 
@@ -26,3 +32,10 @@ def obtener_catalogo(usuario: Autenticado, servicio: Servicio) -> CatalogoSalida
 @router.post("/stats")
 def calcular(entrada: CalculoEntrada, usuario: Autenticado, servicio: Servicio) -> CalculoSalida:
     return CalculoSalida.desde(servicio.calcular(entrada.a_dominio()))
+
+
+@router.post("/potencial")
+def calcular_potencial(
+    entrada: PotencialEntrada, usuario: Autenticado, servicio: Servicio
+) -> PotencialSalida:
+    return PotencialSalida.desde(servicio.potencial(entrada.a_dominio()))

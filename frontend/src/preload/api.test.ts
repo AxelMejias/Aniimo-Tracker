@@ -4,7 +4,7 @@ import { CANALES_AUTH } from '../shared/auth'
 import { CANALES_CALCULO } from '../shared/calculo'
 import { CANALES_OVERLAY } from '../shared/overlay'
 import { CANALES_TEAMS } from '../shared/teams'
-import { pedidoDeReferencia } from '../../tests/fixtures/calculo'
+import { pedidoDePotencialDeReferencia, pedidoDeReferencia } from '../../tests/fixtures/calculo'
 import { fichaDeReferencia } from '../../tests/fixtures/ficha'
 import { buildExposedApi, type Invocar } from './api'
 
@@ -168,10 +168,10 @@ describe('buildExposedApi', () => {
     ])
   })
 
-  it('calculo esta congelado y tiene solo obtenerCatalogo y calcular', () => {
+  it('calculo esta congelado y tiene solo obtenerCatalogo, calcular y potencial', () => {
     const { api } = construir()
     expect(Object.isFrozen(api.calculo)).toBe(true)
-    expect(Object.keys(api.calculo).sort()).toEqual(['calcular', 'obtenerCatalogo'])
+    expect(Object.keys(api.calculo).sort()).toEqual(['calcular', 'obtenerCatalogo', 'potencial'])
     for (const funcion of Object.values(api.calculo)) {
       expect(typeof funcion).toBe('function')
     }
@@ -181,9 +181,11 @@ describe('buildExposedApi', () => {
     const { api, invoke } = construir()
     await api.calculo.obtenerCatalogo()
     await api.calculo.calcular(pedidoDeReferencia())
+    await api.calculo.potencial(pedidoDePotencialDeReferencia())
     expect(invoke.mock.calls).toEqual([
       [CANALES_CALCULO.obtenerCatalogo],
-      [CANALES_CALCULO.calcular, pedidoDeReferencia()]
+      [CANALES_CALCULO.calcular, pedidoDeReferencia()],
+      [CANALES_CALCULO.potencial, pedidoDePotencialDeReferencia()]
     ])
   })
 
@@ -191,6 +193,10 @@ describe('buildExposedApi', () => {
     const { api } = construir({ ok: false, error: 'no-disponible' })
     expect(await api.calculo.obtenerCatalogo()).toEqual({ ok: false, error: 'no-disponible' })
     expect(await api.calculo.calcular(pedidoDeReferencia())).toEqual({
+      ok: false,
+      error: 'no-disponible'
+    })
+    expect(await api.calculo.potencial(pedidoDePotencialDeReferencia())).toEqual({
       ok: false,
       error: 'no-disponible'
     })

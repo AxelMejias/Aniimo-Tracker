@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
@@ -143,6 +144,8 @@ def irisalis() -> AniimoDelTeam:
         cp=3475,
         stats=stats,
         estrella_actual=2,
+        etapa_estrella=6,
+        fecha_parche=date(2026, 10, 26),
         nivel_requerido_siguiente_etapa=65,
         ganancia_despertar=3,
         ganancia_seis_potenciales=1,

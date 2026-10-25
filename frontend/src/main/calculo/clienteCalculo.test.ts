@@ -3,7 +3,11 @@ import {
   catalogoDeApiDeReferencia,
   catalogoDeReferencia,
   pedidoDeApiDeReferencia,
+  pedidoDePotencialDeApiDeReferencia,
+  pedidoDePotencialDeReferencia,
   pedidoDeReferencia,
+  potencialDeApiDeReferencia,
+  potencialDeReferencia,
   sugerenciaDeApiDeReferencia,
   sugerenciaDeReferencia
 } from '../../../tests/fixtures/calculo'
@@ -91,9 +95,52 @@ describe('calcular', () => {
   })
 })
 
+describe('potencial', () => {
+  it('manda el cuerpo en snake_case con el token y traduce el resultado', async () => {
+    const { cliente, fetchFalso } = preparar(json(200, potencialDeApiDeReferencia()))
+
+    const resultado = await cliente.potencial(pedidoDePotencialDeReferencia())
+
+    expect(resultado).toEqual({ ok: true, potencial: potencialDeReferencia() })
+    const enviada = llamada(fetchFalso)
+    expect(enviada.url).toBe(`${URL_BASE_BACKEND}/calculo/potencial`)
+    expect(enviada.metodo).toBe('POST')
+    expect(enviada.cabeceras.get('Authorization')).toBe('Bearer tok-123')
+    expect(JSON.parse(String(enviada.cuerpo))).toEqual(pedidoDePotencialDeApiDeReferencia())
+    expect(JSON.stringify(resultado)).not.toContain('tok-123')
+  })
+
+  it('un 422 es datos-invalidos aunque el error no sea de la especie', async () => {
+    const { cliente } = preparar(
+      json(422, { detail: [{ loc: ['body', 'etapa_estrella'], msg: 'x', type: 'int_type' }] })
+    )
+
+    expect(await cliente.potencial(pedidoDePotencialDeReferencia())).toEqual({
+      ok: false,
+      error: 'datos-invalidos'
+    })
+  })
+
+  it('una via_despertar desconocida es error-inesperado', async () => {
+    const api = potencialDeApiDeReferencia()
+    const potencial = api.potencial as { stats: Record<string, Record<string, unknown>> }
+    const stats = { ...potencial.stats, ps: { ...potencial.stats.ps, via_despertar: 'quizas' } }
+    const { cliente } = preparar(json(200, { ...api, potencial: { ...potencial, stats } }))
+
+    expect(await cliente.potencial(pedidoDePotencialDeReferencia())).toEqual({
+      ok: false,
+      error: 'error-inesperado'
+    })
+  })
+})
+
 describe.each([
   ['obtenerCatalogo', (c: ReturnType<typeof preparar>['cliente']) => c.obtenerCatalogo()],
-  ['calcular', (c: ReturnType<typeof preparar>['cliente']) => c.calcular(pedidoDeReferencia())]
+  ['calcular', (c: ReturnType<typeof preparar>['cliente']) => c.calcular(pedidoDeReferencia())],
+  [
+    'potencial',
+    (c: ReturnType<typeof preparar>['cliente']) => c.potencial(pedidoDePotencialDeReferencia())
+  ]
 ])('errores de %s', (_nombre, ejecutar) => {
   it('401 borra la sesion y devuelve sesion-vencida', async () => {
     const { cliente, sesion } = preparar(json(401, { detail: 'No autenticado' }))

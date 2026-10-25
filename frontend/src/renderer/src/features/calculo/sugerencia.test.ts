@@ -54,7 +54,7 @@ describe('entradaDesdeFormulario', () => {
         especieId: 'ejemplo-a',
         nivel: 60,
         potenciales: { ps: 11, atq: 20, def_fisica: 5, def_magica: 4, regen: 20, quiebre: 6 },
-        estrellaActual: 2,
+        etapaEstrella: 6,
         personalidad: 'ENFJ',
         objetos: [
           { posicion: 'equipado', objetoId: 'ejemplo-objeto-x', nivel: 15 },
@@ -89,6 +89,31 @@ describe('entradaDesdeFormulario', () => {
     })
   })
 
+  it('usa la etapa de estrella y nunca la estrella actual', () => {
+    const formulario = formularioCon({ etapaEstrella: '3', estrellaActual: '9' })
+
+    const resultado = entradaDesdeFormulario(formulario, 'ejemplo-a', SIN_OBJETOS_ELEGIDOS)
+
+    expect(resultado).toMatchObject({ ok: true, pedido: { etapaEstrella: 3 } })
+    expect(resultado.ok && 'estrellaActual' in resultado.pedido).toBe(false)
+  })
+
+  it('con la etapa sin cargar el motivo pide cargarla y no asume T0', () => {
+    const resultado = entradaDesdeFormulario(
+      formularioCon({ etapaEstrella: '' }),
+      'ejemplo-a',
+      SIN_OBJETOS_ELEGIDOS
+    )
+
+    expect(resultado).toEqual({ ok: false, motivo: 'Cargá la etapa de estrella (T0-T7)' })
+  })
+
+  it('T0 es una etapa valida', () => {
+    expect(
+      entradaDesdeFormulario(formularioCon({ etapaEstrella: '0' }), 'ejemplo-a', SIN_OBJETOS_ELEGIDOS)
+    ).toMatchObject({ ok: true, pedido: { etapaEstrella: 0 } })
+  })
+
   it('personalidad vacia se manda como null', () => {
     const formulario = formularioCon({ personalidad: ['', '', '', ''] })
 
@@ -103,8 +128,8 @@ describe('entradaDesdeFormulario', () => {
     ['nivel no numerico', formularioCon({ nivel: 'abc' })],
     ['nivel 0', formularioCon({ nivel: '0' })],
     ['nivel 1000', formularioCon({ nivel: '1000' })],
-    ['estrella vacia', formularioCon({ estrellaActual: '' })],
-    ['estrella 100', formularioCon({ estrellaActual: '100' })],
+    ['etapa sin cargar', formularioCon({ etapaEstrella: '' })],
+    ['etapa 8', formularioCon({ etapaEstrella: '8' })],
     ['personalidad incompleta', formularioCon({ personalidad: ['E', 'N', '', ''] })]
   ])('%s devuelve un motivo', (_caso, formulario) => {
     const resultado = entradaDesdeFormulario(formulario, 'ejemplo-a', SIN_OBJETOS_ELEGIDOS)
@@ -229,7 +254,7 @@ describe('aplicarTodas', () => {
 
     const despues = aplicarTodas(antes, sugerencia, true)
 
-    expect(despues.stats.atq.valorActual).toBe('509')
+    expect(despues.stats.atq.valorActual).toBe('522')
     expect(despues.stats.ps.valorActual).toBe('1000')
     expect(despues.stats.quiebre.valorActual).toBe(antes.stats.quiebre.valorActual)
     expect(despues.cp).toBe(antes.cp)
@@ -242,8 +267,8 @@ describe('aplicarTodas', () => {
       false
     )
 
-    expect(despues.stats.atq.valorActual).toBe('458')
-    expect(despues.cp).toBe('578')
+    expect(despues.stats.atq.valorActual).toBe('474')
+    expect(despues.cp).toBe('594')
   })
 
   it('con el interruptor encendido aplica el CP con objetos', () => {
@@ -253,7 +278,7 @@ describe('aplicarTodas', () => {
       true
     )
 
-    expect(despues.cp).toBe('629')
+    expect(despues.cp).toBe('642')
   })
 })
 
@@ -296,7 +321,7 @@ describe('estaDesactualizada', () => {
 
   it.each([
     ['el nivel', { ...base, nivel: '61' }],
-    ['la estrella', { ...base, estrellaActual: '3' }],
+    ['la etapa de estrella', { ...base, etapaEstrella: '3' }],
     ['la personalidad', { ...base, personalidad: ['I', 'N', 'F', 'J'] as const }],
     ['un potencial', { ...base, stats: { ...base.stats, ps: { ...base.stats.ps, potencial: '12' } } }],
     ['el nivel de un objeto', { ...base, objetos: [{ ...base.objetos[0]!, nivel: '16' }, base.objetos[1]!] }]

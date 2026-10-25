@@ -246,3 +246,104 @@ def test_la_ficha_rechaza_pedidos_de_calculo_y_no_guarda_nada(
 
     assert respuesta.status_code == 422
     assert usuario_a.get(_ruta(team_id, 1)).json() == {"aniimo": None}
+
+
+def test_fecha_de_parche_y_etapa_de_estrella_hacen_ida_y_vuelta(
+    usuario_a: ClienteAutenticado, team_id: str
+) -> None:
+    ficha = ficha_de_referencia()
+    ficha["fecha_parche"] = "2026-10-26"
+    ficha["etapa_estrella"] = 6
+
+    respuesta = usuario_a.put(_ruta(team_id, 1), json=ficha)
+
+    assert respuesta.status_code == 200
+    guardada = respuesta.json()["aniimo"]
+    assert guardada["fecha_parche"] == "2026-10-26"
+    assert guardada["etapa_estrella"] == 6
+    assert guardada["entrenamiento"]["estrella_actual"] == 2
+    leida = usuario_a.get(_ruta(team_id, 1)).json()["aniimo"]
+    assert (leida["fecha_parche"], leida["etapa_estrella"]) == ("2026-10-26", 6)
+
+
+def test_sin_fecha_ni_etapa_quedan_en_null_y_siempre_vienen_en_la_respuesta(
+    usuario_a: ClienteAutenticado, team_id: str
+) -> None:
+    ficha = ficha_de_referencia()
+    del ficha["fecha_parche"]
+    del ficha["etapa_estrella"]
+
+    respuesta = usuario_a.put(_ruta(team_id, 1), json=ficha)
+
+    assert respuesta.status_code == 200
+    guardada = respuesta.json()["aniimo"]
+    assert guardada["fecha_parche"] is None
+    assert guardada["etapa_estrella"] is None
+    assert guardada["entrenamiento"]["estrella_actual"] == 2
+
+
+def test_reemplazo_completo_vacia_la_fecha_y_la_etapa(
+    usuario_a: ClienteAutenticado, team_id: str
+) -> None:
+    usuario_a.put(_ruta(team_id, 1), json=ficha_de_referencia())
+    nueva = ficha_de_referencia()
+    del nueva["fecha_parche"]
+    del nueva["etapa_estrella"]
+
+    usuario_a.put(_ruta(team_id, 1), json=nueva)
+
+    leida = usuario_a.get(_ruta(team_id, 1)).json()["aniimo"]
+    assert (leida["fecha_parche"], leida["etapa_estrella"]) == (None, None)
+
+
+def test_la_etapa_cero_se_guarda_y_no_es_lo_mismo_que_sin_cargar(
+    usuario_a: ClienteAutenticado, team_id: str
+) -> None:
+    ficha = ficha_de_referencia()
+    ficha["etapa_estrella"] = 0
+
+    usuario_a.put(_ruta(team_id, 1), json=ficha)
+
+    assert usuario_a.get(_ruta(team_id, 1)).json()["aniimo"]["etapa_estrella"] == 0
+
+
+def test_la_etapa_no_se_deriva_de_la_estrella_actual(
+    usuario_a: ClienteAutenticado, team_id: str
+) -> None:
+    ficha = ficha_de_referencia()
+    del ficha["etapa_estrella"]
+    ficha["entrenamiento"]["estrella_actual"] = 5
+
+    usuario_a.put(_ruta(team_id, 1), json=ficha)
+
+    leida = usuario_a.get(_ruta(team_id, 1)).json()["aniimo"]
+    assert leida["etapa_estrella"] is None
+    assert leida["entrenamiento"]["estrella_actual"] == 5
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [
+        ("fecha_parche", "26/10/2026"),
+        ("fecha_parche", "2026-02-30"),
+        ("fecha_parche", "2019-12-31"),
+        ("fecha_parche", "2100-01-01"),
+        ("fecha_parche", 20261026),
+        ("etapa_estrella", 8),
+        ("etapa_estrella", -1),
+        ("etapa_estrella", "6"),
+        ("etapa_estrella", 6.5),
+    ],
+)
+def test_fecha_o_etapa_invalida_responde_422_sin_eco_y_no_guarda(
+    usuario_a: ClienteAutenticado, team_id: str, campo: str, valor: object
+) -> None:
+    ficha = ficha_de_referencia()
+    ficha[campo] = valor
+
+    respuesta = usuario_a.put(_ruta(team_id, 1), json=ficha)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"][0]["loc"] == ["body", campo]
+    assert str(valor) not in respuesta.text
+    assert usuario_a.get(_ruta(team_id, 1)).json() == {"aniimo": None}

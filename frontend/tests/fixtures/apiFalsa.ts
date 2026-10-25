@@ -12,7 +12,11 @@ import type {
   Solicitud
 } from '../../src/shared/amigos'
 import type { ResultadoAuth, ResultadoSesion } from '../../src/shared/auth'
-import type { ResultadoCalcular, ResultadoCatalogo } from '../../src/shared/calculo'
+import type {
+  ResultadoCalcular,
+  ResultadoCatalogo,
+  ResultadoPotencial
+} from '../../src/shared/calculo'
 import type { ResultadoOverlay, ResultadoSeleccion } from '../../src/shared/overlay'
 import type {
   FichaDeAmigo,
@@ -25,7 +29,7 @@ import type {
   TeamDeAmigo,
   TeamResumen
 } from '../../src/shared/teams'
-import { catalogoDeReferencia, sugerenciaDeReferencia } from './calculo'
+import { catalogoDeReferencia, potencialDeReferencia, sugerenciaDeReferencia } from './calculo'
 import { fichaDeReferencia, omitir } from './ficha'
 
 export const SESION_DE_AXEL: ResultadoSesion = { ok: true, nombreUsuario: 'axel' }
@@ -179,6 +183,10 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     calcular: async (): Promise<ResultadoCalcular> => ({
       ok: true,
       sugerencia: sugerenciaDeReferencia()
+    }),
+    potencial: async (): Promise<ResultadoPotencial> => ({
+      ok: true,
+      potencial: potencialDeReferencia()
     }),
     ...sobrescribir.calculo
   })

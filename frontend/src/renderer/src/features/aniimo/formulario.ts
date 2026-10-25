@@ -30,6 +30,8 @@ export interface FormularioDeFicha {
   readonly personalidad: readonly [string, string, string, string]
   readonly nivel: string
   readonly cp: string
+  readonly fechaParche: string
+  readonly etapaEstrella: string
   readonly stats: Readonly<Record<CodigoDeStat, FormularioDeStat>>
   readonly estrellaActual: string
   readonly nivelRequeridoSiguienteEtapa: string
@@ -72,6 +74,8 @@ export function formularioVacio(): FormularioDeFicha {
     personalidad: ['', '', '', ''],
     nivel: '1',
     cp: '0',
+    fechaParche: '',
+    etapaEstrella: '',
     stats: Object.fromEntries(STATS.map(({ codigo }) => [codigo, STAT_VACIO])) as Record<
       CodigoDeStat,
       FormularioDeStat
@@ -123,6 +127,8 @@ export function formularioDeFicha(ficha: Ficha | FichaEntrada): FormularioDeFich
     personalidad: [letras[0] ?? '', letras[1] ?? '', letras[2] ?? '', letras[3] ?? ''],
     nivel: String(ficha.nivel),
     cp: String(ficha.cp),
+    fechaParche: ficha.fechaParche ?? '',
+    etapaEstrella: ficha.etapaEstrella === null ? '' : String(ficha.etapaEstrella),
     stats: Object.fromEntries(
       STATS.map(({ codigo }) => {
         const stat = ficha.stats[codigo]

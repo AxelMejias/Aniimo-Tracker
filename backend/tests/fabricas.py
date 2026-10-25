@@ -169,6 +169,8 @@ def ficha_de_referencia() -> dict[str, Any]:
         "personalidad": "ENFJ",
         "nivel": 60,
         "cp": 3475,
+        "fecha_parche": "2026-10-26",
+        "etapa_estrella": 6,
         "stats": {
             "ps": stat(11321, 11, 120),
             "atq": stat(723, 20, 0, "Tope de potencial"),

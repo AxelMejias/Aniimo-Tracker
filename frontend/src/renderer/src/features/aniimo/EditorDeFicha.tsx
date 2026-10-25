@@ -1,6 +1,7 @@
 import { useEffect, useState, type ClipboardEvent, type FormEvent, type ReactElement } from 'react'
 import type { ErrorDeTeams, Ficha } from '../../../../shared/teams'
 import Confirmacion from '../../shared/components/Confirmacion'
+import { useCatalogoCompartido } from '../calculo/useCatalogo'
 import { mensajeDeErrorDeTeams } from '../teams/mensajes'
 import {
   BloqueDeEntrenamiento,
@@ -67,6 +68,7 @@ export default function EditorDeFicha({
   const [pendiente, setPendiente] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
 
+  const catalogo = useCatalogoCompartido(alSesionVencida)
   const tieneImagenGuardada = inicial?.tieneImagen ?? false
 
   useEffect(() => {
@@ -227,7 +229,7 @@ export default function EditorDeFicha({
           />
         }
       />
-      <BloqueDeStats {...propiedades} alSesionVencida={alSesionVencida} />
+      <BloqueDeStats {...propiedades} catalogo={catalogo} alSesionVencida={alSesionVencida} />
       <BloqueDeEntrenamiento {...propiedades} />
       <BloqueDeObjetos {...propiedades} />
       <BloqueDeNotas {...propiedades} />

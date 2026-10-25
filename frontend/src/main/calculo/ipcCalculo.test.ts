@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { catalogoDeReferencia, pedidoDeReferencia, sugerenciaDeReferencia } from '../../../tests/fixtures/calculo'
+import {
+  catalogoDeReferencia,
+  pedidoDePotencialDeReferencia,
+  pedidoDeReferencia,
+  potencialDeReferencia,
+  sugerenciaDeReferencia
+} from '../../../tests/fixtures/calculo'
 import { CANALES_CALCULO } from '../../shared/calculo'
 import type { EventoIpc, IpcPrincipal } from '../auth/ipcAuth'
 import type { ClienteCalculo } from './clienteCalculo'
@@ -20,6 +26,7 @@ function preparar(sobrescribir: Partial<ClienteCalculo> = {}) {
   const cliente = {
     obtenerCatalogo: vi.fn(async () => ({ ok: true as const, catalogo: catalogoDeReferencia() })),
     calcular: vi.fn(async () => ({ ok: true as const, sugerencia: sugerenciaDeReferencia() })),
+    potencial: vi.fn(async () => ({ ok: true as const, potencial: potencialDeReferencia() })),
     ...sobrescribir
   } satisfies ClienteCalculo
   registrarManejadoresDeCalculo(ipc, cliente, URL_APP)
@@ -36,11 +43,11 @@ function preparar(sobrescribir: Partial<ClienteCalculo> = {}) {
 const DATOS_INVALIDOS = { ok: false, error: 'datos-invalidos' }
 
 describe('registrarManejadoresDeCalculo', () => {
-  it('registra exactamente los dos canales de calculo', () => {
+  it('registra exactamente los tres canales de calculo', () => {
     const { manejadores } = preparar()
 
     expect([...manejadores.keys()].sort()).toEqual(Object.values(CANALES_CALCULO).sort())
-    expect(manejadores.size).toBe(2)
+    expect(manejadores.size).toBe(3)
   })
 
   it('obtener-catalogo con remitente propio llama al cliente', async () => {
@@ -63,7 +70,8 @@ describe('registrarManejadoresDeCalculo', () => {
 
   it.each([
     [CANALES_CALCULO.obtenerCatalogo, undefined],
-    [CANALES_CALCULO.calcular, pedidoDeReferencia()]
+    [CANALES_CALCULO.calcular, pedidoDeReferencia()],
+    [CANALES_CALCULO.potencial, pedidoDePotencialDeReferencia()]
   ])('%s con remitente ajeno responde datos-invalidos sin llamar al cliente', async (canal, payload) => {
     const { cliente, invocar } = preparar()
 
@@ -72,6 +80,7 @@ describe('registrarManejadoresDeCalculo', () => {
     }
     expect(cliente.obtenerCatalogo).not.toHaveBeenCalled()
     expect(cliente.calcular).not.toHaveBeenCalled()
+    expect(cliente.potencial).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -95,6 +104,50 @@ describe('registrarManejadoresDeCalculo', () => {
 
     expect(
       await invocar(CANALES_CALCULO.calcular, ORIGEN_PROPIO, pedidoDeReferencia())
+    ).toEqual({ ok: false, error: 'error-inesperado' })
+  })
+})
+
+
+describe('canal de potencial', () => {
+  it('con remitente propio y pedido valido llama al cliente con el pedido', async () => {
+    const { cliente, invocar } = preparar()
+
+    const resultado = await invocar(
+      CANALES_CALCULO.potencial,
+      ORIGEN_PROPIO,
+      pedidoDePotencialDeReferencia()
+    )
+
+    expect(resultado).toMatchObject({ ok: true })
+    expect(cliente.potencial).toHaveBeenCalledWith(pedidoDePotencialDeReferencia())
+  })
+
+  it.each([
+    ['usados mayor que total', { ...pedidoDePotencialDeReferencia(), despertaresUsados: 44 }],
+    ['fecha invalida', { ...pedidoDePotencialDeReferencia(), fechaParche: '2026-13-01' }],
+    ['clave extra', { ...pedidoDePotencialDeReferencia(), extra: 1 }],
+    ['con estrellaActual', { ...pedidoDePotencialDeReferencia(), estrellaActual: 2 }],
+    ['null', null],
+    ['undefined', undefined]
+  ])('con payload invalido (%s) no llama al cliente', async (_caso, payload) => {
+    const { cliente, invocar } = preparar()
+
+    expect(await invocar(CANALES_CALCULO.potencial, ORIGEN_PROPIO, payload)).toEqual(
+      DATOS_INVALIDOS
+    )
+    expect(cliente.potencial).not.toHaveBeenCalled()
+  })
+
+  it('una excepcion del cliente se traduce a error-inesperado', async () => {
+    const { invocar } = preparar({
+      potencial: vi.fn(async () => {
+        throw new Error('boom')
+      })
+    })
+
+    expect(
+      await invocar(CANALES_CALCULO.potencial, ORIGEN_PROPIO, pedidoDePotencialDeReferencia())
     ).toEqual({ ok: false, error: 'error-inesperado' })
   })
 })

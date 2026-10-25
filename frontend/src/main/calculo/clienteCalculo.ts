@@ -2,8 +2,10 @@ import type {
   CodigoDeErrorDeCalculo,
   ErrorDeCalculo,
   PedidoCalcular,
+  PedidoPotencial,
   ResultadoCalcular,
-  ResultadoCatalogo
+  ResultadoCatalogo,
+  ResultadoPotencial
 } from '../../shared/calculo'
 import type { SesionEnMemoria } from '../auth/sesionEnMemoria'
 import {
@@ -14,11 +16,18 @@ import {
   type Peticion
 } from '../backend/peticion'
 import { registro, RespuestaInvalida, lista } from '../teams/mapeo'
-import { catalogoDeApi, pedidoAApi, sugerenciaDeApi } from './mapeo'
+import {
+  catalogoDeApi,
+  pedidoAApi,
+  pedidoDePotencialAApi,
+  potencialDeApi,
+  sugerenciaDeApi
+} from './mapeo'
 
 export interface ClienteCalculo {
   obtenerCatalogo(): Promise<ResultadoCatalogo>
   calcular(pedido: PedidoCalcular): Promise<ResultadoCalcular>
+  potencial(pedido: PedidoPotencial): Promise<ResultadoPotencial>
 }
 
 function fallo(error: CodigoDeErrorDeCalculo): ErrorDeCalculo {
@@ -89,6 +98,13 @@ export function crearClienteCalculo(fetchFn: FetchFn, sesion: SesionEnMemoria): 
         '/calculo/stats',
         (cuerpo) => ({ ok: true as const, sugerencia: sugerenciaDeApi(cuerpo) }),
         { json: pedidoAApi(pedido) }
+      ),
+    potencial: (pedido) =>
+      ejecutar(
+        'POST',
+        '/calculo/potencial',
+        (cuerpo) => ({ ok: true as const, potencial: potencialDeApi(cuerpo) }),
+        { json: pedidoDePotencialAApi(pedido) }
       )
   }
 }

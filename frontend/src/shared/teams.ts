@@ -86,6 +86,8 @@ export interface FichaBase {
   readonly personalidad: string | null
   readonly nivel: number
   readonly cp: number
+  readonly fechaParche: string | null
+  readonly etapaEstrella: number | null
   readonly stats: Readonly<Record<CodigoDeStat, ValoresDeStat>>
   readonly entrenamiento: Entrenamiento
   readonly objetos: readonly Objeto[]

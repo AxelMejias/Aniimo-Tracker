@@ -31,6 +31,7 @@ PROTEGIDAS = {
     ("DELETE", "/api/amigos/{usuario_id}"),
     ("GET", "/api/calculo/catalogo"),
     ("POST", "/api/calculo/stats"),
+    ("POST", "/api/calculo/potencial"),
     ("GET", "/api/amigos/{usuario_id}/teams"),
     ("GET", "/api/amigos/{usuario_id}/teams/{team_id}/aniimo/{slot}"),
     ("GET", "/api/amigos/{usuario_id}/teams/{team_id}/aniimo/{slot}/imagen"),

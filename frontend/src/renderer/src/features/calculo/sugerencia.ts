@@ -40,12 +40,18 @@ export function porNombre(
   return candidatos.find((c) => sinTildesNiMayusculas(c.nombre) === buscado)?.id ?? null
 }
 
-function enteroEntre(texto: string, minimo: number, maximo: number): number | null {
+export function enteroEntre(texto: string, minimo: number, maximo: number): number | null {
   const valor = enteroDeTexto(texto)
   return valor !== null && valor >= minimo && valor <= maximo ? valor : null
 }
 
-function personalidadDe(letras: FormularioDeFicha['personalidad']): string | null | undefined {
+export const MENSAJE_SIN_ETAPA = 'Cargá la etapa de estrella (T0-T7)'
+
+export function etapaDeEstrella(texto: string): number | null {
+  return enteroEntre(texto, 0, 7)
+}
+
+export function personalidadDe(letras: FormularioDeFicha['personalidad']): string | null | undefined {
   const completas = letras.filter((letra) => letra !== '').length
   if (completas === 0) {
     return null
@@ -81,9 +87,9 @@ export function entradaDesdeFormulario(
   if (nivel === null) {
     return { ok: false, motivo: 'Revisá el nivel: debe ser un número entre 1 y 999' }
   }
-  const estrellaActual = enteroEntre(formulario.estrellaActual, 0, 99)
-  if (estrellaActual === null) {
-    return { ok: false, motivo: 'Revisá la estrella actual: debe ser un número entre 0 y 99' }
+  const etapaEstrella = etapaDeEstrella(formulario.etapaEstrella)
+  if (etapaEstrella === null) {
+    return { ok: false, motivo: MENSAJE_SIN_ETAPA }
   }
   const personalidad = personalidadDe(formulario.personalidad)
   if (personalidad === undefined) {
@@ -106,7 +112,7 @@ export function entradaDesdeFormulario(
   }
   return {
     ok: true,
-    pedido: { especieId, nivel, potenciales, estrellaActual, personalidad, objetos }
+    pedido: { especieId, nivel, potenciales, etapaEstrella, personalidad, objetos }
   }
 }
 

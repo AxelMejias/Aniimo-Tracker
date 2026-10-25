@@ -32,6 +32,8 @@ _CAMPOS_DEL_ANIIMO = (
     "nivel",
     "cp",
     "estrella_actual",
+    "etapa_estrella",
+    "fecha_parche",
     "nivel_requerido_siguiente_etapa",
     "ganancia_despertar",
     "ganancia_seis_potenciales",

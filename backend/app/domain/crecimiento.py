@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
@@ -25,11 +26,21 @@ class Interpolacion(StrEnum):
     LINEAL = "lineal"
 
 
+class Confianza(StrEnum):
+    OFICIAL = "oficial"
+    MEDIDO = "medido"
+    FAN = "fan"
+    INFERIDO = "inferido"
+    CONTRADICTORIO = "contradictorio"
+    EJEMPLO = "ejemplo"
+
+
 class TipoDeTermino(StrEnum):
     BASE = "base"
     PORCENTAJE = "porcentaje"
     PLANO = "plano"
     PESO = "peso"
+    PUNTOS = "puntos"
 
 
 class MotivoDeValor(StrEnum):
@@ -49,6 +60,8 @@ class NotaDeObjeto(StrEnum):
 
 class Seccion(StrEnum):
     POTENCIAL = "potencial"
+    ETAPAS_DE_ESTRELLA = "etapas_de_estrella"
+    DESPERTAR = "despertar"
     ESTRELLAS = "estrellas"
     PERSONALIDAD = "personalidad"
     OBJETOS = "objetos"
@@ -79,8 +92,71 @@ class Especie:
 
 @dataclass(frozen=True, slots=True)
 class EtapaDeEstrella:
-    estrella: int
+    etapa: int
     modificadores: ModificadoresPorStat
+
+
+@dataclass(frozen=True, slots=True)
+class ParametrosDePotencial:
+    confianza: Confianza
+    por_punto: Decimal
+    salto_cada: int
+    salto_porcentaje: Decimal
+    cuenta_estrella: bool
+    cuenta_objeto: bool
+
+
+@dataclass(frozen=True, slots=True)
+class EtapaDeEstrellaConBonos:
+    etapa: int
+    bono_potencial: int
+    bono_cupo: int
+
+
+@dataclass(frozen=True, slots=True)
+class EtapasDeEstrella:
+    confianza: Confianza
+    etapas: tuple[EtapaDeEstrellaConBonos, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AumentoDeCupo:
+    nivel: int
+    suma: int
+
+
+@dataclass(frozen=True, slots=True)
+class ParametrosDeDespertar:
+    confianza: Confianza
+    aumentos_por_nivel: tuple[AumentoDeCupo, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class OtroEfecto:
+    descripcion: str
+    porcentaje: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class LetraDePersonalidad:
+    nombre: str
+    letra_confirmada: bool
+    confianza: Confianza
+    modificadores: ModificadoresPorStat
+    otros: tuple[OtroEfecto, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CambioConocido:
+    fecha: date
+    descripcion: str
+    confianza: Confianza
+
+
+@dataclass(frozen=True, slots=True)
+class BonoDePotencialDeObjeto:
+    desde_nivel: int
+    stats: Mapping[Stat, int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +170,7 @@ class ObjetoDelCatalogo:
     id: str
     nombre: str
     niveles: tuple[NivelDeObjeto, ...]
+    bono_potencial: BonoDePotencialDeObjeto | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,14 +182,20 @@ class FormulaDeCp:
 
 @dataclass(frozen=True, slots=True)
 class Catalogo:
+    formato: int
     version: str
     es_ejemplo: bool
+    estimacion_verificada: bool
+    fecha_parche: date
+    cambios_conocidos: tuple[CambioConocido, ...]
     redondeo: Redondeo
     interpolacion: Interpolacion
     especies: tuple[Especie, ...]
-    potencial: Mapping[Stat, Modificador] | None
+    potencial: ParametrosDePotencial | None
+    etapas_de_estrella: EtapasDeEstrella | None
+    despertar: ParametrosDeDespertar | None
     estrellas: tuple[EtapaDeEstrella, ...] | None
-    personalidad: Mapping[str, ModificadoresPorStat] | None
+    personalidad: Mapping[str, LetraDePersonalidad] | None
     objetos: tuple[ObjetoDelCatalogo, ...] | None
     cp: FormulaDeCp | None
 
@@ -129,7 +212,7 @@ class EntradaDeCalculo:
     especie_id: str
     nivel: int
     potenciales: Mapping[Stat, int]
-    estrella_actual: int
+    etapa_estrella: int
     personalidad: str | None
     objetos: tuple[ObjetoDeLaEntrada, ...]
 
@@ -212,20 +295,76 @@ def _base_en_el_nivel(
     return Decimal(puntos[-1].valor), False
 
 
-def _sumar_potencial_estrellas_y_personalidad(
+def multiplicador_de_potencial(n: int, parametros: ParametrosDePotencial) -> Decimal:
+    saltos = n // parametros.salto_cada
+    por_puntos = 1 + parametros.por_punto * n / _CIEN
+    por_saltos = 1 + parametros.salto_porcentaje * saltos / _CIEN
+    return por_puntos * por_saltos
+
+
+def bono_de_estrella(catalogo: Catalogo, etapa_estrella: int) -> int:
+    parametros = catalogo.potencial
+    etapas = catalogo.etapas_de_estrella
+    if parametros is None or etapas is None or not parametros.cuenta_estrella:
+        return 0
+    return sum(e.bono_potencial for e in etapas.etapas if e.etapa <= etapa_estrella)
+
+
+def bono_de_objeto(catalogo: Catalogo, objeto: ObjetoDelCatalogo, nivel: int, stat: Stat) -> int:
+    parametros = catalogo.potencial
+    bono = objeto.bono_potencial
+    if parametros is None or not parametros.cuenta_objeto or bono is None:
+        return 0
+    return bono.stats.get(stat, 0) if nivel >= bono.desde_nivel else 0
+
+
+def _sumar_estrellas_y_personalidad(
     acumulado: _Acumulado, catalogo: Catalogo, entrada: EntradaDeCalculo, stat: Stat
 ) -> None:
-    puntos = entrada.potenciales[stat]
-    if catalogo.potencial is not None and stat in catalogo.potencial and puntos > 0:
-        acumulado.sumar("potencial", f"potencial {puntos}", catalogo.potencial[stat], puntos)
     for etapa in catalogo.estrellas or ():
-        if etapa.estrella <= entrada.estrella_actual:
+        if etapa.etapa <= entrada.etapa_estrella:
             for modificador in etapa.modificadores.get(stat, ()):
-                acumulado.sumar("estrella", f"estrella {etapa.estrella}", modificador)
+                acumulado.sumar("estrella", f"etapa {etapa.etapa}", modificador)
     if catalogo.personalidad is not None and entrada.personalidad is not None:
         for letra in entrada.personalidad:
-            for modificador in catalogo.personalidad.get(letra, {}).get(stat, ()):
+            datos = catalogo.personalidad.get(letra)
+            for modificador in () if datos is None else datos.modificadores.get(stat, ()):
                 acumulado.sumar("personalidad", letra, modificador)
+
+
+def _intermedio_con_potencial(
+    valor_base: Decimal,
+    n: int,
+    parametros: ParametrosDePotencial | None,
+    acumulado: _Acumulado,
+) -> Decimal:
+    if parametros is None:
+        return acumulado.aplicar_a(valor_base)
+    saltos = n // parametros.salto_cada
+    crecimiento = valor_base * (1 + parametros.por_punto * n / _CIEN)
+    porcentaje = acumulado.porcentaje + parametros.salto_porcentaje * saltos
+    return (crecimiento + acumulado.plano) * (1 + porcentaje / _CIEN)
+
+
+def _terminos_de_potencial(parametros: ParametrosDePotencial, n: int) -> list[TerminoDeDesglose]:
+    terminos: list[TerminoDeDesglose] = []
+    if n > 0:
+        terminos.append(
+            TerminoDeDesglose(
+                "potencial", f"N {n}", TipoDeTermino.PORCENTAJE, parametros.por_punto * n
+            )
+        )
+    saltos = n // parametros.salto_cada
+    if saltos > 0:
+        terminos.append(
+            TerminoDeDesglose(
+                "salto",
+                f"{saltos} saltos",
+                TipoDeTermino.PORCENTAJE,
+                parametros.salto_porcentaje * saltos,
+            )
+        )
+    return terminos
 
 
 @dataclass(frozen=True, slots=True)
@@ -278,21 +417,55 @@ def _calcular_stat(
         return SugerenciaDeValor(None, None, False, base, ())
     valor_base, aproximado = base
     desglose = [TerminoDeDesglose("base", f"nivel {entrada.nivel}", TipoDeTermino.BASE, valor_base)]
+    parametros = catalogo.potencial
+    n = entrada.potenciales[stat] + bono_de_estrella(catalogo, entrada.etapa_estrella)
+    if parametros is not None:
+        desglose += _terminos_de_potencial(parametros, n)
     acumulado = _Acumulado(Decimal(0), Decimal(0), desglose)
-    _sumar_potencial_estrellas_y_personalidad(acumulado, catalogo, entrada, stat)
-    intermedio = acumulado.aplicar_a(valor_base)
+    _sumar_estrellas_y_personalidad(acumulado, catalogo, entrada, stat)
+    intermedio = _intermedio_con_potencial(valor_base, n, parametros, acumulado)
     valor = _valor_no_negativo(intermedio, catalogo.redondeo)
     valor_con_objetos = valor
-    if objeto is not None and stat in objeto.nivel.modificadores:
-        del_objeto = _Acumulado(Decimal(0), Decimal(0), desglose)
-        detalle = f"{objeto.objeto.nombre} nivel {objeto.nivel.nivel}"
-        for modificador in objeto.nivel.modificadores[stat]:
-            del_objeto.sumar("objeto", detalle, modificador)
-        valor_con_objetos = _valor_no_negativo(del_objeto.aplicar_a(intermedio), catalogo.redondeo)
+    if objeto is not None:
+        valor_con_objetos = _valor_con_objeto(
+            catalogo, objeto, stat, valor_base, n, acumulado, intermedio
+        )
     motivo = (
         MotivoDeValor.RESULTADO_INVALIDO if valor is None or valor_con_objetos is None else None
     )
     return SugerenciaDeValor(valor, valor_con_objetos, aproximado, motivo, tuple(desglose))
+
+
+def _valor_con_objeto(
+    catalogo: Catalogo,
+    objeto: _ObjetoAplicado,
+    stat: Stat,
+    valor_base: Decimal,
+    n: int,
+    acumulado: _Acumulado,
+    intermedio: Decimal,
+) -> int | None:
+    detalle = f"{objeto.objeto.nombre} nivel {objeto.nivel.nivel}"
+    bono = bono_de_objeto(catalogo, objeto.objeto, objeto.nivel.nivel, stat)
+    modificadores = objeto.nivel.modificadores.get(stat, ())
+    if bono == 0 and not modificadores:
+        return _valor_no_negativo(intermedio, catalogo.redondeo)
+    if bono > 0:
+        acumulado.desglose.append(
+            TerminoDeDesglose(
+                "objeto", f"{detalle}: +{bono} potencial", TipoDeTermino.PUNTOS, Decimal(bono)
+            )
+        )
+    del_objeto = _Acumulado(Decimal(0), Decimal(0), acumulado.desglose)
+    for modificador in modificadores:
+        del_objeto.sumar("objeto", detalle, modificador)
+    con_el_objeto = _Acumulado(
+        acumulado.porcentaje + del_objeto.porcentaje, acumulado.plano, acumulado.desglose
+    )
+    intermedio_con_objeto = _intermedio_con_potencial(
+        valor_base, n + bono, catalogo.potencial, con_el_objeto
+    )
+    return _valor_no_negativo(intermedio_con_objeto + del_objeto.plano, catalogo.redondeo)
 
 
 def _total_de_cp(
@@ -366,6 +539,8 @@ def _calcular_cp(
 def secciones_sin_datos(catalogo: Catalogo) -> tuple[str, ...]:
     presentes = {
         Seccion.POTENCIAL: catalogo.potencial,
+        Seccion.ETAPAS_DE_ESTRELLA: catalogo.etapas_de_estrella,
+        Seccion.DESPERTAR: catalogo.despertar,
         Seccion.ESTRELLAS: catalogo.estrellas,
         Seccion.PERSONALIDAD: catalogo.personalidad,
         Seccion.OBJETOS: catalogo.objetos,

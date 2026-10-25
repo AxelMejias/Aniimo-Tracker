@@ -9,6 +9,8 @@ export function fichaDeReferencia(): FichaEntrada {
     personalidad: 'ENFJ',
     nivel: 60,
     cp: 3475,
+    fechaParche: '2026-10-26',
+    etapaEstrella: 6,
     stats: {
       ps: { valorActual: 11321, potencial: 11, bonoEstrellasIncluido: 120, notas: null },
       atq: { valorActual: 723, potencial: 20, bonoEstrellasIncluido: 0, notas: 'Tope de potencial' },
@@ -80,6 +82,8 @@ export function entradaDeApiDeReferencia(): Record<string, unknown> {
     personalidad: 'ENFJ',
     nivel: 60,
     cp: 3475,
+    fecha_parche: '2026-10-26',
+    etapa_estrella: 6,
     stats: {
       ps: statDeApi(11321, 11, 120, null),
       atq: statDeApi(723, 20, 0, 'Tope de potencial'),

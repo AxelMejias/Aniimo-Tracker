@@ -163,3 +163,45 @@ export function CampoDeCasilla({
     </div>
   )
 }
+
+interface CampoDeFechaProps extends BaseDeCampo {
+  readonly valor: string
+  readonly alCambiar: (valor: string) => void
+  readonly ayuda?: string
+}
+
+export function CampoDeFecha({
+  etiqueta,
+  valor,
+  alCambiar,
+  error,
+  deshabilitado,
+  ayuda
+}: CampoDeFechaProps): ReactElement {
+  const id = useId()
+  const idError = `${id}-error`
+  const idAyuda = `${id}-ayuda`
+  return (
+    <div className="campo">
+      <label className="campo__etiqueta" htmlFor={id}>
+        {etiqueta}
+      </label>
+      <input
+        className="campo__control"
+        id={id}
+        type="date"
+        value={valor}
+        disabled={deshabilitado}
+        aria-invalid={error === undefined ? undefined : true}
+        aria-describedby={error === undefined ? idAyuda : `${idAyuda} ${idError}`}
+        onChange={(evento) => alCambiar(evento.target.value)}
+      />
+      {ayuda !== undefined && (
+        <p className="campo__ayuda" id={idAyuda}>
+          {ayuda}
+        </p>
+      )}
+      {error !== undefined && <MensajeDeCampo id={idError} mensaje={error} />}
+    </div>
+  )
+}

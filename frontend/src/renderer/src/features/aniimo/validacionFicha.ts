@@ -7,6 +7,7 @@ import {
   STATS,
   type CodigoDeStat
 } from '../../../../shared/catalogos'
+import { esFechaDeParche } from '../../../../shared/parche'
 import {
   LARGO_MAXIMO_EFECTO_NUCLEO,
   LARGO_MAXIMO_NOMBRE_CORTO,
@@ -44,16 +45,30 @@ export const MENSAJE_DE_NOMBRE = `El nombre debe tener entre 1 y ${LARGO_MAXIMO_
 export const MENSAJE_DE_POTENCIAL = `El potencial debe estar entre 0 y ${POTENCIAL_MAXIMO}`
 export const MENSAJE_DE_PERSONALIDAD = 'Completá las cuatro letras o dejá todas vacías'
 export const MENSAJE_DE_DESPERTARES = 'No pueden superar los despertares totales'
+export const MENSAJE_DE_FECHA_DE_PARCHE = 'Ingresá una fecha válida entre 2020 y 2099'
 export const MENSAJE_DE_CAMPO_DEL_BACKEND = 'Valor no válido'
 
 const CLAVE_DE_CAMPO = new RegExp(
-  '^(nombre|elemento|rol|potencial_innato|personalidad|nivel|cp|notas|notas_habilidades|' +
+  '^(nombre|elemento|rol|potencial_innato|personalidad|nivel|cp|fecha_parche|etapa_estrella|notas|' +
+    'notas_habilidades|' +
     `stats\\.(${STATS.map((s) => s.codigo).join('|')})\\.(valor_actual|potencial|bono_estrellas_incluido|notas)|` +
     'entrenamiento\\.(estrella_actual|nivel_requerido_siguiente_etapa|ganancia_despertar|' +
     'ganancia_seis_potenciales|despertares_total|despertares_usados)|' +
     'entrenamiento\\.materiales\\.\\d+\\.(nombre|tengo|necesito)|' +
     'objetos\\.\\d+\\.(nombre|rareza|nivel|contrato|efecto_nucleo_notas))$'
 )
+
+function convertirFechaDeParche(texto: string, r: Recolector): string | null {
+  const limpio = texto.trim()
+  if (limpio === '') {
+    return null
+  }
+  if (!esFechaDeParche(limpio)) {
+    r.errores.fecha_parche = MENSAJE_DE_FECHA_DE_PARCHE
+    return null
+  }
+  return limpio
+}
 
 function mensajeDeRango(minimo: number, maximo: number): string {
   return `Debe ser un número entero entre ${minimo} y ${maximo}`
@@ -256,6 +271,8 @@ export function convertirFormulario(formulario: FormularioDeFicha): ResultadoDeC
     personalidad: convertirPersonalidad(formulario, r),
     nivel: r.entero('nivel', formulario.nivel, 1, 999),
     cp: r.entero('cp', formulario.cp, 0, TOPE_GRANDE),
+    fechaParche: convertirFechaDeParche(formulario.fechaParche, r),
+    etapaEstrella: r.enteroOpcional('etapa_estrella', formulario.etapaEstrella, 0, 7),
     stats: convertirStats(formulario, r),
     entrenamiento,
     objetos,

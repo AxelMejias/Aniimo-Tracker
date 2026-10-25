@@ -136,3 +136,9 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-small);
 }
+
+.campo__ayuda {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}

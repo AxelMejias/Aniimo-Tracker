@@ -613,3 +613,170 @@ describe('sugerencia de stats', () => {
     expect(screen.queryByText('Sugerencia de stats')).toBeNull()
   })
 })
+
+describe('parche del juego', () => {
+  it('muestra la fecha guardada, el texto de ayuda y la envia sin cambios', async () => {
+    const api = instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+
+    expect(campo('Parche del juego').value).toBe('2026-10-26')
+    expect(campo('Parche del juego').type).toBe('date')
+    expect(
+      screen.getByText(/fecha del parche del juego al que corresponden los datos/i)
+    ).toBeInTheDocument()
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
+    expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.fechaParche).toBe('2026-10-26')
+  })
+
+  it('cargar otra fecha la envia como fechaParche', async () => {
+    const api = instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+    escribir('Parche del juego', '2026-09-23')
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
+    expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.fechaParche).toBe('2026-09-23')
+  })
+
+  it('dejarlo vacio envia null (desconocida)', async () => {
+    const api = instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+    escribir('Parche del juego', '')
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
+    expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.fechaParche).toBeNull()
+  })
+
+  it('una ficha nueva lo muestra vacio', async () => {
+    instalarApi()
+    await abrir()
+    expect(campo('Parche del juego').value).toBe('')
+  })
+
+  it('una fecha fuera del rango se rechaza localmente sin llamar a la API', async () => {
+    const api = instalarApi({ teams: conFicha() })
+    await abrir()
+    escribir('Parche del juego', '2100-01-01')
+    guardar()
+    expect(await screen.findByText('Ingresá una fecha válida entre 2020 y 2099')).toBeInTheDocument()
+    expect(api.teams.guardarFicha).not.toHaveBeenCalled()
+  })
+
+  it('un error de fecha_parche del backend se muestra junto al campo', async () => {
+    instalarApi({
+      teams: {
+        ...conFicha(),
+        guardarFicha: async () => ({
+          ok: false as const,
+          error: 'datos-invalidos' as const,
+          campos: ['fecha_parche']
+        })
+      }
+    })
+    await abrir()
+    guardar()
+    expect(await screen.findByText('Valor no válido')).toBeInTheDocument()
+    expect(campo('Parche del juego')).toHaveAttribute('aria-invalid', 'true')
+  })
+})
+
+describe('etapa de estrella', () => {
+  it('ofrece exactamente Sin cargar y T0 a T7 y una ficha nueva esta en Sin cargar', async () => {
+    instalarApi()
+    await abrir()
+    const selector = screen.getByLabelText('Etapa de estrella') as HTMLSelectElement
+    expect(Array.from(selector.options).map((o) => o.text)).toEqual([
+      'Sin cargar',
+      'T0',
+      'T1',
+      'T2',
+      'T3',
+      'T4',
+      'T5',
+      'T6',
+      'T7'
+    ])
+    expect(selector.value).toBe('')
+  })
+
+  it('elegir T6 envia etapaEstrella 6 sin tocar la estrella actual', async () => {
+    const api = instalarApi({
+      teams: conFicha({ ...fichaGuardadaDeReferencia(), etapaEstrella: null })
+    })
+    const { alVolver } = await abrir()
+    expect((screen.getByLabelText('Etapa de estrella') as HTMLSelectElement).value).toBe('')
+    fireEvent.change(screen.getByLabelText('Etapa de estrella'), { target: { value: '6' } })
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
+    const ficha = api.teams.guardarFicha.mock.calls[0]?.[0].ficha
+    expect(ficha.etapaEstrella).toBe(6)
+    expect(ficha.entrenamiento.estrellaActual).toBe(2)
+  })
+
+  it('T0 se envia como 0 y es distinto de Sin cargar', async () => {
+    const api = instalarApi({
+      teams: conFicha({ ...fichaGuardadaDeReferencia(), etapaEstrella: null })
+    })
+    const { alVolver } = await abrir()
+    fireEvent.change(screen.getByLabelText('Etapa de estrella'), { target: { value: '0' } })
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
+    expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.etapaEstrella).toBe(0)
+  })
+
+  it('volver a Sin cargar envia null', async () => {
+    const api = instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+    expect((screen.getByLabelText('Etapa de estrella') as HTMLSelectElement).value).toBe('6')
+    fireEvent.change(screen.getByLabelText('Etapa de estrella'), { target: { value: '' } })
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
+    expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.etapaEstrella).toBeNull()
+  })
+
+  it('Estrella actual sigue siendo un campo aparte con su valor', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    expect(campo('Estrella actual').value).toBe('2')
+  })
+})
+
+describe('parche y etapa en la ficha de solo lectura', () => {
+  it('muestra la fecha y la etapa cargadas', () => {
+    instalarApi()
+    render(<FichaDeSoloLectura ficha={fichaGuardadaDeReferencia()} imagen={null} />)
+    expect(screen.getByText('Parche del juego')).toBeInTheDocument()
+    expect(screen.getByText('2026-10-26')).toBeInTheDocument()
+    expect(screen.getByText('Etapa de estrella')).toBeInTheDocument()
+    expect(screen.getByText('T6')).toBeInTheDocument()
+  })
+
+  it('muestra desconocido y sin cargar cuando faltan', () => {
+    instalarApi()
+    render(
+      <FichaDeSoloLectura
+        ficha={{ ...fichaGuardadaDeReferencia(), fechaParche: null, etapaEstrella: null }}
+        imagen={null}
+      />
+    )
+    expect(screen.getByText('desconocido')).toBeInTheDocument()
+    expect(screen.getByText('sin cargar')).toBeInTheDocument()
+  })
+
+  it('la etapa 0 se muestra como T0 y no como sin cargar', () => {
+    instalarApi()
+    render(
+      <FichaDeSoloLectura ficha={{ ...fichaGuardadaDeReferencia(), etapaEstrella: 0 }} imagen={null} />
+    )
+    expect(screen.getByText('T0')).toBeInTheDocument()
+    expect(screen.queryByText('sin cargar')).toBeNull()
+  })
+
+  it('sin atributos style', () => {
+    instalarApi()
+    const { container } = render(
+      <FichaDeSoloLectura ficha={fichaGuardadaDeReferencia()} imagen={null} />
+    )
+    expect(container.querySelector('[style]')).toBeNull()
+  })
+})

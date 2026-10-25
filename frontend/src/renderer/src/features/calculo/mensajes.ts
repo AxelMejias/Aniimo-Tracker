@@ -8,6 +8,9 @@ import type {
 export const TEXTO_DE_DATOS_DE_EJEMPLO =
   'Datos de ejemplo: estos números son inventados y no sirven para el juego real.'
 
+export const TEXTO_DE_ESTIMACION_SIN_VERIFICAR =
+  'Estimación sin verificar: los valores finales y el CP no están confirmados en el juego.'
+
 export const MENSAJE_SIN_ESPECIE = 'Elegí una especie del catálogo para calcular'
 
 export const MENSAJE_DESACTUALIZADA = 'La sugerencia está desactualizada: volvé a calcular.'

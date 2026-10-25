@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -457,3 +457,53 @@ def test_round_trip_de_los_flags_de_privacidad(session_factory: sessionmaker[Ses
         releido = uow.aniimos.obtener(aniimo.id)
         assert releido is not None
         assert releido.notas_privadas is False
+
+
+def test_round_trip_de_fecha_de_parche_y_etapa_de_estrella(
+    session_factory: sessionmaker[Session],
+) -> None:
+    usuario = persistir_usuario(session_factory)
+    team = persistir_team(session_factory, usuario)
+    con_datos = AniimoDelTeam(
+        team_id=team.id,
+        slot=1,
+        nombre="Con datos",
+        estrella_actual=2,
+        fecha_parche=date(2026, 10, 26),
+        etapa_estrella=6,
+    )
+    sin_datos = AniimoDelTeam(team_id=team.id, slot=2, nombre="Sin datos")
+    persistir_aniimo(session_factory, con_datos)
+    persistir_aniimo(session_factory, sin_datos)
+
+    with UnitOfWork(session_factory) as uow:
+        leidos = {a.slot: a for a in uow.aniimos.listar_por_team(team.id)}
+
+    assert leidos[1] == con_datos
+    assert (leidos[1].fecha_parche, leidos[1].etapa_estrella, leidos[1].estrella_actual) == (
+        date(2026, 10, 26),
+        6,
+        2,
+    )
+    assert (leidos[2].fecha_parche, leidos[2].etapa_estrella) == (None, None)
+
+
+def test_actualizar_la_fecha_y_la_etapa_y_volver_a_vaciarlas(
+    session_factory: sessionmaker[Session],
+) -> None:
+    usuario = persistir_usuario(session_factory)
+    team = persistir_team(session_factory, usuario)
+    aniimo = AniimoDelTeam(team_id=team.id, slot=1, nombre="A")
+    persistir_aniimo(session_factory, aniimo)
+    lleno = replace(aniimo, fecha_parche=date(2026, 9, 23), etapa_estrella=0)
+    with UnitOfWork(session_factory) as uow:
+        uow.aniimos.actualizar(lleno)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.aniimos.obtener(aniimo.id) == lleno
+        uow.aniimos.actualizar(aniimo)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        vacio = uow.aniimos.obtener(aniimo.id)
+    assert vacio is not None
+    assert (vacio.fecha_parche, vacio.etapa_estrella) == (None, None)

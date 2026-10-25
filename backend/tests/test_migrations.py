@@ -39,11 +39,11 @@ def test_upgrade_head_crea_las_tablas_del_modelo(
     assert set(inspect(base_migrable).get_table_names()) == TABLAS_DEL_MODELO | {"alembic_version"}
 
 
-def test_downgrade_de_un_paso_quita_amistad_y_las_columnas_de_privacidad(
+def test_downgrade_a_004_quita_amistad_y_las_columnas_de_privacidad(
     base_migrable: Engine, alembic_config: Config
 ) -> None:
     command.upgrade(alembic_config, "head")
-    command.downgrade(alembic_config, "-1")
+    command.downgrade(alembic_config, "004")
     inspector = inspect(base_migrable)
     assert set(inspector.get_table_names()) == TABLAS_CON_IMAGEN | {"alembic_version"}
     assert "oculto_para_amigos" not in _columnas(base_migrable, "team")
@@ -295,3 +295,90 @@ def test_el_check_de_rol_acepta_el_catalogo_nuevo_y_rechaza_el_viejo(
     _limpiar_usuarios(base_migrable)
     nombres = {c["name"] for c in inspect(base_migrable).get_check_constraints("aniimo_del_team")}
     assert "ck_aniimo_del_team_rol" in nombres
+
+
+def _crear_aniimo_con_estrella(engine: Engine, estrella: int) -> str:
+    with engine.begin() as connection:
+        usuario_id = connection.execute(
+            text(
+                "INSERT INTO usuario (id, nombre_usuario, password_hash) "
+                "VALUES (gen_random_uuid(), :nombre, 'x') RETURNING id"
+            ),
+            {"nombre": f"u{uuid4().hex[:12]}"},
+        ).scalar_one()
+        team_id = connection.execute(
+            text(
+                "INSERT INTO team (id, usuario_id, nombre, orden) "
+                "VALUES (gen_random_uuid(), :u, 'T', 1) RETURNING id"
+            ),
+            {"u": usuario_id},
+        ).scalar_one()
+        return str(
+            connection.execute(
+                text(
+                    "INSERT INTO aniimo_del_team (id, team_id, slot, nombre, estrella_actual) "
+                    "VALUES (gen_random_uuid(), :t, 1, 'A', :e) RETURNING id"
+                ),
+                {"t": team_id, "e": estrella},
+            ).scalar_one()
+        )
+
+
+def test_upgrade_head_agrega_fecha_de_parche_y_etapa_de_estrella_nulas(
+    base_migrable: Engine,
+) -> None:
+    columnas = _columnas(base_migrable, "aniimo_del_team")
+
+    assert columnas["fecha_parche"]["nullable"] is True
+    assert columnas["etapa_estrella"]["nullable"] is True
+    assert columnas["fecha_parche"]["default"] is None
+    assert columnas["etapa_estrella"]["default"] is None
+
+
+def test_los_aniimo_de_005_quedan_con_fecha_y_etapa_vacias_y_estrella_intacta(
+    base_migrable: Engine, alembic_config: Config
+) -> None:
+    command.downgrade(alembic_config, "005")
+    try:
+        aniimo_id = _crear_aniimo_con_estrella(base_migrable, 2)
+        command.upgrade(alembic_config, "head")
+        with base_migrable.connect() as connection:
+            fila = connection.execute(
+                text(
+                    "SELECT fecha_parche, etapa_estrella, estrella_actual, nombre "
+                    "FROM aniimo_del_team WHERE id = :id"
+                ),
+                {"id": aniimo_id},
+            ).one()
+        assert tuple(fila) == (None, None, 2, "A")
+    finally:
+        _limpiar_usuarios(base_migrable)
+
+
+def test_downgrade_a_005_quita_las_dos_columnas_y_conserva_el_resto(
+    base_migrable: Engine, alembic_config: Config
+) -> None:
+    command.upgrade(alembic_config, "head")
+    try:
+        aniimo_id = _crear_aniimo_con_estrella(base_migrable, 3)
+        command.downgrade(alembic_config, "005")
+        columnas = _columnas(base_migrable, "aniimo_del_team")
+        assert "fecha_parche" not in columnas
+        assert "etapa_estrella" not in columnas
+        with base_migrable.connect() as connection:
+            estrella = connection.execute(
+                text("SELECT estrella_actual FROM aniimo_del_team WHERE id = :id"),
+                {"id": aniimo_id},
+            ).scalar_one()
+        assert estrella == 3
+    finally:
+        _limpiar_usuarios(base_migrable)
+
+
+def test_los_check_de_fecha_y_etapa_tienen_el_nombre_de_la_convencion(
+    migrated_engine: Engine,
+) -> None:
+    nombres = {c["name"] for c in inspect(migrated_engine).get_check_constraints("aniimo_del_team")}
+
+    assert "ck_aniimo_del_team_fecha_parche_rango" in nombres
+    assert "ck_aniimo_del_team_etapa_estrella_rango" in nombres

@@ -8,6 +8,7 @@ import {
   STATS,
   type CodigoDeStat
 } from '../../shared/catalogos'
+import { esEtapaDeEstrella, esFechaDeParche } from '../../shared/parche'
 import type {
   Entrenamiento,
   Ficha,
@@ -89,6 +90,26 @@ function codigoONulo<T extends string>(
   return valor === null ? null : codigo(catalogo, valor)
 }
 
+function fechaDeParcheONula(valor: unknown): string | null {
+  if (valor === null) {
+    return null
+  }
+  if (!esFechaDeParche(valor)) {
+    throw new RespuestaInvalida()
+  }
+  return valor
+}
+
+function etapaONula(valor: unknown): number | null {
+  if (valor === null) {
+    return null
+  }
+  if (!esEtapaDeEstrella(valor)) {
+    throw new RespuestaInvalida()
+  }
+  return valor
+}
+
 function statAApi(stat: ValoresDeStat): Registro {
   return {
     valor_actual: stat.valorActual,
@@ -108,6 +129,8 @@ export function fichaAApi(ficha: FichaEntrada): Registro {
     personalidad: ficha.personalidad,
     nivel: ficha.nivel,
     cp: ficha.cp,
+    fecha_parche: ficha.fechaParche,
+    etapa_estrella: ficha.etapaEstrella,
     stats: Object.fromEntries(STATS.map(({ codigo: c }) => [c, statAApi(ficha.stats[c])])),
     entrenamiento: {
       estrella_actual: entrenamiento.estrellaActual,
@@ -192,6 +215,8 @@ function fichaBaseDeApi(f: Registro): FichaBase {
     personalidad: textoONulo(f.personalidad),
     nivel: entero(f.nivel),
     cp: entero(f.cp),
+    fechaParche: fechaDeParcheONula(f.fecha_parche),
+    etapaEstrella: etapaONula(f.etapa_estrella),
     stats: Object.fromEntries(
       STATS.map(({ codigo: c }) => [c, statDeApi(stats[c])])
     ) as Record<CodigoDeStat, ValoresDeStat>,

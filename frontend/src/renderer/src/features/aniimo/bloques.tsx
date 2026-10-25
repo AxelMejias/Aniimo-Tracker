@@ -8,10 +8,13 @@ import {
   ROLES,
   STATS
 } from '../../../../shared/catalogos'
+import PanelDePotencial from '../calculo/PanelDePotencial'
 import PanelDeSugerencia from '../calculo/PanelDeSugerencia'
+import type { CatalogoCompartido } from '../calculo/useCatalogo'
 import {
   CampoDeArea,
   CampoDeCasilla,
+  CampoDeFecha,
   CampoDeSeleccion,
   CampoDeTexto
 } from './Campos'
@@ -26,6 +29,11 @@ import {
   type FormularioDeStat
 } from './formulario'
 import type { ErroresDeFicha } from './validacionFicha'
+
+const ETAPAS_DE_ESTRELLA = Array.from({ length: 8 }, (_, etapa) => ({
+  codigo: String(etapa),
+  etiqueta: `T${etapa}`
+}))
 
 export interface PropsDeBloque {
   readonly formulario: FormularioDeFicha
@@ -131,11 +139,20 @@ export function DatosGenerales({
         deshabilitado={deshabilitado}
         alCambiar={(cp) => cambiar({ cp })}
       />
+      <CampoDeFecha
+        etiqueta="Parche del juego"
+        ayuda="Fecha del parche del juego al que corresponden los datos. Vacío = desconocido."
+        valor={formulario.fechaParche}
+        error={errores.fecha_parche}
+        deshabilitado={deshabilitado}
+        alCambiar={(fechaParche) => cambiar({ fechaParche })}
+      />
     </Bloque>
   )
 }
 
 interface PropsDeBloqueDeStats extends PropsDeBloque {
+  readonly catalogo: CatalogoCompartido
   readonly alSesionVencida: () => void
 }
 
@@ -144,6 +161,7 @@ export function BloqueDeStats({
   errores,
   deshabilitado,
   alCambiar,
+  catalogo,
   alSesionVencida
 }: PropsDeBloqueDeStats): ReactElement {
   return (
@@ -195,6 +213,14 @@ export function BloqueDeStats({
       <PanelDeSugerencia
         formulario={formulario}
         deshabilitado={deshabilitado}
+        catalogo={catalogo}
+        alCambiar={alCambiar}
+        alSesionVencida={alSesionVencida}
+      />
+      <PanelDePotencial
+        formulario={formulario}
+        deshabilitado={deshabilitado}
+        catalogo={catalogo}
         alCambiar={alCambiar}
         alSesionVencida={alSesionVencida}
       />
@@ -228,6 +254,16 @@ export function BloqueDeEntrenamiento({
         error={errores['entrenamiento.estrella_actual']}
         deshabilitado={deshabilitado}
         alCambiar={(estrellaActual) => cambiar({ estrellaActual })}
+      />
+      <CampoDeSeleccion
+        etiqueta="Etapa de estrella"
+        valor={formulario.etapaEstrella}
+        opciones={ETAPAS_DE_ESTRELLA}
+        opcional
+        sinElegir="Sin cargar"
+        error={errores.etapa_estrella}
+        deshabilitado={deshabilitado}
+        alCambiar={(etapaEstrella) => cambiar({ etapaEstrella })}
       />
       <CampoDeTexto
         etiqueta="Nivel requerido de la siguiente etapa"

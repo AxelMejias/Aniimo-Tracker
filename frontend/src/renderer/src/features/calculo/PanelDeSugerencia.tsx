@@ -5,6 +5,7 @@ import { CampoDeCasilla, CampoDeSeleccion } from '../aniimo/Campos'
 import type { FormularioDeFicha } from '../aniimo/formulario'
 import {
   MENSAJE_DESACTUALIZADA,
+  TEXTO_DE_ESTIMACION_SIN_VERIFICAR,
   notaDeObjetoNoAplicado,
   TEXTO_DE_DATOS_DE_EJEMPLO,
   textoDeDiferencia,
@@ -18,12 +19,14 @@ import {
   valorMostrado,
   type CampoSugerible
 } from './sugerencia'
+import type { CatalogoCompartido } from './useCatalogo'
 import { useCalculo, type EstadoDeCalculo } from './useCalculo'
 import './calculo.css'
 
 interface PropsDelPanel {
   readonly formulario: FormularioDeFicha
   readonly deshabilitado: boolean
+  readonly catalogo: CatalogoCompartido
   readonly alCambiar: (siguiente: FormularioDeFicha) => void
   readonly alSesionVencida: () => void
 }
@@ -168,10 +171,11 @@ function Resultado({
 export default function PanelDeSugerencia({
   formulario,
   deshabilitado,
+  catalogo: compartido,
   alCambiar,
   alSesionVencida
 }: PropsDelPanel): ReactElement {
-  const estado = useCalculo(formulario, alSesionVencida)
+  const estado = useCalculo(formulario, alSesionVencida, compartido)
   const { catalogo } = estado
   const sinDatos =
     estado.calculo?.sugerencia.sinDatos ?? (catalogo.tipo === 'listo' ? catalogo.catalogo.sinDatos : [])
@@ -198,6 +202,11 @@ export default function PanelDeSugerencia({
           {catalogo.catalogo.esEjemplo && (
             <p className="sugerencia__ejemplo" role="note">
               {TEXTO_DE_DATOS_DE_EJEMPLO}
+            </p>
+          )}
+          {!catalogo.catalogo.estimacionVerificada && (
+            <p className="sugerencia__ejemplo" role="note">
+              {TEXTO_DE_ESTIMACION_SIN_VERIFICAR}
             </p>
           )}
           <div className="sugerencia__selectores">

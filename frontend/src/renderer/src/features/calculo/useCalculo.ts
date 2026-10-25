@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CatalogoResumen, PedidoCalcular, Sugerencia } from '../../../../shared/calculo'
+import type { PedidoCalcular, Sugerencia } from '../../../../shared/calculo'
 import type { CodigoDePosicionDeObjeto } from '../../../../shared/catalogos'
 import {
   POSICIONES_DE_OBJETO_EN_ORDEN,
@@ -13,12 +13,7 @@ import {
   type ObjetosElegidos,
   type ResultadoDeEntrada
 } from './sugerencia'
-
-export type EstadoDelCatalogo =
-  | { readonly tipo: 'inactivo' }
-  | { readonly tipo: 'cargando' }
-  | { readonly tipo: 'listo'; readonly catalogo: CatalogoResumen }
-  | { readonly tipo: 'error'; readonly mensaje: string }
+import type { CatalogoCompartido, EstadoDelCatalogo } from './useCatalogo'
 
 export interface CalculoHecho {
   readonly pedido: PedidoCalcular
@@ -50,10 +45,10 @@ export interface EstadoDeCalculo {
 
 export function useCalculo(
   formulario: FormularioDeFicha,
-  alSesionVencida: () => void
+  alSesionVencida: () => void,
+  compartido: CatalogoCompartido
 ): EstadoDeCalculo {
   const [abierta, setAbierta] = useState(false)
-  const [catalogo, setCatalogo] = useState<EstadoDelCatalogo>({ tipo: 'inactivo' })
   const [especieElegida, setEspecieElegida] = useState<string | undefined>(undefined)
   const [objetosElegidos, setObjetosElegidos] = useState<
     Partial<Record<CodigoDePosicionDeObjeto, string>>
@@ -63,7 +58,6 @@ export function useCalculo(
   const [pendiente, setPendiente] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const montado = useRef(true)
-  const catalogoSolicitado = useRef(false)
   const sesionVencida = useRef(alSesionVencida)
   sesionVencida.current = alSesionVencida
 
@@ -74,26 +68,14 @@ export function useCalculo(
     }
   }, [])
 
+  const { solicitar } = compartido
   useEffect(() => {
-    if (!abierta || catalogoSolicitado.current) {
-      return
+    if (abierta) {
+      solicitar()
     }
-    catalogoSolicitado.current = true
-    setCatalogo({ tipo: 'cargando' })
-    void window.aniimo.calculo.obtenerCatalogo().then((resultado) => {
-      if (!montado.current) {
-        return
-      }
-      if (resultado.ok) {
-        setCatalogo({ tipo: 'listo', catalogo: resultado.catalogo })
-      } else if (resultado.error === 'sesion-vencida') {
-        sesionVencida.current()
-      } else {
-        setCatalogo({ tipo: 'error', mensaje: mensajeDeErrorDeCalculo(resultado.error) })
-      }
-    })
-  }, [abierta])
+  }, [abierta, solicitar])
 
+  const catalogo = compartido.estado
   const especies = catalogo.tipo === 'listo' ? catalogo.catalogo.especies : []
   const objetosDelCatalogo = catalogo.tipo === 'listo' ? catalogo.catalogo.objetos : []
   const especieId = especieElegida ?? porNombre(formulario.nombre, especies) ?? ''

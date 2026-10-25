@@ -16,9 +16,11 @@ def main(argumentos: list[str]) -> int:
         return 1
     cp = "CP con datos" if resultado.cp is not None else "CP sin datos"
     ejemplo = " (DATOS DE EJEMPLO)" if resultado.es_ejemplo else ""
+    sin_verificar = "" if resultado.estimacion_verificada else " (ESTIMACIÓN SIN VERIFICAR)"
     print(
-        f"Catálogo válido: versión {resultado.version}, {len(resultado.especies)} especies, "
-        f"{len(resultado.objetos or ())} objetos, {cp}{ejemplo}"
+        f"Catálogo válido: formato {resultado.formato}, versión {resultado.version}, "
+        f"parche {resultado.fecha_parche.isoformat()}, {len(resultado.especies)} especies, "
+        f"{len(resultado.objetos or ())} objetos, {cp}{ejemplo}{sin_verificar}"
     )
     return 0
 

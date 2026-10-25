@@ -8,6 +8,7 @@ import {
   ROLES,
   STATS
 } from '../../shared/catalogos'
+import { esEtapaDeEstrella, esFechaDeParche } from '../../shared/parche'
 import {
   LARGO_MAXIMO_EFECTO_NUCLEO,
   LARGO_MAXIMO_NOMBRE_CORTO,
@@ -173,6 +174,8 @@ export function esFichaEntrada(valor: unknown): valor is FichaEntrada {
       'personalidad',
       'nivel',
       'cp',
+      'fechaParche',
+      'etapaEstrella',
       'stats',
       'entrenamiento',
       'objetos',
@@ -188,6 +191,8 @@ export function esFichaEntrada(valor: unknown): valor is FichaEntrada {
       (typeof valor.personalidad === 'string' && PATRON_DE_PERSONALIDAD.test(valor.personalidad))) &&
     esEntero(valor.nivel) &&
     esEntero(valor.cp) &&
+    (valor.fechaParche === null || esFechaDeParche(valor.fechaParche)) &&
+    (valor.etapaEstrella === null || esEtapaDeEstrella(valor.etapaEstrella)) &&
     esConjuntoDeStats(valor.stats) &&
     esEntrenamiento(valor.entrenamiento) &&
     Array.isArray(valor.objetos) &&

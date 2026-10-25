@@ -231,3 +231,62 @@ describe('validarPedidoDeImagen', () => {
     expect(validarPedidoDeImagen(valor)).toBe('datos-invalidos')
   })
 })
+
+describe('fechaParche y etapaEstrella en la ficha', () => {
+  it.each(['2026-10-26', '2020-01-01', '2099-12-31', '2028-02-29'])('acepta la fecha %s', (fecha) => {
+    expect(esFichaEntrada(conCambios((f) => (f.fechaParche = fecha)))).toBe(true)
+  })
+
+  it('acepta fechaParche null (desconocida)', () => {
+    expect(esFichaEntrada(conCambios((f) => (f.fechaParche = null)))).toBe(true)
+  })
+
+  it.each([
+    ['inexistente', '2026-02-30'],
+    ['formato local', '26/10/2026'],
+    ['mes 13', '2026-13-01'],
+    ['anterior al rango', '2019-12-31'],
+    ['posterior al rango', '2100-01-01'],
+    ['con hora', '2026-10-26T10:00:00'],
+    ['vacia', ''],
+    ['numero', 20261026],
+    ['29 de febrero sin bisiesto', '2027-02-29']
+  ])('rechaza fechaParche %s', (_caso, fecha) => {
+    expect(esFichaEntrada(conCambios((f) => (f.fechaParche = fecha)))).toBe(false)
+  })
+
+  it('rechaza una ficha sin la clave fechaParche', () => {
+    expect(esFichaEntrada(conCambios((f) => delete f.fechaParche))).toBe(false)
+  })
+
+  it.each([0, 1, 6, 7])('acepta etapaEstrella %s', (etapa) => {
+    expect(esFichaEntrada(conCambios((f) => (f.etapaEstrella = etapa)))).toBe(true)
+  })
+
+  it('acepta etapaEstrella null (sin cargar)', () => {
+    expect(esFichaEntrada(conCambios((f) => (f.etapaEstrella = null)))).toBe(true)
+  })
+
+  it.each([
+    ['8', 8],
+    ['negativa', -1],
+    ['string', '6'],
+    ['decimal', 6.5],
+    ['NaN', Number.NaN],
+    ['booleano', true]
+  ])('rechaza etapaEstrella %s', (_caso, etapa) => {
+    expect(esFichaEntrada(conCambios((f) => (f.etapaEstrella = etapa)))).toBe(false)
+  })
+
+  it('rechaza una ficha sin la clave etapaEstrella', () => {
+    expect(esFichaEntrada(conCambios((f) => delete f.etapaEstrella))).toBe(false)
+  })
+
+  it('mantiene estrellaActual como un entero aparte de la etapa', () => {
+    const ficha = conCambios((f) => {
+      f.etapaEstrella = 6
+      en(f, 'entrenamiento').estrellaActual = 2
+    })
+    expect(esFichaEntrada(ficha)).toBe(true)
+  })
+})

@@ -18,11 +18,14 @@ def test_catalogo_valido_de_ejemplo_imprime_el_resumen_y_sale_con_cero(
 
     salida = capsys.readouterr().out
     assert codigo == 0
-    assert "ejemplo-1" in salida
+    assert "formato 2" in salida
+    assert "ejemplo-2" in salida
+    assert "parche 2026-09-23" in salida
     assert "2 especies" in salida
     assert "2 objetos" in salida
     assert "CP con datos" in salida
     assert "DATOS DE EJEMPLO" in salida
+    assert "ESTIMACIÓN SIN VERIFICAR" in salida
 
 
 def test_sin_ruta_valida_el_archivo_por_defecto(capsys: pytest.CaptureFixture[str]) -> None:
@@ -37,6 +40,7 @@ def test_catalogo_real_no_dice_datos_de_ejemplo_y_avisa_si_no_tiene_cp(
 ) -> None:
     datos = json.loads(RUTA_POR_DEFECTO.read_text(encoding="utf-8"))
     datos["es_ejemplo"] = False
+    datos["estimacion_verificada"] = True
     del datos["cp"]
     del datos["objetos"]
     ruta = tmp_path / "real.json"
@@ -47,6 +51,7 @@ def test_catalogo_real_no_dice_datos_de_ejemplo_y_avisa_si_no_tiene_cp(
     salida = capsys.readouterr().out
     assert codigo == 0
     assert "DATOS DE EJEMPLO" not in salida
+    assert "ESTIMACIÓN SIN VERIFICAR" not in salida
     assert "CP sin datos" in salida
     assert "0 objetos" in salida
 
@@ -56,7 +61,7 @@ def test_catalogo_con_errores_imprime_una_linea_por_error_y_sale_con_uno(
 ) -> None:
     datos = json.loads(RUTA_POR_DEFECTO.read_text(encoding="utf-8"))
     datos["especies"][0]["base"]["atq"][1]["nivel"] = 1
-    datos["potencial"]["atq"]["tipo"] = "multiplicar"
+    datos["estrellas"][0]["modificadores"]["atq"][0]["tipo"] = "multiplicar"
     ruta = tmp_path / "roto.json"
     ruta.write_text(json.dumps(datos), encoding="utf-8")
 
@@ -65,8 +70,24 @@ def test_catalogo_con_errores_imprime_una_linea_por_error_y_sale_con_uno(
     lineas = [linea for linea in capsys.readouterr().out.splitlines() if linea.strip()]
     assert codigo == 1
     assert any(linea.startswith("especies[0].base.atq[1].nivel: ") for linea in lineas)
-    assert any(linea.startswith("potencial.atq.tipo: ") for linea in lineas)
+    assert any(linea.startswith("estrellas[0].modificadores.atq[0].tipo: ") for linea in lineas)
     assert len(lineas) == 2
+
+
+def test_catalogo_con_el_formato_anterior_sale_con_uno(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    datos = json.loads(RUTA_POR_DEFECTO.read_text(encoding="utf-8"))
+    del datos["formato"]
+    ruta = tmp_path / "viejo.json"
+    ruta.write_text(json.dumps(datos), encoding="utf-8")
+
+    codigo = main([str(ruta)])
+
+    salida = capsys.readouterr().out
+    assert codigo == 1
+    assert salida.startswith("formato: ")
+    assert "formato anterior" in salida
 
 
 def test_archivo_inexistente_sale_con_uno(

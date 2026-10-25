@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -6,6 +6,7 @@ from sqlalchemy import (
     CHAR,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
@@ -140,6 +141,13 @@ class AniimoDelTeamModelo(Base):
         CheckConstraint("personalidad ~ '^[EI][NS][TF][JP]$'", name="personalidad_formato"),
         CheckConstraint("estrella_actual >= 0", name="estrella_actual_no_negativa"),
         CheckConstraint(
+            "etapa_estrella IS NULL OR etapa_estrella BETWEEN 0 AND 7", name="etapa_estrella_rango"
+        ),
+        CheckConstraint(
+            "fecha_parche IS NULL OR fecha_parche BETWEEN '2020-01-01' AND '2099-12-31'",
+            name="fecha_parche_rango",
+        ),
+        CheckConstraint(
             "nivel_requerido_siguiente_etapa >= 1", name="nivel_requerido_siguiente_etapa_minimo"
         ),
         CheckConstraint("ganancia_despertar >= 0", name="ganancia_despertar_no_negativa"),
@@ -166,6 +174,8 @@ class AniimoDelTeamModelo(Base):
     nivel: Mapped[int] = mapped_column(Integer, server_default=text("1"))
     cp: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     estrella_actual: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    etapa_estrella: Mapped[int | None] = mapped_column(SmallInteger)
+    fecha_parche: Mapped[date | None] = mapped_column(Date)
     nivel_requerido_siguiente_etapa: Mapped[int | None] = mapped_column(Integer)
     ganancia_despertar: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     ganancia_seis_potenciales: Mapped[int] = mapped_column(Integer, server_default=text("0"))

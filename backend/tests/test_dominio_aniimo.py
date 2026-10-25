@@ -1,5 +1,6 @@
 import dataclasses
 from collections.abc import Callable
+from datetime import date
 from uuid import uuid4
 
 import pytest
@@ -354,3 +355,42 @@ def test_aniimo_acepta_notas_privadas_y_replace_las_conserva() -> None:
     assert aniimo.notas_privadas is True
     assert dataclasses.replace(aniimo, nivel=5).notas_privadas is True
     assert dataclasses.replace(aniimo, notas_privadas=False).notas_privadas is False
+
+
+def test_fecha_de_parche_y_etapa_de_estrella_vacias_por_defecto() -> None:
+    aniimo = _aniimo()
+
+    assert aniimo.fecha_parche is None
+    assert aniimo.etapa_estrella is None
+    assert aniimo.estrella_actual == 0
+
+
+@pytest.mark.parametrize("fecha", [date(2020, 1, 1), date(2026, 10, 26), date(2099, 12, 31)])
+def test_fecha_de_parche_dentro_del_rango_se_acepta(fecha: date) -> None:
+    assert _aniimo(fecha_parche=fecha).fecha_parche == fecha
+
+
+@pytest.mark.parametrize("fecha", [date(2019, 12, 31), date(2100, 1, 1)])
+def test_fecha_de_parche_fuera_del_rango_falla(fecha: date) -> None:
+    with pytest.raises(ValorInvalido) as info:
+        _aniimo(fecha_parche=fecha)
+    assert "fecha_parche" in str(info.value)
+
+
+@pytest.mark.parametrize("etapa", [0, 1, 6, 7])
+def test_etapa_de_estrella_de_0_a_7_se_acepta(etapa: int) -> None:
+    assert _aniimo(etapa_estrella=etapa).etapa_estrella == etapa
+
+
+@pytest.mark.parametrize("etapa", [-1, 8, 99])
+def test_etapa_de_estrella_fuera_de_0_a_7_falla(etapa: int) -> None:
+    with pytest.raises(ValorInvalido) as info:
+        _aniimo(etapa_estrella=etapa)
+    assert "etapa_estrella" in str(info.value)
+
+
+def test_la_etapa_de_estrella_no_se_deriva_de_la_estrella_actual() -> None:
+    aniimo = _aniimo(estrella_actual=2)
+
+    assert aniimo.etapa_estrella is None
+    assert _aniimo(estrella_actual=2, etapa_estrella=6).estrella_actual == 2

@@ -1,7 +1,7 @@
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from types import MappingProxyType
 from uuid import UUID, uuid4
@@ -25,6 +25,9 @@ _PERSONALIDAD = re.compile(r"[EI][NS][TF][JP]")
 _MAX_MATERIALES = 3
 _MAX_OBJETOS = 2
 _POTENCIAL_MAX = 20
+FECHA_DE_PARCHE_MINIMA = date(2020, 1, 1)
+FECHA_DE_PARCHE_MAXIMA = date(2099, 12, 31)
+ETAPA_DE_ESTRELLA_MAXIMA = 7
 
 
 def normalizar_nombre_usuario(nombre_usuario: str) -> str:
@@ -187,6 +190,8 @@ class AniimoDelTeam:
     cp: int = 0
     stats: Mapping[Stat, ValoresDeStat] = field(default_factory=_stats_en_cero)
     estrella_actual: int = 0
+    etapa_estrella: int | None = None
+    fecha_parche: date | None = None
     nivel_requerido_siguiente_etapa: int | None = None
     ganancia_despertar: int = 0
     ganancia_seis_potenciales: int = 0
@@ -215,6 +220,12 @@ class AniimoDelTeam:
 
     def _validar_entrenamiento(self) -> None:
         _minimo("estrella_actual", self.estrella_actual, 0)
+        if self.etapa_estrella is not None:
+            _entre("etapa_estrella", self.etapa_estrella, 0, ETAPA_DE_ESTRELLA_MAXIMA)
+        if self.fecha_parche is not None and not (
+            FECHA_DE_PARCHE_MINIMA <= self.fecha_parche <= FECHA_DE_PARCHE_MAXIMA
+        ):
+            raise ValorInvalido("fecha_parche")
         if self.nivel_requerido_siguiente_etapa is not None:
             _minimo("nivel_requerido_siguiente_etapa", self.nivel_requerido_siguiente_etapa, 1)
         _minimo("ganancia_despertar", self.ganancia_despertar, 0)

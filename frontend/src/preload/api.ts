@@ -20,8 +20,10 @@ import {
 import {
   CANALES_CALCULO,
   type PedidoCalcular,
+  type PedidoPotencial,
   type ResultadoCalcular,
-  type ResultadoCatalogo
+  type ResultadoCatalogo,
+  type ResultadoPotencial
 } from '../shared/calculo'
 import {
   CANALES_OVERLAY,
@@ -88,6 +90,7 @@ export interface OverlayApi {
 export interface CalculoApi {
   obtenerCatalogo(): Promise<ResultadoCatalogo>
   calcular(pedido: PedidoCalcular): Promise<ResultadoCalcular>
+  potencial(pedido: PedidoPotencial): Promise<ResultadoPotencial>
 }
 
 export interface AniimoApi {
@@ -143,7 +146,8 @@ export function buildExposedApi(invocar: Invocar): Readonly<AniimoApi> {
   }
   const calculo: CalculoApi = {
     obtenerCatalogo: () => tipado(invocar(CANALES_CALCULO.obtenerCatalogo)),
-    calcular: (pedido) => tipado(invocar(CANALES_CALCULO.calcular, pedido))
+    calcular: (pedido) => tipado(invocar(CANALES_CALCULO.calcular, pedido)),
+    potencial: (pedido) => tipado(invocar(CANALES_CALCULO.potencial, pedido))
   }
   return Object.freeze({
     appName: 'Aniimo Team Tracker',

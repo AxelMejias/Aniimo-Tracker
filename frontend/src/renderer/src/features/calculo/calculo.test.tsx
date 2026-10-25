@@ -205,7 +205,7 @@ describe('especie y objetos del catalogo', () => {
       especieId: 'ejemplo-a',
       nivel: 60,
       potenciales: { ps: 11, atq: 20, def_fisica: 5, def_magica: 4, regen: 20, quiebre: 6 },
-      estrellaActual: 2,
+      etapaEstrella: 6,
       personalidad: 'ENFJ',
       objetos: [
         { posicion: 'equipado', objetoId: 'ejemplo-objeto-x', nivel: 1 },
@@ -247,13 +247,13 @@ describe('interruptor de objetos', () => {
     await calculado()
 
     expect(screen.getByLabelText('Incluir objetos')).toBeChecked()
-    expect(within(fila('ATQ')).getByText('509 aprox.')).toBeInTheDocument()
-    expect(within(fila('CP')).getByText('629 aprox.')).toBeInTheDocument()
+    expect(within(fila('ATQ')).getByText('522 aprox.')).toBeInTheDocument()
+    expect(within(fila('CP')).getByText('642 aprox.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText('Incluir objetos'))
 
-    expect(within(fila('ATQ')).getByText('458 aprox.')).toBeInTheDocument()
-    expect(within(fila('CP')).getByText('578 aprox.')).toBeInTheDocument()
+    expect(within(fila('ATQ')).getByText('474 aprox.')).toBeInTheDocument()
+    expect(within(fila('CP')).getByText('594 aprox.')).toBeInTheDocument()
     expect(api.calculo.calcular).toHaveBeenCalledTimes(1)
   })
 
@@ -265,7 +265,7 @@ describe('interruptor de objetos', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Usar ATQ' }))
 
-    expect(campo('ATQ valor').value).toBe('458')
+    expect(campo('ATQ valor').value).toBe('474')
   })
 })
 
@@ -283,7 +283,7 @@ describe('usar una sugerencia', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Usar ATQ' }))
 
-    expect(campo('ATQ valor').value).toBe('509')
+    expect(campo('ATQ valor').value).toBe('522')
     expect(campo('PS valor').value).toBe(antes.PS)
     expect(campo('CP').value).toBe(antes.CP)
     expect(api.teams.guardarFicha).not.toHaveBeenCalled()
@@ -297,7 +297,7 @@ describe('usar una sugerencia', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Usar CP' }))
 
-    expect(campo('CP').value).toBe('629')
+    expect(campo('CP').value).toBe('642')
     expect(campo('ATQ valor').value).toBe(atqAntes)
     expect(api.teams.guardarFicha).not.toHaveBeenCalled()
   })
@@ -327,7 +327,7 @@ describe('usar una sugerencia', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Usar todas' }))
 
     expect(campo('PS valor').value).toBe('1000')
-    expect(campo('ATQ valor').value).toBe('509')
+    expect(campo('ATQ valor').value).toBe('522')
     expect(campo('Quiebre valor').value).toBe(quiebreAntes)
     expect(campo('CP').value).toBe(cpAntes)
   })
@@ -348,8 +348,8 @@ describe('usar una sugerencia', () => {
 
     const atq = within(fila('ATQ'))
     expect(atq.getByText('723')).toBeInTheDocument()
-    expect(atq.getByText('509 aprox.')).toBeInTheDocument()
-    expect(atq.getByText('-214')).toBeInTheDocument()
+    expect(atq.getByText('522 aprox.')).toBeInTheDocument()
+    expect(atq.getByText('-201')).toBeInTheDocument()
     expect(within(fila('PS')).getByText('1000')).toBeInTheDocument()
     expect(within(fila('PS')).getByText('-10321')).toBeInTheDocument()
   })
@@ -398,7 +398,7 @@ describe('casos sin valor', () => {
 
     expect(within(fila('CP')).getByText('sin datos')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Usar CP' })).toBeDisabled()
-    expect(within(fila('ATQ')).getByText('509 aprox.')).toBeInTheDocument()
+    expect(within(fila('ATQ')).getByText('522 aprox.')).toBeInTheDocument()
     expect(screen.getByText('No incluye: cp')).toBeInTheDocument()
   })
 
@@ -422,7 +422,7 @@ describe('casos sin valor', () => {
     expect(
       screen.getByText('El objeto alternativo no se tuvo en cuenta: el alternativo no suma.')
     ).toBeInTheDocument()
-    expect(within(fila('ATQ')).getByText('509 aprox.')).toBeInTheDocument()
+    expect(within(fila('ATQ')).getByText('522 aprox.')).toBeInTheDocument()
   })
 
   it('un objeto aplicado no deja ninguna nota', async () => {
@@ -458,10 +458,34 @@ describe('guardar sin usar la sugerencia', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 
     await waitFor(() => expect(api.teams.guardarFicha).toHaveBeenCalledTimes(1))
-    expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.stats.atq.valorActual).toBe(509)
+    expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.stats.atq.valorActual).toBe(522)
     expect(JSON.stringify(api.teams.guardarFicha.mock.calls[0]?.[0])).not.toMatch(
       /especie|ejemplo-a|incluirObjetos/i
     )
+  })
+})
+
+describe('estrella actual', () => {
+  it('cambiarla no desactualiza la sugerencia porque ningun calculo la usa', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrirEditor()
+    await calculado()
+
+    fireEvent.change(campo('Estrella actual'), { target: { value: '9' } })
+
+    expect(screen.queryByText(/desactualizada/)).toBeNull()
+  })
+
+  it('con la etapa sin cargar Calcular queda deshabilitado con el motivo', async () => {
+    const api = instalarApi({
+      teams: conFicha(fichaEjemplo({ etapaEstrella: null }))
+    })
+    await abrirEditor()
+    await abrirPanel()
+
+    expect(screen.getByRole('button', { name: 'Calcular' })).toBeDisabled()
+    expect(screen.getByText('Cargá la etapa de estrella (T0-T7)')).toBeInTheDocument()
+    expect(api.calculo.calcular).not.toHaveBeenCalled()
   })
 })
 
@@ -469,7 +493,7 @@ describe('sugerencia desactualizada', () => {
   it.each([
     ['Nivel', '61'],
     ['ATQ potencial', '19'],
-    ['Estrella actual', '3']
+    ['Etapa de estrella', '3']
   ])('cambiar %s despues de calcular la marca como desactualizada', async (etiqueta, valor) => {
     instalarApi({ teams: conFicha() })
     await abrirEditor()
@@ -587,7 +611,7 @@ describe('errores', () => {
     calcular()
 
     expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
-    expect(within(fila('ATQ')).getByText('509 aprox.')).toBeInTheDocument()
+    expect(within(fila('ATQ')).getByText('522 aprox.')).toBeInTheDocument()
   })
 
   it('especie desconocida al calcular lo explica', async () => {
@@ -630,5 +654,43 @@ describe('sin estilos inline', () => {
     const panel = screen.getByRole('button', { name: 'Sugerencia de stats' }).closest('section')
     expect(panel).not.toBeNull()
     expect(panel?.querySelectorAll('[style]')).toHaveLength(0)
+  })
+})
+
+describe('estimacion sin verificar', () => {
+  const TEXTO =
+    'Estimación sin verificar: los valores finales y el CP no están confirmados en el juego.'
+
+  it('se muestra mientras el catalogo diga estimacionVerificada false', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrirEditor()
+    await abrirPanel()
+
+    expect(screen.getByText(TEXTO)).toBeInTheDocument()
+  })
+
+  it('se muestra tambien con un catalogo real (esEjemplo false)', async () => {
+    const real: CatalogoResumen = { ...catalogoDeReferencia(), esEjemplo: false }
+    instalarApi({
+      teams: conFicha(),
+      calculo: { obtenerCatalogo: async () => ({ ok: true, catalogo: real }) }
+    })
+    await abrirEditor()
+    await abrirPanel()
+
+    expect(screen.getByText(TEXTO)).toBeInTheDocument()
+    expect(screen.queryByText(TEXTO_DE_EJEMPLO)).toBeNull()
+  })
+
+  it('no aparece cuando el catalogo esta verificado', async () => {
+    const verificado: CatalogoResumen = { ...catalogoDeReferencia(), estimacionVerificada: true }
+    instalarApi({
+      teams: conFicha(),
+      calculo: { obtenerCatalogo: async () => ({ ok: true, catalogo: verificado }) }
+    })
+    await abrirEditor()
+    await abrirPanel()
+
+    expect(screen.queryByText(TEXTO)).toBeNull()
   })
 })

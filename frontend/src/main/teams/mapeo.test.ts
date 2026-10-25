@@ -186,3 +186,48 @@ describe('camposDeValidacion', () => {
     expect(camposDeValidacion(undefined)).toEqual([])
   })
 })
+
+describe('fechaParche y etapaEstrella', () => {
+  it('fichaAApi las envia como fecha_parche y etapa_estrella', () => {
+    const api = fichaAApi({ ...fichaDeReferencia(), fechaParche: '2026-09-23', etapaEstrella: 3 })
+    expect(api.fecha_parche).toBe('2026-09-23')
+    expect(api.etapa_estrella).toBe(3)
+  })
+
+  it('fichaAApi conserva los nulos y no mezcla la etapa con estrellaActual', () => {
+    const api = fichaAApi({ ...fichaDeReferencia(), fechaParche: null, etapaEstrella: null })
+    expect(api.fecha_parche).toBeNull()
+    expect(api.etapa_estrella).toBeNull()
+    expect(api.entrenamiento).toMatchObject({ estrella_actual: 2 })
+  })
+
+  it('fichaDeApi traduce la fecha y la etapa', () => {
+    const ficha = fichaDeApi(fichaDeApiDeReferencia())
+    expect(ficha.fechaParche).toBe('2026-10-26')
+    expect(ficha.etapaEstrella).toBe(6)
+    expect(ficha.entrenamiento.estrellaActual).toBe(2)
+  })
+
+  it('fichaDeApi acepta fecha y etapa en null', () => {
+    const ficha = fichaDeApi({ ...fichaDeApiDeReferencia(), fecha_parche: null, etapa_estrella: null })
+    expect(ficha.fechaParche).toBeNull()
+    expect(ficha.etapaEstrella).toBeNull()
+  })
+
+  it('fichaDeApi acepta la etapa 0 como un valor distinto de sin cargar', () => {
+    expect(fichaDeApi({ ...fichaDeApiDeReferencia(), etapa_estrella: 0 }).etapaEstrella).toBe(0)
+  })
+
+  it.each([
+    ['sin fecha_parche', omitir(fichaDeApiDeReferencia(), 'fecha_parche')],
+    ['fecha con otro formato', { ...fichaDeApiDeReferencia(), fecha_parche: '26/10/2026' }],
+    ['fecha inexistente', { ...fichaDeApiDeReferencia(), fecha_parche: '2026-02-30' }],
+    ['fecha numerica', { ...fichaDeApiDeReferencia(), fecha_parche: 20261026 }],
+    ['sin etapa_estrella', omitir(fichaDeApiDeReferencia(), 'etapa_estrella')],
+    ['etapa 8', { ...fichaDeApiDeReferencia(), etapa_estrella: 8 }],
+    ['etapa string', { ...fichaDeApiDeReferencia(), etapa_estrella: '6' }],
+    ['etapa decimal', { ...fichaDeApiDeReferencia(), etapa_estrella: 6.5 }]
+  ])('fichaDeApi rechaza %s', (_caso, api) => {
+    expect(() => fichaDeApi(api)).toThrow(RespuestaInvalida)
+  })
+})

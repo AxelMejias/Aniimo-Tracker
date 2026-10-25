@@ -551,3 +551,47 @@ describe('alta con imagen', () => {
     expect(screen.getByRole('button', { name: 'Borrar' })).toBeInTheDocument()
   })
 })
+
+describe('notas privadas', () => {
+  function casillaDeNotasPrivadas(): HTMLInputElement {
+    return screen.getByRole('checkbox', { name: 'Notas privadas' })
+  }
+
+  it('una ficha nueva la muestra desmarcada', async () => {
+    instalarApi()
+    await abrir()
+    expect(casillaDeNotasPrivadas().checked).toBe(false)
+  })
+
+  it('marcarla envia notasPrivadas en true con las notas sin cambios', async () => {
+    const api = instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+    fireEvent.click(casillaDeNotasPrivadas())
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
+    expect(api.teams.guardarFicha).toHaveBeenCalledWith({
+      teamId: TEAM_ID,
+      slot: 1,
+      ficha: { ...fichaDeReferencia(), notasPrivadas: true }
+    })
+  })
+
+  it('al reabrir la ficha sigue marcada y las notas se ven completas', async () => {
+    instalarApi({ teams: conFicha({ ...fichaGuardadaDeReferencia(), notasPrivadas: true }) })
+    await abrir()
+    expect(casillaDeNotasPrivadas().checked).toBe(true)
+    expect(campo('Notas').value).toBe('Aniimo de referencia')
+    expect(campo('Notas de habilidades').value).toContain('ataque electrico')
+  })
+
+  it('desmarcarla envia notasPrivadas en false', async () => {
+    const api = instalarApi({
+      teams: conFicha({ ...fichaGuardadaDeReferencia(), notasPrivadas: true })
+    })
+    const { alVolver } = await abrir()
+    fireEvent.click(casillaDeNotasPrivadas())
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
+    expect(api.teams.guardarFicha.mock.calls[0]?.[0].ficha.notasPrivadas).toBe(false)
+  })
+})

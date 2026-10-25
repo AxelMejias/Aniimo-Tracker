@@ -21,7 +21,8 @@ TABLAS_CORE = {
     "objeto_transportado",
 }
 TABLAS_CON_SESION = TABLAS_CORE | {"sesion"}
-TABLAS_DEL_MODELO = TABLAS_CON_SESION | {"imagen_aniimo"}
+TABLAS_CON_IMAGEN = TABLAS_CON_SESION | {"imagen_aniimo"}
+TABLAS_DEL_MODELO = TABLAS_CON_IMAGEN | {"amistad"}
 
 
 @pytest.fixture
@@ -36,6 +37,65 @@ def test_upgrade_head_crea_las_tablas_del_modelo(
     command.downgrade(alembic_config, "base")
     command.upgrade(alembic_config, "head")
     assert set(inspect(base_migrable).get_table_names()) == TABLAS_DEL_MODELO | {"alembic_version"}
+
+
+def test_downgrade_de_un_paso_quita_amistad_y_las_columnas_de_privacidad(
+    base_migrable: Engine, alembic_config: Config
+) -> None:
+    command.upgrade(alembic_config, "head")
+    command.downgrade(alembic_config, "-1")
+    inspector = inspect(base_migrable)
+    assert set(inspector.get_table_names()) == TABLAS_CON_IMAGEN | {"alembic_version"}
+    assert "oculto_para_amigos" not in _columnas(base_migrable, "team")
+    assert "notas_privadas" not in _columnas(base_migrable, "aniimo_del_team")
+
+
+def test_upgrade_head_agrega_las_columnas_de_privacidad(base_migrable: Engine) -> None:
+    team = _columnas(base_migrable, "team")["oculto_para_amigos"]
+    aniimo = _columnas(base_migrable, "aniimo_del_team")["notas_privadas"]
+    for columna in (team, aniimo):
+        assert columna["nullable"] is False
+        assert "false" in str(columna["default"]).lower()
+
+
+def test_los_datos_creados_en_004_quedan_visibles_tras_005(
+    base_migrable: Engine, alembic_config: Config
+) -> None:
+    command.downgrade(alembic_config, "004")
+    try:
+        aniimo_id = _crear_aniimo_con_rol(base_migrable, "dps")
+        command.upgrade(alembic_config, "head")
+        with base_migrable.connect() as connection:
+            oculto, privadas = connection.execute(
+                text(
+                    "SELECT t.oculto_para_amigos, a.notas_privadas FROM aniimo_del_team a "
+                    "JOIN team t ON t.id = a.team_id WHERE a.id = :id"
+                ),
+                {"id": aniimo_id},
+            ).one()
+        assert (oculto, privadas) == (False, False)
+    finally:
+        _limpiar_usuarios(base_migrable)
+
+
+def test_los_constraints_de_amistad_tienen_el_nombre_de_la_convencion(
+    migrated_engine: Engine,
+) -> None:
+    inspector = inspect(migrated_engine)
+    checks = {c["name"] for c in inspector.get_check_constraints("amistad")}
+    assert checks == {
+        "ck_amistad_par_ordenado",
+        "ck_amistad_solicitante_en_par",
+        "ck_amistad_estado",
+        "ck_amistad_aceptada_en_coherente",
+    }
+    uniques = {c["name"] for c in inspector.get_unique_constraints("amistad")}
+    assert uniques == {"uq_amistad_usuario_a_id_usuario_b_id"}
+    fks = inspector.get_foreign_keys("amistad")
+    assert {(fk["name"], fk["options"].get("ondelete")) for fk in fks} == {
+        ("fk_amistad_usuario_a_id_usuario", "CASCADE"),
+        ("fk_amistad_usuario_b_id_usuario", "CASCADE"),
+    }
 
 
 def test_downgrade_a_002_quita_solo_imagen_aniimo(
@@ -135,6 +195,10 @@ def test_los_constraints_de_imagen_tienen_el_nombre_de_la_convencion(
     assert inspector.get_pk_constraint("imagen_aniimo")["constrained_columns"] == [
         "aniimo_del_team_id"
     ]
+
+
+def _columnas(engine: Engine, tabla: str) -> dict[str, dict[str, object]]:
+    return {c["name"]: dict(c) for c in inspect(engine).get_columns(tabla)}
 
 
 def _crear_aniimo_con_rol(engine: Engine, rol: str | None) -> str:

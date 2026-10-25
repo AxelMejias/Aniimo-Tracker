@@ -84,6 +84,26 @@ class AniimoNoEncontrado(EntidadNoEncontrada):
         super(EntidadNoEncontrada, self).__init__("No encontrado")
 
 
+class AmistadNoEncontrada(EntidadNoEncontrada):
+    def __init__(self) -> None:
+        super(EntidadNoEncontrada, self).__init__("No encontrado")
+
+
+class UsuarioNoEncontrado(EntidadNoEncontrada):
+    def __init__(self) -> None:
+        super(EntidadNoEncontrada, self).__init__("No encontrado")
+
+
+class AmistadExistente(ErrorDeIntegridad):
+    def __init__(self) -> None:
+        super().__init__("Ya hay una solicitud o amistad con ese usuario")
+
+
+class AutoAmistad(ErrorDeValidacion):
+    def __init__(self) -> None:
+        super().__init__("No se puede pedir amistad a uno mismo")
+
+
 class ImagenInvalida(ErrorDeValidacion):
     def __init__(self) -> None:
         super().__init__("La imagen no es un PNG, JPEG o WebP válido")

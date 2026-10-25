@@ -5,13 +5,14 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import Insert, String, delete, func, insert, literal, select
+from sqlalchemy import Insert, String, delete, func, insert, literal, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.catalogos import PosicionObjeto, Rareza, Stat
 from app.domain.imagenes import TAMANO_MAXIMO, TipoDeImagen
 from app.infrastructure.modelos import (
+    AmistadModelo,
     AniimoDelTeamModelo,
     ImagenAniimoModelo,
     MaterialEstrellaModelo,
@@ -425,3 +426,144 @@ def test_la_base_rechaza_dos_imagenes_para_el_mismo_aniimo(
     )
     with pytest.raises(IntegrityError):
         session.flush()
+
+
+@pytest.fixture
+def par(session: Session, padres: Padres) -> tuple[UUID, UUID]:
+    otro = _usuario(nombre_usuario="bruno")
+    session.add(otro)
+    session.flush()
+    menor, mayor = sorted((padres.usuario_id, otro.id))
+    return menor, mayor
+
+
+def _amistad(par: tuple[UUID, UUID], **campos: object) -> AmistadModelo:
+    base: dict[str, object] = {
+        "id": uuid4(),
+        "usuario_a_id": par[0],
+        "usuario_b_id": par[1],
+        "solicitante_id": par[0],
+        "estado": "pendiente",
+    }
+    return AmistadModelo(**{**base, **campos})
+
+
+def _insertar_amistad(par: tuple[UUID, UUID], **campos: object) -> Insert:
+    base: dict[str, object] = {
+        "id": uuid4(),
+        "usuario_a_id": par[0],
+        "usuario_b_id": par[1],
+        "solicitante_id": par[0],
+        "estado": literal("pendiente", String),
+    }
+    return insert(AmistadModelo).values(**{**base, **campos})
+
+
+def test_la_base_acepta_pendiente_y_aceptada_validas(
+    session: Session, par: tuple[UUID, UUID]
+) -> None:
+    session.add(_amistad(par))
+    session.flush()
+    session.execute(delete(AmistadModelo))
+    session.add(_amistad(par, estado="aceptada", aceptada_en=_AHORA, solicitante_id=par[1]))
+    session.flush()
+    assert session.scalar(select(AmistadModelo.creada_en)) is not None
+
+
+def test_la_base_rechaza_el_par_igual(session: Session, par: tuple[UUID, UUID]) -> None:
+    session.add(_amistad(par, usuario_b_id=par[0]))
+    with pytest.raises(IntegrityError) as info:
+        session.flush()
+    assert _nombre_del_constraint(info.value) == "ck_amistad_par_ordenado"
+
+
+def test_la_base_rechaza_el_par_desordenado(session: Session, par: tuple[UUID, UUID]) -> None:
+    session.add(_amistad(par, usuario_a_id=par[1], usuario_b_id=par[0], solicitante_id=par[1]))
+    with pytest.raises(IntegrityError) as info:
+        session.flush()
+    assert _nombre_del_constraint(info.value) == "ck_amistad_par_ordenado"
+
+
+def test_la_base_rechaza_un_solicitante_fuera_del_par(
+    session: Session, par: tuple[UUID, UUID]
+) -> None:
+    session.add(_amistad(par, solicitante_id=uuid4()))
+    with pytest.raises(IntegrityError) as info:
+        session.flush()
+    assert _nombre_del_constraint(info.value) == "ck_amistad_solicitante_en_par"
+
+
+def test_la_base_rechaza_el_estado_rechazada(session: Session, par: tuple[UUID, UUID]) -> None:
+    with pytest.raises(IntegrityError) as info:
+        session.execute(_insertar_amistad(par, estado=literal("rechazada", String)))
+    assert _nombre_del_constraint(info.value) == "ck_amistad_estado"
+
+
+def test_la_base_rechaza_aceptada_sin_fecha(session: Session, par: tuple[UUID, UUID]) -> None:
+    session.add(_amistad(par, estado="aceptada"))
+    with pytest.raises(IntegrityError) as info:
+        session.flush()
+    assert _nombre_del_constraint(info.value) == "ck_amistad_aceptada_en_coherente"
+
+
+def test_la_base_rechaza_pendiente_con_fecha(session: Session, par: tuple[UUID, UUID]) -> None:
+    session.add(_amistad(par, aceptada_en=_AHORA))
+    with pytest.raises(IntegrityError) as info:
+        session.flush()
+    assert _nombre_del_constraint(info.value) == "ck_amistad_aceptada_en_coherente"
+
+
+def test_la_base_rechaza_un_par_duplicado(session: Session, par: tuple[UUID, UUID]) -> None:
+    session.add(_amistad(par))
+    session.flush()
+    session.add(_amistad(par, solicitante_id=par[1]))
+    with pytest.raises(IntegrityError) as info:
+        session.flush()
+    assert _nombre_del_constraint(info.value) == "uq_amistad_usuario_a_id_usuario_b_id"
+
+
+def test_borrar_un_usuario_borra_sus_amistades(
+    session: Session, padres: Padres, par: tuple[UUID, UUID]
+) -> None:
+    session.add(_amistad(par))
+    session.flush()
+    session.execute(delete(UsuarioModelo).where(UsuarioModelo.id == padres.usuario_id))
+    assert session.scalar(select(func.count()).select_from(AmistadModelo)) == 0
+
+
+def test_la_base_rechaza_null_en_oculto_para_amigos(session: Session, padres: Padres) -> None:
+    with pytest.raises(IntegrityError):
+        session.execute(
+            text(
+                "INSERT INTO team (id, usuario_id, nombre, orden, oculto_para_amigos) "
+                "VALUES (gen_random_uuid(), :u, 'T', 3, NULL)"
+            ),
+            {"u": padres.usuario_id},
+        )
+
+
+def test_la_base_rechaza_null_en_notas_privadas(session: Session, padres: Padres) -> None:
+    with pytest.raises(IntegrityError):
+        session.execute(
+            text(
+                "INSERT INTO aniimo_del_team (id, team_id, slot, nombre, notas_privadas) "
+                "VALUES (gen_random_uuid(), :t, 3, 'A', NULL)"
+            ),
+            {"t": padres.team_id},
+        )
+
+
+def test_los_flags_de_privacidad_nacen_en_false_por_defecto_en_la_base(
+    session: Session, padres: Padres
+) -> None:
+    session.execute(
+        text(
+            "INSERT INTO team (id, usuario_id, nombre, orden) "
+            "VALUES (gen_random_uuid(), :u, 'T', 3)"
+        ),
+        {"u": padres.usuario_id},
+    )
+    assert (
+        session.scalar(select(TeamModelo.oculto_para_amigos).where(TeamModelo.orden == 3)) is False
+    )
+    assert session.scalar(select(AniimoDelTeamModelo.notas_privadas)) is False

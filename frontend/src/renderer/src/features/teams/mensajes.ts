@@ -3,6 +3,8 @@ import type { ErrorDeTeams } from '../../../../shared/teams'
 export const MENSAJE_NOMBRE_DE_TEAM_INVALIDO =
   'El nombre del team debe tener entre 1 y 50 caracteres'
 
+export const MENSAJE_OVERLAY_NO_ABIERTO = 'No se pudo abrir el overlay'
+
 export function mensajeDeErrorDeTeams(resultado: ErrorDeTeams): string {
   switch (resultado.error) {
     case 'limite-de-teams':

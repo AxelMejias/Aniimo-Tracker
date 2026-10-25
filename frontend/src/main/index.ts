@@ -1,11 +1,21 @@
+import { writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { app, BrowserWindow, ipcMain, session } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, session } from 'electron'
+import { crearClienteAmigos } from './amigos/clienteAmigos'
+import { registrarManejadoresDeAmigos } from './amigos/ipcAmigos'
 import { crearClienteBackend } from './auth/clienteBackend'
 import { registrarManejadoresDeAuth } from './auth/ipcAuth'
 import { crearSesionEnMemoria } from './auth/sesionEnMemoria'
+import { guardarLimites, leerLimites } from './overlay/almacenDeLimites'
+import { crearControladorOverlay, type ControladorOverlay } from './overlay/controladorOverlay'
+import { registrarManejadoresDeOverlay } from './overlay/ipcOverlay'
+import { getOverlayWindowOptions } from './overlay/opcionesDeVentana'
 import { crearClienteTeams } from './teams/clienteTeams'
 import { registrarManejadoresDeTeams } from './teams/ipcTeams'
+import type { VentanaOverlay } from './overlay/controladorOverlay'
+import type { Rect } from './overlay/limites'
 import { denyPermission, denyWindowOpen, getMainWindowOptions, isAllowedNavigation } from './security'
 
 const isDev = !app.isPackaged
@@ -27,6 +37,19 @@ function createMainWindow(): BrowserWindow {
   }
 
   return window
+}
+
+function crearVentanaDeOverlay(limites: Rect): VentanaOverlay {
+  const ventana = new BrowserWindow(getOverlayWindowOptions(preloadPath, limites))
+  ventana.once('ready-to-show', () => ventana.show())
+
+  if (isDev) {
+    void ventana.loadURL(`${appUrl}#overlay`)
+  } else {
+    void ventana.loadFile(appUrl, { hash: 'overlay' })
+  }
+
+  return ventana
 }
 
 app.on('web-contents-created', (_event, contents) => {
@@ -53,12 +76,31 @@ app.whenReady().then(() => {
   const sesion = crearSesionEnMemoria()
   registrarManejadoresDeAuth(ipcMain, crearClienteBackend(fetch, sesion), allowedAppUrl)
   registrarManejadoresDeTeams(ipcMain, crearClienteTeams(fetch, sesion), allowedAppUrl)
+  registrarManejadoresDeAmigos(ipcMain, crearClienteAmigos(fetch, sesion), allowedAppUrl)
 
-  createMainWindow()
+  const rutaDeLimites = join(app.getPath('userData'), 'overlay.json')
+  const controlador: ControladorOverlay = crearControladorOverlay({
+    crearVentana: crearVentanaDeOverlay,
+    leerLimites: () => leerLimites(rutaDeLimites, (ruta) => readFile(ruta, 'utf8')),
+    guardarLimites: async (limites) =>
+      guardarLimites(rutaDeLimites, limites, async (ruta, contenido) => {
+        writeFileSync(ruta, contenido, 'utf8')
+      }),
+    areasDePantalla: () => ({
+      areas: screen.getAllDisplays().map((pantalla) => pantalla.workArea),
+      principal: screen.getPrimaryDisplay().workArea
+    }),
+    haySesion: () => sesion.obtener() !== null
+  })
+  sesion.alBorrar(() => controlador.cerrar())
+  registrarManejadoresDeOverlay(ipcMain, controlador, allowedAppUrl)
+
+  const ventanaPrincipal = createMainWindow()
+  ventanaPrincipal.on('closed', () => controlador.cerrar())
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow()
+      createMainWindow().on('closed', () => controlador.cerrar())
     }
   })
 })

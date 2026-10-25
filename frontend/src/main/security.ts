@@ -1,15 +1,17 @@
-import type { BrowserWindowConstructorOptions } from 'electron'
+import type { BrowserWindowConstructorOptions, WebPreferences } from 'electron'
+
+export function getWebPreferences(preloadPath: string): WebPreferences {
+  return {
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    webSecurity: true,
+    preload: preloadPath
+  }
+}
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
-  return {
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-      preload: preloadPath
-    }
-  }
+  return { webPreferences: getWebPreferences(preloadPath) }
 }
 
 export function isAllowedNavigation(targetUrl: string, appUrl: string): boolean {

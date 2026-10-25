@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.domain.catalogos import Stat
 from app.domain.errores import (
+    AmistadExistente,
     DespertaresInconsistentes,
     ErrorDeDominio,
     ErrorDeIntegridad,
@@ -20,6 +21,7 @@ from app.domain.errores import (
     SlotOcupado,
 )
 from app.infrastructure.repositorios import (
+    AmistadRepository,
     AniimoDelTeamRepository,
     ImagenAniimoRepository,
     SesionRepository,
@@ -31,6 +33,7 @@ _ERROR_POR_CONSTRAINT: dict[str, type[ErrorDeDominio]] = {
     "uq_usuario_nombre_usuario": NombreUsuarioDuplicado,
     "uq_team_usuario_id_orden": PosicionDeTeamOcupada,
     "uq_aniimo_del_team_team_id_slot": SlotOcupado,
+    "uq_amistad_usuario_a_id_usuario_b_id": AmistadExistente,
     "ck_team_orden_rango": LimiteDeTeamsAlcanzado,
     "ck_imagen_aniimo_tamano": ImagenDemasiadoGrande,
     "ck_imagen_aniimo_tipo": ImagenInvalida,
@@ -62,6 +65,7 @@ class UnitOfWork:
         self.aniimos = AniimoDelTeamRepository(self.session)
         self.sesiones = SesionRepository(self.session)
         self.imagenes = ImagenAniimoRepository(self.session)
+        self.amistades = AmistadRepository(self.session)
         return self
 
     def __exit__(

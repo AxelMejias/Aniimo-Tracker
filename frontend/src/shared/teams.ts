@@ -12,6 +12,7 @@ export const CANALES_TEAMS = {
   listar: 'teams:listar',
   crear: 'teams:crear',
   renombrar: 'teams:renombrar',
+  cambiarVisibilidad: 'teams:cambiar-visibilidad',
   borrar: 'teams:borrar',
   obtenerFicha: 'teams:obtener-ficha',
   guardarFicha: 'teams:guardar-ficha',
@@ -77,7 +78,7 @@ export interface Objeto {
   readonly efectoNucleoNotas: string | null
 }
 
-export interface FichaEntrada {
+export interface FichaBase {
   readonly nombre: string
   readonly elemento: CodigoDeElemento | null
   readonly rol: CodigoDeRol | null
@@ -90,6 +91,15 @@ export interface FichaEntrada {
   readonly objetos: readonly Objeto[]
   readonly notasHabilidades: string | null
   readonly notas: string | null
+}
+
+export interface FichaEntrada extends FichaBase {
+  readonly notasPrivadas: boolean
+}
+
+export interface FichaDeAmigo extends FichaBase {
+  readonly slot: number
+  readonly tieneImagen: boolean
 }
 
 export interface Ficha extends FichaEntrada {
@@ -117,8 +127,11 @@ export interface TeamResumen {
   readonly id: string
   readonly nombre: string
   readonly orden: number
+  readonly ocultoParaAmigos: boolean
   readonly slots: readonly SlotDeTeam[]
 }
+
+export type TeamDeAmigo = Omit<TeamResumen, 'ocultoParaAmigos'>
 
 export interface PedidoCrear {
   readonly nombre: string
@@ -127,6 +140,11 @@ export interface PedidoCrear {
 export interface PedidoRenombrar {
   readonly teamId: string
   readonly nombre: string
+}
+
+export interface PedidoCambiarVisibilidad {
+  readonly teamId: string
+  readonly ocultoParaAmigos: boolean
 }
 
 export interface PedidoDeTeam {

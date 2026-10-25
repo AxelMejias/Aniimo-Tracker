@@ -1,11 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+
+export type ResultadoDeImagenDeTarjeta =
+  | { readonly ok: true; readonly imagen: string | null }
+  | { readonly ok: false }
+
+export type CargarImagenDeTarjeta = (
+  teamId: string,
+  slot: number
+) => Promise<ResultadoDeImagenDeTarjeta>
+
+export const cargarImagenPropia: CargarImagenDeTarjeta = (teamId, slot) =>
+  window.aniimo.teams.obtenerImagen({ teamId, slot })
 
 export function useImagenDeTarjeta(
   teamId: string,
   slot: number,
-  tieneImagen: boolean
+  tieneImagen: boolean,
+  cargar: CargarImagenDeTarjeta = cargarImagenPropia
 ): string | null {
   const [imagen, setImagen] = useState<string | null>(null)
+  const cargador = useRef(cargar)
+  cargador.current = cargar
 
   useEffect(() => {
     if (!tieneImagen) {
@@ -13,7 +28,7 @@ export function useImagenDeTarjeta(
       return
     }
     let activo = true
-    void window.aniimo.teams.obtenerImagen({ teamId, slot }).then((resultado) => {
+    void cargador.current(teamId, slot).then((resultado) => {
       if (activo) {
         setImagen(resultado.ok ? resultado.imagen : null)
       }

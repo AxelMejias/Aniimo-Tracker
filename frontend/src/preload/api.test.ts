@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { CANALES_AMIGOS } from '../shared/amigos'
 import { CANALES_AUTH } from '../shared/auth'
+import { CANALES_OVERLAY } from '../shared/overlay'
 import { CANALES_TEAMS } from '../shared/teams'
 import { fichaDeReferencia } from '../../tests/fixtures/ficha'
 import { buildExposedApi, type Invocar } from './api'
@@ -21,10 +23,10 @@ function valoresRecorridos(raiz: unknown, vistos = new Set<unknown>()): unknown[
 }
 
 describe('buildExposedApi', () => {
-  it('devuelve un objeto congelado con solo appName, auth y teams', () => {
+  it('devuelve un objeto congelado con solo appName, auth, teams, amigos y overlay', () => {
     const { api } = construir()
     expect(Object.isFrozen(api)).toBe(true)
-    expect(Object.keys(api).sort()).toEqual(['appName', 'auth', 'teams'])
+    expect(Object.keys(api).sort()).toEqual(['amigos', 'appName', 'auth', 'overlay', 'teams'])
     expect(api.appName).toBe('Aniimo Team Tracker')
   })
 
@@ -42,12 +44,13 @@ describe('buildExposedApi', () => {
     }
   })
 
-  it('teams esta congelado y tiene solo las diez funciones', () => {
+  it('teams esta congelado y tiene solo las once funciones', () => {
     const { api } = construir()
     expect(Object.isFrozen(api.teams)).toBe(true)
     expect(Object.keys(api.teams).sort()).toEqual([
       'borrar',
       'borrarImagen',
+      'cambiarVisibilidad',
       'crear',
       'guardarFicha',
       'guardarImagen',
@@ -68,6 +71,7 @@ describe('buildExposedApi', () => {
     await api.teams.listar()
     await api.teams.crear({ nombre: 'Raid' })
     await api.teams.renombrar({ teamId: 'x', nombre: 'Raid' })
+    await api.teams.cambiarVisibilidad({ teamId: 'x', ocultoParaAmigos: true })
     await api.teams.borrar({ teamId: 'x' })
     await api.teams.obtenerFicha(pedido)
     await api.teams.vaciarSlot(pedido)
@@ -81,6 +85,7 @@ describe('buildExposedApi', () => {
       [CANALES_TEAMS.listar],
       [CANALES_TEAMS.crear, { nombre: 'Raid' }],
       [CANALES_TEAMS.renombrar, { teamId: 'x', nombre: 'Raid' }],
+      [CANALES_TEAMS.cambiarVisibilidad, { teamId: 'x', ocultoParaAmigos: true }],
       [CANALES_TEAMS.borrar, { teamId: 'x' }],
       [CANALES_TEAMS.obtenerFicha, pedido],
       [CANALES_TEAMS.vaciarSlot, pedido],
@@ -89,6 +94,82 @@ describe('buildExposedApi', () => {
       [CANALES_TEAMS.guardarFicha, ficha],
       [CANALES_TEAMS.guardarImagen, imagen]
     ])
+  })
+
+  it('amigos esta congelado y tiene solo las ocho funciones', () => {
+    const { api } = construir()
+    expect(Object.isFrozen(api.amigos)).toBe(true)
+    expect(Object.keys(api.amigos).sort()).toEqual([
+      'aceptarSolicitud',
+      'buscar',
+      'eliminar',
+      'enviarSolicitud',
+      'listar',
+      'listarTeams',
+      'obtenerFicha',
+      'obtenerImagen'
+    ])
+    for (const funcion of Object.values(api.amigos)) {
+      expect(typeof funcion).toBe('function')
+    }
+  })
+
+  it('cada funcion de amigos invoca su canal fijo con el payload', async () => {
+    const { api, invoke } = construir()
+    const usuario = { usuarioId: 'u' }
+    const slot = { usuarioId: 'u', teamId: 't', slot: 2 }
+    await api.amigos.buscar({ nombreUsuario: 'bruno' })
+    await api.amigos.listar()
+    await api.amigos.enviarSolicitud(usuario)
+    await api.amigos.aceptarSolicitud(usuario)
+    await api.amigos.eliminar(usuario)
+    await api.amigos.listarTeams(usuario)
+    await api.amigos.obtenerFicha(slot)
+    await api.amigos.obtenerImagen(slot)
+    expect(invoke.mock.calls).toEqual([
+      [CANALES_AMIGOS.buscar, { nombreUsuario: 'bruno' }],
+      [CANALES_AMIGOS.listar],
+      [CANALES_AMIGOS.enviarSolicitud, usuario],
+      [CANALES_AMIGOS.aceptarSolicitud, usuario],
+      [CANALES_AMIGOS.eliminar, usuario],
+      [CANALES_AMIGOS.listarTeams, usuario],
+      [CANALES_AMIGOS.obtenerFicha, slot],
+      [CANALES_AMIGOS.obtenerImagen, slot]
+    ])
+  })
+
+  it('overlay esta congelado y tiene solo abrir, cerrar y obtenerSeleccion', () => {
+    const { api } = construir()
+    expect(Object.isFrozen(api.overlay)).toBe(true)
+    expect(Object.keys(api.overlay).sort()).toEqual(['abrir', 'cerrar', 'obtenerSeleccion'])
+    for (const funcion of Object.values(api.overlay)) {
+      expect(typeof funcion).toBe('function')
+    }
+  })
+
+  it('cada funcion del overlay invoca su canal fijo con el payload', async () => {
+    const { api, invoke } = construir()
+    await api.overlay.abrir({ teamId: 't' })
+    await api.overlay.cerrar()
+    await api.overlay.obtenerSeleccion()
+    expect(invoke.mock.calls).toEqual([
+      [CANALES_OVERLAY.abrir, { teamId: 't' }],
+      [CANALES_OVERLAY.cerrar],
+      [CANALES_OVERLAY.obtenerSeleccion]
+    ])
+  })
+
+  it('las funciones del overlay devuelven el resultado del main sin transformarlo', async () => {
+    const { api } = construir({ ok: false, error: 'sesion-vencida' })
+    expect(await api.overlay.abrir({ teamId: 't' })).toEqual({ ok: false, error: 'sesion-vencida' })
+  })
+
+  it('las funciones de amigos devuelven el resultado del main sin transformarlo', async () => {
+    const { api } = construir({ ok: false, error: 'no-encontrado' })
+    expect(await api.amigos.listarTeams({ usuarioId: 'u' })).toEqual({
+      ok: false,
+      error: 'no-encontrado'
+    })
   })
 
   it('las funciones de teams devuelven el resultado del main sin transformarlo', async () => {

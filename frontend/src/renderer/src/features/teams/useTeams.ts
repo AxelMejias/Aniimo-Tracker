@@ -12,6 +12,7 @@ export interface UseTeams {
   recargar(): Promise<void>
   crear(nombre: string): Promise<ErrorDeTeams | null>
   renombrar(teamId: string, nombre: string): Promise<ErrorDeTeams | null>
+  cambiarVisibilidad(teamId: string, ocultoParaAmigos: boolean): Promise<ErrorDeTeams | null>
   borrar(teamId: string): Promise<ErrorDeTeams | null>
 }
 
@@ -66,10 +67,15 @@ export function useTeams(alSesionVencida: () => void): UseTeams {
       ejecutar(() => window.aniimo.teams.renombrar({ teamId, nombre })),
     [ejecutar]
   )
+  const cambiarVisibilidad = useCallback(
+    (teamId: string, ocultoParaAmigos: boolean) =>
+      ejecutar(() => window.aniimo.teams.cambiarVisibilidad({ teamId, ocultoParaAmigos })),
+    [ejecutar]
+  )
   const borrar = useCallback(
     (teamId: string) => ejecutar(() => window.aniimo.teams.borrar({ teamId })),
     [ejecutar]
   )
 
-  return { estado, pendiente, recargar, crear, renombrar, borrar }
+  return { estado, pendiente, recargar, crear, renombrar, cambiarVisibilidad, borrar }
 }

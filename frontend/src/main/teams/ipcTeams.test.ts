@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fichaDeReferencia } from '../../../tests/fixtures/ficha'
+import { fichaDeReferencia, omitir } from '../../../tests/fixtures/ficha'
 import { CANALES_TEAMS, type TeamResumen } from '../../shared/teams'
 import type { EventoIpc, IpcPrincipal } from '../auth/ipcAuth'
 import type { ClienteTeams } from './clienteTeams'
@@ -10,7 +10,13 @@ const ORIGEN_PROPIO: EventoIpc = { senderFrame: { url: 'http://localhost:5173/' 
 const ORIGEN_AJENO: EventoIpc = { senderFrame: { url: 'https://example.com/' } }
 const SIN_FRAME: EventoIpc = { senderFrame: null }
 const TEAM_ID = '3f2b1c4e-8a7d-4e21-9c55-0d9f6a1b2c3d'
-const TEAM: TeamResumen = { id: TEAM_ID, nombre: 'Principal', orden: 1, slots: [] }
+const TEAM: TeamResumen = {
+  id: TEAM_ID,
+  nombre: 'Principal',
+  orden: 1,
+  ocultoParaAmigos: false,
+  slots: []
+}
 
 function preparar(sobrescribir: Partial<ClienteTeams> = {}) {
   const manejadores = new Map<string, (evento: EventoIpc, payload?: unknown) => Promise<unknown>>()
@@ -23,6 +29,7 @@ function preparar(sobrescribir: Partial<ClienteTeams> = {}) {
     listar: vi.fn(async () => ({ ok: true as const, teams: [TEAM] })),
     crear: vi.fn(async () => ({ ok: true as const, team: TEAM })),
     renombrar: vi.fn(async () => ({ ok: true as const, team: TEAM })),
+    cambiarVisibilidad: vi.fn(async () => ({ ok: true as const, team: TEAM })),
     borrar: vi.fn(async () => ({ ok: true as const })),
     obtenerFicha: vi.fn(async () => ({ ok: true as const, ficha: null })),
     guardarFicha: vi.fn(async () => ({ ok: true as const, ficha: null })),
@@ -54,6 +61,7 @@ const PEDIDOS_VALIDOS: [keyof typeof CANALES_TEAMS, keyof ClienteTeams, unknown]
   ['listar', 'listar', undefined],
   ['crear', 'crear', { nombre: 'Raid' }],
   ['renombrar', 'renombrar', { teamId: TEAM_ID, nombre: 'Raid' }],
+  ['cambiarVisibilidad', 'cambiarVisibilidad', { teamId: TEAM_ID, ocultoParaAmigos: true }],
   ['borrar', 'borrar', { teamId: TEAM_ID }],
   ['obtenerFicha', 'obtenerFicha', { teamId: TEAM_ID, slot: 1 }],
   ['guardarFicha', 'guardarFicha', { teamId: TEAM_ID, slot: 1, ficha: fichaDeReferencia() }],
@@ -67,6 +75,17 @@ const PEDIDOS_INVALIDOS: [keyof typeof CANALES_TEAMS, unknown][] = [
   ['crear', { nombre: 5 }],
   ['renombrar', { teamId: 'x', nombre: 'Raid' }],
   ['borrar', { teamId: TEAM_ID, extra: 1 }],
+  ['cambiarVisibilidad', { teamId: TEAM_ID, ocultoParaAmigos: 'true' }],
+  ['cambiarVisibilidad', { ocultoParaAmigos: true }],
+  ['cambiarVisibilidad', { teamId: TEAM_ID, ocultoParaAmigos: true, extra: 1 }],
+  [
+    'guardarFicha',
+    {
+      teamId: TEAM_ID,
+      slot: 1,
+      ficha: omitir(fichaDeReferencia(), 'notasPrivadas')
+    }
+  ],
   ['obtenerFicha', { teamId: TEAM_ID, slot: 5 }],
   ['guardarFicha', { teamId: TEAM_ID, slot: 1, ficha: { ...fichaDeReferencia(), elemento: 'metal' } }],
   ['vaciarSlot', { teamId: TEAM_ID, slot: '1' }],
@@ -75,10 +94,10 @@ const PEDIDOS_INVALIDOS: [keyof typeof CANALES_TEAMS, unknown][] = [
 ]
 
 describe('registrarManejadoresDeTeams', () => {
-  it('registra exactamente los diez canales de teams', () => {
+  it('registra exactamente los once canales de teams', () => {
     const { manejadores } = preparar()
     expect([...manejadores.keys()].sort()).toEqual(Object.values(CANALES_TEAMS).sort())
-    expect(manejadores.size).toBe(10)
+    expect(manejadores.size).toBe(11)
   })
 
   it.each(PEDIDOS_VALIDOS)(

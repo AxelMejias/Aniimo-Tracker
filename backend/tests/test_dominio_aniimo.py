@@ -343,3 +343,14 @@ def test_el_orden_de_entrada_de_hijos_no_afecta_la_igualdad() -> None:
         **base,  # type: ignore[arg-type]
         materiales=(m1, m2),
     )
+
+
+def test_aniimo_nace_con_notas_publicas() -> None:
+    assert _aniimo().notas_privadas is False
+
+
+def test_aniimo_acepta_notas_privadas_y_replace_las_conserva() -> None:
+    aniimo = _aniimo(notas_privadas=True)
+    assert aniimo.notas_privadas is True
+    assert dataclasses.replace(aniimo, nivel=5).notas_privadas is True
+    assert dataclasses.replace(aniimo, notas_privadas=False).notas_privadas is False

@@ -6,6 +6,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencias import servicio_de_teams, usuario_actual
 from app.api.esquemas_teams import (
+    EdicionDeTeamEntrada,
     FichaEntrada,
     FichaRespuesta,
     FichaSalida,
@@ -44,10 +45,17 @@ def crear(entrada: NombreEntrada, usuario: Autenticado, servicio: Servicio) -> T
 
 
 @router.patch("/{team_id}")
-def renombrar(
-    team_id: IdDeTeam, entrada: NombreEntrada, usuario: Autenticado, servicio: Servicio
+def editar(
+    team_id: IdDeTeam, entrada: EdicionDeTeamEntrada, usuario: Autenticado, servicio: Servicio
 ) -> TeamSalida:
-    return TeamSalida.desde(servicio.renombrar(usuario.id, team_id, entrada.nombre))
+    return TeamSalida.desde(
+        servicio.editar(
+            usuario.id,
+            team_id,
+            nombre=entrada.nombre,
+            oculto_para_amigos=entrada.oculto_para_amigos,
+        )
+    )
 
 
 @router.delete("/{team_id}", status_code=status.HTTP_204_NO_CONTENT)

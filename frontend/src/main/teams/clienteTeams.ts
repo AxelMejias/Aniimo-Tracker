@@ -2,6 +2,7 @@ import {
   TIPOS_DE_IMAGEN,
   type CodigoDeErrorDeTeams,
   type ErrorDeTeams,
+  type PedidoCambiarVisibilidad,
   type PedidoCrear,
   type PedidoDeSlot,
   type PedidoDeTeam,
@@ -38,6 +39,7 @@ export interface ClienteTeams {
   listar(): Promise<ResultadoListar>
   crear(pedido: PedidoCrear): Promise<ResultadoTeam>
   renombrar(pedido: PedidoRenombrar): Promise<ResultadoTeam>
+  cambiarVisibilidad(pedido: PedidoCambiarVisibilidad): Promise<ResultadoTeam>
   borrar(pedido: PedidoDeTeam): Promise<ResultadoVacio>
   obtenerFicha(pedido: PedidoDeSlot): Promise<ResultadoFicha>
   guardarFicha(pedido: PedidoGuardarFicha): Promise<ResultadoFicha>
@@ -144,6 +146,10 @@ export function crearClienteTeams(fetchFn: FetchFn, sesion: SesionEnMemoria): Cl
     renombrar: (pedido) =>
       ejecutar('PATCH', `/teams/${pedido.teamId}`, conTeam, {
         cuerpo: { json: { nombre: pedido.nombre } }
+      }),
+    cambiarVisibilidad: (pedido) =>
+      ejecutar('PATCH', `/teams/${pedido.teamId}`, conTeam, {
+        cuerpo: { json: { oculto_para_amigos: pedido.ocultoParaAmigos } }
       }),
     borrar: (pedido) => ejecutar('DELETE', `/teams/${pedido.teamId}`, vacio),
     obtenerFicha: (pedido) => ejecutar('GET', rutaDeSlot(pedido), conFicha),

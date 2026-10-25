@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 import AuthScreen from './features/auth/AuthScreen'
 import { useAuth } from './features/auth/useAuth'
-import MisTeamsPage from './pages/MisTeamsPage'
+import Principal from './pages/Principal'
 import './shared/styles/tokens.css'
 
 export default function App(): ReactElement | null {
@@ -12,7 +12,7 @@ export default function App(): ReactElement | null {
   }
   if (estado.tipo === 'autenticado') {
     return (
-      <MisTeamsPage
+      <Principal
         nombreUsuario={estado.nombreUsuario}
         alCerrarSesion={() => void cerrarSesion()}
         alSesionVencida={sesionVencida}

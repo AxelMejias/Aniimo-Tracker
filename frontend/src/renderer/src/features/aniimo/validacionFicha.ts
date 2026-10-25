@@ -264,7 +264,8 @@ export function convertirFormulario(formulario: FormularioDeFicha): ResultadoDeC
       formulario.notasHabilidades,
       LARGO_MAXIMO_NOTAS
     ),
-    notas: r.textoOpcional('notas', formulario.notas, LARGO_MAXIMO_NOTAS)
+    notas: r.textoOpcional('notas', formulario.notas, LARGO_MAXIMO_NOTAS),
+    notasPrivadas: formulario.notasPrivadas
   }
   if (Object.keys(r.errores).length > 0) {
     return { ok: false, errores: r.errores }

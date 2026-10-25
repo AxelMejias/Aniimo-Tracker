@@ -1,0 +1,99 @@
+.amigos {
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+}
+
+.amigos__aviso {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.amigos__buscador,
+.amigos__lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.amigos__formulario {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.amigos__campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  font-size: var(--font-size-small);
+}
+
+.amigos__campo input {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  padding: var(--space-sm);
+}
+
+.amigos__resultado,
+.amigos__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.amigos__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.amigos__item .confirmacion {
+  flex-basis: 100%;
+}
+
+.amigos__titulo {
+  margin: 0;
+  font-size: var(--font-size-body);
+}
+
+.amigos__titulo-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.amigos__nombre {
+  margin-right: auto;
+  font-weight: 600;
+}
+
+.amigos__vacio {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.amigos__mensaje {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+}
+
+.amigos__acciones {
+  display: flex;
+  gap: var(--space-sm);
+}

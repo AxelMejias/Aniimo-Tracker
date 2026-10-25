@@ -75,7 +75,7 @@ def test_el_resumen_de_la_tarjeta_es_exacto(usuario_a: ClienteAutenticado) -> No
 def test_el_listado_no_incluye_ids_de_usuario(usuario_a: ClienteAutenticado) -> None:
     _crear(usuario_a)
     [listado] = _listar(usuario_a)
-    assert set(listado) == {"id", "nombre", "orden", "slots"}
+    assert set(listado) == {"id", "nombre", "orden", "oculto_para_amigos", "slots"}
 
 
 def test_el_listado_solo_trae_los_teams_propios(
@@ -216,3 +216,81 @@ def test_las_respuestas_de_teams_no_se_cachean(usuario_a: ClienteAutenticado) ->
         usuario_a.patch(f"/api/teams/{team['id']}", json={"nombre": "Raid"}),
     ):
         assert respuesta.headers["cache-control"] == "no-store"
+
+
+def test_el_listado_incluye_oculto_para_amigos(usuario_a: ClienteAutenticado) -> None:
+    visible = _crear(usuario_a, "Visible")
+    oculto = _crear(usuario_a, "Oculto")
+    usuario_a.patch(f"/api/teams/{oculto['id']}", json={"oculto_para_amigos": True})
+    por_nombre = {t["nombre"]: t["oculto_para_amigos"] for t in _listar(usuario_a)}
+    assert por_nombre == {"Visible": False, "Oculto": True}
+    assert visible["oculto_para_amigos"] is False
+
+
+def test_el_alta_nace_visible(usuario_a: ClienteAutenticado) -> None:
+    assert _crear(usuario_a)["oculto_para_amigos"] is False
+
+
+def test_el_alta_con_el_flag_responde_422_y_no_crea(usuario_a: ClienteAutenticado) -> None:
+    respuesta = usuario_a.post("/api/teams", json={"nombre": "Raid", "oculto_para_amigos": True})
+    assert respuesta.status_code == 422
+    assert _listar(usuario_a) == []
+
+
+def test_ocultar_sin_renombrar(usuario_a: ClienteAutenticado) -> None:
+    team = _crear(usuario_a, "Raid")
+    respuesta = usuario_a.patch(f"/api/teams/{team['id']}", json={"oculto_para_amigos": True})
+    assert respuesta.status_code == 200
+    assert respuesta.json()["nombre"] == "Raid"
+    assert respuesta.json()["oculto_para_amigos"] is True
+
+
+def test_renombrar_no_cambia_la_visibilidad(usuario_a: ClienteAutenticado) -> None:
+    team = _crear(usuario_a, "Raid")
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"oculto_para_amigos": True})
+    respuesta = usuario_a.patch(f"/api/teams/{team['id']}", json={"nombre": "Otro"})
+    assert (respuesta.json()["nombre"], respuesta.json()["oculto_para_amigos"]) == ("Otro", True)
+
+
+def test_nombre_y_visibilidad_juntos(usuario_a: ClienteAutenticado) -> None:
+    team = _crear(usuario_a, "Raid")
+    respuesta = usuario_a.patch(
+        f"/api/teams/{team['id']}", json={"nombre": "Otro", "oculto_para_amigos": True}
+    )
+    assert (respuesta.json()["nombre"], respuesta.json()["oculto_para_amigos"]) == ("Otro", True)
+
+
+@pytest.mark.parametrize(
+    "cuerpo",
+    [
+        {},
+        {"oculto_para_amigos": None},
+        {"oculto_para_amigos": "si"},
+        {"oculto_para_amigos": 1},
+        {"nombre": None},
+        {"orden": 2},
+        {"nombre": "X", "orden": 2},
+    ],
+)
+def test_edicion_invalida_responde_422_y_no_cambia(
+    usuario_a: ClienteAutenticado, cuerpo: dict[str, Any]
+) -> None:
+    team = _crear(usuario_a, "Viejo")
+    assert usuario_a.patch(f"/api/teams/{team['id']}", json=cuerpo).status_code == 422
+    [actual] = _listar(usuario_a)
+    assert (actual["nombre"], actual["oculto_para_amigos"]) == ("Viejo", False)
+
+
+def test_el_duenio_no_se_ve_afectado_por_ocultar(usuario_a: ClienteAutenticado) -> None:
+    team = _crear(usuario_a)
+    _guardar_ficha(usuario_a, team["id"], 1)
+    usuario_a.put(
+        f"/api/teams/{team['id']}/aniimo/1/imagen",
+        content=WEBP,
+        headers={"Content-Type": "image/webp"},
+    )
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"oculto_para_amigos": True})
+    assert usuario_a.get(f"/api/teams/{team['id']}/aniimo/1/imagen").content == WEBP
+    guardada = _guardar_ficha(usuario_a, team["id"], 1, nombre="Editada")
+    assert guardada["nombre"] == "Editada"
+    assert usuario_a.patch(f"/api/teams/{team['id']}", json={"nombre": "Nuevo"}).status_code == 200

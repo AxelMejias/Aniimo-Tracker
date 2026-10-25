@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import type { ResumenDeAniimo } from '../../../../shared/teams'
-import { useImagenDeTarjeta } from './useImagenDeTarjeta'
+import { useImagenDeTarjeta, type CargarImagenDeTarjeta } from './useImagenDeTarjeta'
 
 interface TarjetaAniimoProps {
   readonly teamId: string
@@ -8,6 +8,8 @@ interface TarjetaAniimoProps {
   readonly aniimo: ResumenDeAniimo | null
   readonly deshabilitado: boolean
   readonly alAbrir: (slot: number) => void
+  readonly cargarImagen?: CargarImagenDeTarjeta
+  readonly soloLectura?: boolean
 }
 
 export default function TarjetaAniimo({
@@ -15,11 +17,16 @@ export default function TarjetaAniimo({
   slot,
   aniimo,
   deshabilitado,
-  alAbrir
+  alAbrir,
+  cargarImagen,
+  soloLectura = false
 }: TarjetaAniimoProps): ReactElement {
-  const imagen = useImagenDeTarjeta(teamId, slot, aniimo?.tieneImagen ?? false)
+  const imagen = useImagenDeTarjeta(teamId, slot, aniimo?.tieneImagen ?? false, cargarImagen)
 
   if (aniimo === null) {
+    if (soloLectura) {
+      return <div className="tarjeta-aniimo tarjeta-aniimo--vacia">Vacío</div>
+    }
     return (
       <button
         className="tarjeta-aniimo tarjeta-aniimo--vacia"

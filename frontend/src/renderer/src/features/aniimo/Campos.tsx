@@ -95,6 +95,7 @@ interface CampoDeSeleccionProps extends BaseDeCampo {
   readonly opciones: readonly Opcion[]
   readonly alCambiar: (valor: string) => void
   readonly opcional?: boolean
+  readonly sinElegir?: string
 }
 
 export function CampoDeSeleccion({
@@ -104,7 +105,8 @@ export function CampoDeSeleccion({
   alCambiar,
   error,
   deshabilitado,
-  opcional
+  opcional,
+  sinElegir = 'Sin elegir'
 }: CampoDeSeleccionProps): ReactElement {
   const id = useId()
   const idError = `${id}-error`
@@ -122,7 +124,7 @@ export function CampoDeSeleccion({
         aria-describedby={error === undefined ? undefined : idError}
         onChange={(evento) => alCambiar(evento.target.value)}
       >
-        {opcional === true && <option value="">Sin elegir</option>}
+        {opcional === true && <option value="">{sinElegir}</option>}
         {opciones.map((opcion) => (
           <option key={opcion.codigo} value={opcion.codigo}>
             {opcion.etiqueta}

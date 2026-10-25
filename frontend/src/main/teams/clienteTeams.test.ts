@@ -55,6 +55,7 @@ const resumenApi = {
   id: TEAM_ID,
   nombre: 'Principal',
   orden: 1,
+  oculto_para_amigos: false,
   slots: [1, 2, 3, 4].map((slot) => ({ slot, aniimo: null }))
 }
 
@@ -68,6 +69,13 @@ describe('rutas, metodos y autorizacion', () => {
       `/teams/${TEAM_ID}`,
       (c) => c.renombrar({ teamId: TEAM_ID, nombre: 'Raid' }),
       json(200, resumenApi)
+    ],
+    [
+      'cambiarVisibilidad',
+      'PATCH',
+      `/teams/${TEAM_ID}`,
+      (c) => c.cambiarVisibilidad({ teamId: TEAM_ID, ocultoParaAmigos: true }),
+      json(200, { ...resumenApi, oculto_para_amigos: true })
     ],
     ['borrar', 'DELETE', `/teams/${TEAM_ID}`, (c) => c.borrar({ teamId: TEAM_ID }), json(204)],
     [
@@ -139,6 +147,19 @@ describe('cuerpos', () => {
     const enviada = llamada(fetchFalso)
     expect(enviada.cabeceras.get('Content-Type')).toBe('application/json')
     expect(JSON.parse(String(enviada.cuerpo))).toEqual({ nombre: 'Raid' })
+  })
+
+  it('cambiarVisibilidad envia solo oculto_para_amigos', async () => {
+    const { cliente, fetchFalso } = preparar(json(200, { ...resumenApi, oculto_para_amigos: true }))
+    const resultado = await cliente.cambiarVisibilidad({ teamId: TEAM_ID, ocultoParaAmigos: true })
+    expect(JSON.parse(String(llamada(fetchFalso).cuerpo))).toEqual({ oculto_para_amigos: true })
+    expect(resultado).toMatchObject({ ok: true, team: { ocultoParaAmigos: true } })
+  })
+
+  it('renombrar sigue enviando solo el nombre', async () => {
+    const { cliente, fetchFalso } = preparar(json(200, resumenApi))
+    await cliente.renombrar({ teamId: TEAM_ID, nombre: 'Raid' })
+    expect(JSON.parse(String(llamada(fetchFalso).cuerpo))).toEqual({ nombre: 'Raid' })
   })
 
   it('guardarFicha envia la ficha en la forma del backend', async () => {

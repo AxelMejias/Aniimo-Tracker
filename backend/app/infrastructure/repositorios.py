@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
 from app.domain.entidades import (
+    Amistad,
     AniimoDelTeam,
     ImagenAniimo,
     Sesion,
@@ -17,11 +18,13 @@ from app.domain.entidades import (
 )
 from app.domain.errores import EntidadNoEncontrada
 from app.infrastructure.mapeo import (
+    amistad_a_dominio,
     aniimo_a_dominio,
     imagen_a_dominio,
     sesion_a_dominio,
     team_a_dominio,
     usuario_a_dominio,
+    volcar_amistad,
     volcar_aniimo,
     volcar_imagen,
     volcar_sesion,
@@ -29,6 +32,7 @@ from app.infrastructure.mapeo import (
     volcar_usuario,
 )
 from app.infrastructure.modelos import (
+    AmistadModelo,
     AniimoDelTeamModelo,
     ImagenAniimoModelo,
     SesionModelo,
@@ -100,6 +104,16 @@ class UsuarioRepository(BaseRepository[Usuario, UsuarioModelo]):
         usuarios = self._convertir(consulta)
         return usuarios[0] if usuarios else None
 
+    def listar_por_ids(self, usuario_ids: Sequence[UUID]) -> list[Usuario]:
+        if not usuario_ids:
+            return []
+        consulta = (
+            select(UsuarioModelo)
+            .where(UsuarioModelo.id.in_(usuario_ids))
+            .order_by(UsuarioModelo.nombre_usuario)
+        )
+        return self._convertir(consulta)
+
 
 class TeamRepository(BaseRepository[Team, TeamModelo]):
     def __init__(self, session: Session) -> None:
@@ -114,6 +128,23 @@ class TeamRepository(BaseRepository[Team, TeamModelo]):
     def obtener_de_usuario(self, team_id: UUID, usuario_id: UUID) -> Team | None:
         consulta = select(TeamModelo).where(
             TeamModelo.id == team_id, TeamModelo.usuario_id == usuario_id
+        )
+        teams = self._convertir(consulta)
+        return teams[0] if teams else None
+
+    def listar_visibles_de_usuario(self, usuario_id: UUID) -> list[Team]:
+        consulta = (
+            select(TeamModelo)
+            .where(TeamModelo.usuario_id == usuario_id, TeamModelo.oculto_para_amigos.is_(False))
+            .order_by(TeamModelo.orden)
+        )
+        return self._convertir(consulta)
+
+    def obtener_visible_de_usuario(self, team_id: UUID, usuario_id: UUID) -> Team | None:
+        consulta = select(TeamModelo).where(
+            TeamModelo.id == team_id,
+            TeamModelo.usuario_id == usuario_id,
+            TeamModelo.oculto_para_amigos.is_(False),
         )
         teams = self._convertir(consulta)
         return teams[0] if teams else None
@@ -203,3 +234,29 @@ class SesionRepository(BaseRepository[Sesion, SesionModelo]):
                 or_(SesionModelo.expira_en <= ahora, SesionModelo.vence_en <= ahora),
             )
         )
+
+
+class AmistadRepository(BaseRepository[Amistad, AmistadModelo]):
+    def __init__(self, session: Session) -> None:
+        super().__init__(session, AmistadModelo, amistad_a_dominio, volcar_amistad)
+
+    def obtener_entre(self, usuario_id: UUID, otro_id: UUID) -> Amistad | None:
+        menor, mayor = sorted((usuario_id, otro_id))
+        consulta = select(AmistadModelo).where(
+            AmistadModelo.usuario_a_id == menor, AmistadModelo.usuario_b_id == mayor
+        )
+        amistades = self._convertir(consulta)
+        return amistades[0] if amistades else None
+
+    def listar_de(self, usuario_id: UUID) -> list[Amistad]:
+        consulta = (
+            select(AmistadModelo)
+            .where(
+                or_(
+                    AmistadModelo.usuario_a_id == usuario_id,
+                    AmistadModelo.usuario_b_id == usuario_id,
+                )
+            )
+            .order_by(AmistadModelo.creada_en, AmistadModelo.id)
+        )
+        return self._convertir(consulta)

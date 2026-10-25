@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   instalarApi,
   RESUMEN_DE_IRISALIS,
@@ -315,5 +315,172 @@ describe('navegacion a la ficha', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Agregar Aniimo' })[0]!)
     await screen.findByRole('button', { name: 'Iniciar sesión' })
     expect(screen.getByText('Tu sesión venció, volvé a iniciar sesión')).toBeInTheDocument()
+  })
+})
+
+describe('ocultar un team a los amigos', () => {
+  const RAID = teamDePrueba('Raid', 1)
+
+  async function abrirRaid(oculto = false) {
+    const api = instalarApi({
+      teams: {
+        listar: async () => ({ ok: true, teams: [teamDePrueba('Raid', 1, {}, oculto)] })
+      }
+    })
+    render(<App />)
+    await verMisTeams()
+    return api
+  }
+
+  function casilla(): HTMLInputElement {
+    return screen.getByRole('checkbox', { name: 'Oculto para amigos' })
+  }
+
+  it('un team visible muestra la casilla desmarcada y sin marca', async () => {
+    await abrirRaid(false)
+    expect(casilla().checked).toBe(false)
+    expect(document.querySelector('.tarjeta-team__marca')).toBeNull()
+  })
+
+  it('un team oculto muestra la casilla marcada y la marca junto al nombre', async () => {
+    await abrirRaid(true)
+    expect(casilla().checked).toBe(true)
+    expect(document.querySelector('.tarjeta-team__marca')?.textContent).toBe('Oculto para amigos')
+  })
+
+  it('marcarla llama a cambiarVisibilidad y recarga la lista con la marca', async () => {
+    const api = await abrirRaid(false)
+    api.teams.listar.mockResolvedValueOnce({
+      ok: true,
+      teams: [teamDePrueba('Raid', 1, {}, true)]
+    })
+    fireEvent.click(casilla())
+    await waitFor(() => expect(casilla().checked).toBe(true))
+    expect(api.teams.cambiarVisibilidad).toHaveBeenCalledWith({
+      teamId: RAID.id,
+      ocultoParaAmigos: true
+    })
+    expect(document.querySelector('.tarjeta-team__marca')).not.toBeNull()
+  })
+
+  it('desmarcarla envia ocultoParaAmigos en false', async () => {
+    const api = await abrirRaid(true)
+    api.teams.listar.mockResolvedValueOnce({ ok: true, teams: [teamDePrueba('Raid', 1)] })
+    fireEvent.click(casilla())
+    await waitFor(() => expect(casilla().checked).toBe(false))
+    expect(api.teams.cambiarVisibilidad).toHaveBeenCalledWith({
+      teamId: RAID.id,
+      ocultoParaAmigos: false
+    })
+  })
+
+  it('queda deshabilitada mientras espera y no cambia antes de la respuesta', async () => {
+    let resolver: (valor: { ok: true; team: typeof RAID }) => void = () => undefined
+    const api = instalarApi({
+      teams: {
+        listar: async () => ({ ok: true, teams: [teamDePrueba('Raid', 1)] }),
+        cambiarVisibilidad: () => new Promise((resolve) => (resolver = resolve))
+      }
+    })
+    render(<App />)
+    await verMisTeams()
+    fireEvent.click(casilla())
+    await waitFor(() => expect(casilla()).toBeDisabled())
+    expect(casilla().checked).toBe(false)
+    api.teams.listar.mockResolvedValueOnce({
+      ok: true,
+      teams: [teamDePrueba('Raid', 1, {}, true)]
+    })
+    resolver({ ok: true, team: RAID })
+    await waitFor(() => expect(casilla()).toBeEnabled())
+    expect(casilla().checked).toBe(true)
+  })
+
+  it('con error vuelve al estado anterior y muestra el mensaje', async () => {
+    await abrirRaid(false)
+    ;(window.aniimo.teams.cambiarVisibilidad as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      error: 'sin-conexion'
+    })
+    fireEvent.click(casilla())
+    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(casilla().checked).toBe(false)
+    expect(casilla()).toBeEnabled()
+  })
+
+  it('sesion-vencida al cambiar la visibilidad vuelve al login', async () => {
+    await abrirRaid(false)
+    ;(window.aniimo.teams.cambiarVisibilidad as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      error: 'sesion-vencida'
+    })
+    fireEvent.click(casilla())
+    await screen.findByRole('button', { name: 'Iniciar sesión' })
+  })
+
+  it('sin atributos style', async () => {
+    await abrirRaid(true)
+    expect(document.querySelectorAll('[style]')).toHaveLength(0)
+  })
+})
+
+describe('abrir un team en el overlay', () => {
+  const RAID = teamDePrueba('Raid', 1)
+  const PVP = teamDePrueba('PvP', 2)
+
+  async function verRaid(sobrescribir: Parameters<typeof instalarApi>[0] = {}) {
+    const api = instalarApi({
+      ...sobrescribir,
+      teams: { listar: async () => ({ ok: true, teams: [RAID, PVP] }), ...sobrescribir.teams }
+    })
+    render(<App />)
+    await verMisTeams()
+    return api
+  }
+
+  function botonDe(nombre: string): HTMLElement {
+    return within(tarjetaDeTeam(nombre)).getByRole('button', { name: 'Abrir en overlay' })
+  }
+
+  it('cada team ofrece el boton y llama a overlay.abrir con su id', async () => {
+    const api = await verRaid()
+    expect(screen.getAllByRole('button', { name: 'Abrir en overlay' })).toHaveLength(2)
+    fireEvent.click(botonDe('Raid'))
+    await waitFor(() => expect(api.overlay.abrir).toHaveBeenCalledWith({ teamId: RAID.id }))
+    fireEvent.click(botonDe('PvP'))
+    await waitFor(() => expect(api.overlay.abrir).toHaveBeenLastCalledWith({ teamId: PVP.id }))
+  })
+
+  it('el boton queda deshabilitado mientras espera la respuesta', async () => {
+    let resolver: (valor: { ok: true }) => void = () => undefined
+    await verRaid({
+      overlay: { abrir: () => new Promise<{ ok: true }>((resolve) => (resolver = resolve)) }
+    })
+    fireEvent.click(botonDe('Raid'))
+    await waitFor(() => expect(botonDe('Raid')).toBeDisabled())
+    resolver({ ok: true })
+    await waitFor(() => expect(botonDe('Raid')).toBeEnabled())
+  })
+
+  it('sesion-vencida vuelve al login con el aviso', async () => {
+    await verRaid({ overlay: { abrir: async () => ({ ok: false, error: 'sesion-vencida' }) } })
+    fireEvent.click(botonDe('Raid'))
+    await screen.findByRole('button', { name: 'Iniciar sesión' })
+    expect(screen.getByText('Tu sesión venció, volvé a iniciar sesión')).toBeInTheDocument()
+  })
+
+  it('un error muestra el mensaje solo en la tarjeta de ese team', async () => {
+    await verRaid({ overlay: { abrir: async () => ({ ok: false, error: 'error-inesperado' }) } })
+    fireEvent.click(botonDe('Raid'))
+    expect(await within(tarjetaDeTeam('Raid')).findByText('No se pudo abrir el overlay')).toBeInTheDocument()
+    expect(within(tarjetaDeTeam('PvP')).queryByText('No se pudo abrir el overlay')).toBeNull()
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(2)
+    expect(botonDe('Raid')).toBeEnabled()
+  })
+
+  it('datos-invalidos tambien muestra el mensaje generico', async () => {
+    await verRaid({ overlay: { abrir: async () => ({ ok: false, error: 'datos-invalidos' }) } })
+    fireEvent.click(botonDe('PvP'))
+    expect(await within(tarjetaDeTeam('PvP')).findByText('No se pudo abrir el overlay')).toBeInTheDocument()
   })
 })

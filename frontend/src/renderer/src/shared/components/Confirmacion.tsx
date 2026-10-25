@@ -4,6 +4,7 @@ import './Confirmacion.css'
 interface ConfirmacionProps {
   readonly mensaje: string
   readonly deshabilitado: boolean
+  readonly etiquetaConfirmar?: string
   readonly alConfirmar: () => void
   readonly alCancelar: () => void
 }
@@ -11,6 +12,7 @@ interface ConfirmacionProps {
 export default function Confirmacion({
   mensaje,
   deshabilitado,
+  etiquetaConfirmar = 'Confirmar borrado',
   alConfirmar,
   alCancelar
 }: ConfirmacionProps): ReactElement {
@@ -24,7 +26,7 @@ export default function Confirmacion({
           disabled={deshabilitado}
           onClick={alConfirmar}
         >
-          Confirmar borrado
+          {etiquetaConfirmar}
         </button>
         <button type="button" disabled={deshabilitado} onClick={alCancelar}>
           Cancelar

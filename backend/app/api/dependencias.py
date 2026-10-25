@@ -4,6 +4,7 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.api.limite_de_intentos import LimitadoresDeAuth
+from app.application.amigos import ServicioDeAmigos
 from app.application.auth import ServicioDeAuth
 from app.application.teams import ServicioDeTeams
 from app.domain.entidades import Sesion, Usuario
@@ -19,6 +20,11 @@ def servicio_de_auth(request: Request) -> ServicioDeAuth:
 
 def servicio_de_teams(request: Request) -> ServicioDeTeams:
     servicio: ServicioDeTeams = request.app.state.servicio_de_teams
+    return servicio
+
+
+def servicio_de_amigos(request: Request) -> ServicioDeAmigos:
+    servicio: ServicioDeAmigos = request.app.state.servicio_de_amigos
     return servicio
 
 

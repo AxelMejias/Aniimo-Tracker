@@ -1,5 +1,6 @@
 from app.domain.catalogos import Stat
 from app.domain.entidades import (
+    Amistad,
     AniimoDelTeam,
     ImagenAniimo,
     MaterialEstrella,
@@ -10,6 +11,7 @@ from app.domain.entidades import (
     ValoresDeStat,
 )
 from app.infrastructure.modelos import (
+    AmistadModelo,
     AniimoDelTeamModelo,
     ImagenAniimoModelo,
     MaterialEstrellaModelo,
@@ -37,6 +39,7 @@ _CAMPOS_DEL_ANIIMO = (
     "despertares_total",
     "notas_habilidades",
     "notas",
+    "notas_privadas",
 )
 
 # Cada stat del dominio se guarda en cuatro columnas planas con este sufijo.
@@ -85,7 +88,13 @@ def volcar_sesion(sesion: Sesion, fila: SesionModelo) -> None:
 
 
 def team_a_dominio(fila: TeamModelo) -> Team:
-    return Team(usuario_id=fila.usuario_id, nombre=fila.nombre, orden=fila.orden, id=fila.id)
+    return Team(
+        usuario_id=fila.usuario_id,
+        nombre=fila.nombre,
+        orden=fila.orden,
+        id=fila.id,
+        oculto_para_amigos=fila.oculto_para_amigos,
+    )
 
 
 def volcar_team(team: Team, fila: TeamModelo) -> None:
@@ -93,6 +102,7 @@ def volcar_team(team: Team, fila: TeamModelo) -> None:
     fila.usuario_id = team.usuario_id
     fila.nombre = team.nombre
     fila.orden = team.orden
+    fila.oculto_para_amigos = team.oculto_para_amigos
 
 
 def _stat_a_dominio(fila: AniimoDelTeamModelo, stat: Stat) -> ValoresDeStat:
@@ -175,3 +185,25 @@ def volcar_imagen(imagen: ImagenAniimo, fila: ImagenAniimoModelo) -> None:
     fila.aniimo_del_team_id = imagen.aniimo_id
     fila.tipo = imagen.tipo
     fila.datos = imagen.datos
+
+
+def amistad_a_dominio(fila: AmistadModelo) -> Amistad:
+    return Amistad(
+        usuario_a_id=fila.usuario_a_id,
+        usuario_b_id=fila.usuario_b_id,
+        solicitante_id=fila.solicitante_id,
+        estado=fila.estado,
+        creada_en=fila.creada_en,
+        aceptada_en=fila.aceptada_en,
+        id=fila.id,
+    )
+
+
+def volcar_amistad(amistad: Amistad, fila: AmistadModelo) -> None:
+    fila.id = amistad.id
+    fila.usuario_a_id = amistad.usuario_a_id
+    fila.usuario_b_id = amistad.usuario_b_id
+    fila.solicitante_id = amistad.solicitante_id
+    fila.estado = amistad.estado
+    fila.creada_en = amistad.creada_en
+    fila.aceptada_en = amistad.aceptada_en

@@ -1,0 +1,56 @@
+.comparacion {
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+}
+
+.comparacion__lados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-md);
+}
+
+.comparacion__lado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.comparacion__titulo {
+  padding: 0 var(--space-sm);
+  font-weight: 600;
+}
+
+.comparacion__ayuda {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.comparacion__aviso {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+}
+
+.comparacion__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-surface);
+  font-size: var(--font-size-small);
+}
+
+.comparacion__tabla th,
+.comparacion__tabla td {
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.comparacion__tabla thead th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}

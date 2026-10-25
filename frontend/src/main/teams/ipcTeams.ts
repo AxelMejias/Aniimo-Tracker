@@ -1,8 +1,9 @@
 import { CANALES_TEAMS, type ErrorDeTeams } from '../../shared/teams'
-import type { EventoIpc, IpcPrincipal } from '../auth/ipcAuth'
-import { isAllowedNavigation } from '../security'
+import type { IpcPrincipal } from '../auth/ipcAuth'
+import { crearRegistro } from '../ipcRegistro'
 import type { ClienteTeams } from './clienteTeams'
 import {
+  esPedidoCambiarVisibilidad,
   esPedidoCrear,
   esPedidoDeSlot,
   esPedidoDeTeam,
@@ -11,6 +12,7 @@ import {
   validarPedidoDeImagen
 } from './validacion'
 import type {
+  PedidoCambiarVisibilidad,
   PedidoCrear,
   PedidoDeSlot,
   PedidoDeTeam,
@@ -28,31 +30,7 @@ export function registrarManejadoresDeTeams(
   cliente: ClienteTeams,
   urlDeLaApp: string
 ): void {
-  const remitenteValido = (evento: EventoIpc): boolean =>
-    evento.senderFrame !== null && isAllowedNavigation(evento.senderFrame.url, urlDeLaApp)
-
-  function registrar(
-    canal: string,
-    ejecutar: (payload: unknown) => Promise<unknown>
-  ): void {
-    ipc.handle(canal, async (evento, payload) => {
-      if (!remitenteValido(evento)) {
-        return DATOS_INVALIDOS
-      }
-      try {
-        return await ejecutar(payload)
-      } catch {
-        return ERROR_INESPERADO
-      }
-    })
-  }
-
-  function conPedido<T>(
-    esValido: (valor: unknown) => valor is T,
-    accion: (pedido: T) => Promise<unknown>
-  ): (payload: unknown) => Promise<unknown> {
-    return async (payload) => (esValido(payload) ? accion(payload) : DATOS_INVALIDOS)
-  }
+  const { registrar, conPedido } = crearRegistro(ipc, urlDeLaApp, DATOS_INVALIDOS, ERROR_INESPERADO)
 
   registrar(CANALES_TEAMS.listar, () => cliente.listar())
   registrar(
@@ -62,6 +40,12 @@ export function registrarManejadoresDeTeams(
   registrar(
     CANALES_TEAMS.renombrar,
     conPedido<PedidoRenombrar>(esPedidoRenombrar, (pedido) => cliente.renombrar(pedido))
+  )
+  registrar(
+    CANALES_TEAMS.cambiarVisibilidad,
+    conPedido<PedidoCambiarVisibilidad>(esPedidoCambiarVisibilidad, (pedido) =>
+      cliente.cambiarVisibilidad(pedido)
+    )
   )
   registrar(
     CANALES_TEAMS.borrar,

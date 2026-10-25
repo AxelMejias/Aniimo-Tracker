@@ -140,3 +140,18 @@
 .tarjeta-aniimo__dato {
   color: var(--color-text-muted);
 }
+
+.tarjeta-team__marca {
+  margin-right: auto;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.tarjeta-team__visibilidad {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}

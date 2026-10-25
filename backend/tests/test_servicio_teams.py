@@ -10,6 +10,7 @@ from app.domain.catalogos import PosicionObjeto
 from app.domain.entidades import AniimoDelTeam, ImagenAniimo, Team, Usuario
 from app.domain.errores import (
     AniimoNoEncontrado,
+    ErrorDeValidacion,
     ImagenDemasiadoGrande,
     ImagenInvalida,
     LimiteDeTeamsAlcanzado,
@@ -109,20 +110,20 @@ def test_el_limite_de_teams_es_por_usuario(
     assert servicio.crear(otro.id, "Mio").team.orden == 1
 
 
-def test_renombrar_cambia_solo_el_nombre(
+def test_editar_solo_el_nombre_no_toca_la_visibilidad(
     servicio: ServicioDeTeams, usuario: Usuario, team: Team, irisalis: AniimoDelTeam
 ) -> None:
     servicio.guardar_ficha(usuario.id, team.id, 1, datos_de_ficha(irisalis))
-    resumen = servicio.renombrar(usuario.id, team.id, "Raid")
+    resumen = servicio.editar(usuario.id, team.id, nombre="Raid")
     assert resumen.team == replace(team, nombre="Raid")
     assert resumen.slots[0].aniimo is not None
 
 
-def test_renombrar_un_team_ajeno_lanza_no_encontrado_sin_cambios(
+def test_editar_un_team_ajeno_lanza_no_encontrado_sin_cambios(
     servicio: ServicioDeTeams, otro: Usuario, usuario: Usuario, team: Team
 ) -> None:
     with pytest.raises(TeamNoEncontrado):
-        servicio.renombrar(otro.id, team.id, "Robado")
+        servicio.editar(otro.id, team.id, nombre="Robado")
     assert [r.team for r in servicio.listar(usuario.id)] == [team]
 
 
@@ -297,3 +298,69 @@ def test_comprobar_aniimo_distingue_team_ajeno_y_slot_vacio(
         servicio.comprobar_aniimo(otro.id, team.id, 1)
     with pytest.raises(AniimoNoEncontrado):
         servicio.comprobar_aniimo(usuario.id, team.id, 2)
+
+
+def test_editar_solo_la_visibilidad_conserva_el_nombre(
+    servicio: ServicioDeTeams, usuario: Usuario, team: Team
+) -> None:
+    resumen = servicio.editar(usuario.id, team.id, oculto_para_amigos=True)
+    assert resumen.team == replace(team, oculto_para_amigos=True)
+    assert servicio.editar(usuario.id, team.id, oculto_para_amigos=False).team == team
+
+
+def test_editar_nombre_y_visibilidad_juntos(
+    servicio: ServicioDeTeams, usuario: Usuario, team: Team
+) -> None:
+    resumen = servicio.editar(usuario.id, team.id, nombre="Raid", oculto_para_amigos=True)
+    assert resumen.team.nombre == "Raid"
+    assert resumen.team.oculto_para_amigos is True
+    assert servicio.listar(usuario.id)[0].team == resumen.team
+
+
+def test_editar_sin_ningun_cambio_falla_y_no_modifica(
+    servicio: ServicioDeTeams, usuario: Usuario, team: Team
+) -> None:
+    with pytest.raises(ErrorDeValidacion):
+        servicio.editar(usuario.id, team.id)
+    assert [r.team for r in servicio.listar(usuario.id)] == [team]
+
+
+def test_editar_la_visibilidad_de_un_team_ajeno_lanza_no_encontrado_sin_cambios(
+    servicio: ServicioDeTeams, otro: Usuario, usuario: Usuario, team: Team
+) -> None:
+    with pytest.raises(TeamNoEncontrado):
+        servicio.editar(otro.id, team.id, oculto_para_amigos=True)
+    assert [r.team for r in servicio.listar(usuario.id)] == [team]
+
+
+def test_crear_deja_el_team_visible(servicio: ServicioDeTeams, usuario: Usuario) -> None:
+    assert servicio.crear(usuario.id, "Raid").team.oculto_para_amigos is False
+
+
+def test_guardar_ficha_persiste_notas_privadas_sin_tocar_las_notas(
+    servicio: ServicioDeTeams, usuario: Usuario, team: Team, irisalis: AniimoDelTeam
+) -> None:
+    servicio.guardar_ficha(usuario.id, team.id, 1, datos_de_ficha(irisalis))
+    ficha = servicio.guardar_ficha(
+        usuario.id, team.id, 1, datos_de_ficha(irisalis, notas_privadas=True)
+    )
+    assert ficha.aniimo.notas_privadas is True
+    assert ficha.aniimo.notas == irisalis.notas
+    assert ficha.aniimo.notas_habilidades == irisalis.notas_habilidades
+    desactivada = servicio.guardar_ficha(
+        usuario.id, team.id, 1, datos_de_ficha(irisalis, notas_privadas=False)
+    )
+    assert desactivada.aniimo.notas_privadas is False
+    assert desactivada.aniimo.notas == irisalis.notas
+
+
+def test_el_duenio_lee_todo_de_un_team_oculto_y_de_notas_privadas(
+    servicio: ServicioDeTeams, usuario: Usuario, team: Team, irisalis: AniimoDelTeam
+) -> None:
+    servicio.guardar_ficha(usuario.id, team.id, 1, datos_de_ficha(irisalis, notas_privadas=True))
+    servicio.editar(usuario.id, team.id, oculto_para_amigos=True)
+    ficha = servicio.obtener_ficha(usuario.id, team.id, 1)
+    assert ficha is not None
+    assert ficha.aniimo.notas == irisalis.notas
+    assert ficha.aniimo.notas_privadas is True
+    assert [r.team.id for r in servicio.listar(usuario.id)] == [team.id]

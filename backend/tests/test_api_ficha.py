@@ -178,3 +178,47 @@ def test_las_respuestas_de_ficha_no_se_cachean(usuario_a: ClienteAutenticado, te
     assert put.headers["cache-control"] == "no-store"
     assert usuario_a.get(_ruta(team_id, 1)).headers["cache-control"] == "no-store"
     assert usuario_a.delete(_ruta(team_id, 1)).headers["cache-control"] == "no-store"
+
+
+def test_la_ficha_guarda_y_lee_notas_privadas(usuario_a: ClienteAutenticado, team_id: str) -> None:
+    ficha = {**ficha_de_referencia(), "notas_privadas": True}
+    respuesta = usuario_a.put(_ruta(team_id, 1), json=ficha)
+    assert respuesta.status_code == 200
+    leida = usuario_a.get(_ruta(team_id, 1)).json()["aniimo"]
+    assert leida["notas_privadas"] is True
+    assert leida["notas"] == ficha["notas"]
+    assert leida["notas_habilidades"] == ficha["notas_habilidades"]
+    assert leida["stats"]["atq"]["notas"] == ficha["stats"]["atq"]["notas"]
+    assert leida["objetos"][0]["efecto_nucleo_notas"] == ficha["objetos"][0]["efecto_nucleo_notas"]
+
+
+def test_desactivar_notas_privadas_conserva_las_notas(
+    usuario_a: ClienteAutenticado, team_id: str
+) -> None:
+    usuario_a.put(_ruta(team_id, 1), json={**ficha_de_referencia(), "notas_privadas": True})
+    usuario_a.put(_ruta(team_id, 1), json={**ficha_de_referencia(), "notas_privadas": False})
+    leida = usuario_a.get(_ruta(team_id, 1)).json()["aniimo"]
+    assert leida["notas_privadas"] is False
+    assert leida["notas"] == ficha_de_referencia()["notas"]
+
+
+@pytest.mark.parametrize("valor", ["no", None, 1, "false"])
+def test_notas_privadas_no_booleano_responde_422_y_no_guarda(
+    usuario_a: ClienteAutenticado, team_id: str, valor: object
+) -> None:
+    respuesta = usuario_a.put(
+        _ruta(team_id, 1), json={**ficha_de_referencia(), "notas_privadas": valor}
+    )
+    assert respuesta.status_code == 422
+    assert usuario_a.get(_ruta(team_id, 1)).json() == {"aniimo": None}
+
+
+def test_notas_privadas_faltante_responde_422_y_no_guarda(
+    usuario_a: ClienteAutenticado, team_id: str
+) -> None:
+    ficha = ficha_de_referencia()
+    del ficha["notas_privadas"]
+    respuesta = usuario_a.put(_ruta(team_id, 1), json=ficha)
+    assert respuesta.status_code == 422
+    assert any(e["loc"] == ["body", "notas_privadas"] for e in respuesta.json()["detail"])
+    assert usuario_a.get(_ruta(team_id, 1)).json() == {"aniimo": None}

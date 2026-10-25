@@ -390,6 +390,12 @@ export function BloqueDeNotas({
         deshabilitado={deshabilitado}
         alCambiar={(notas) => alCambiar({ ...formulario, notas })}
       />
+      <CampoDeCasilla
+        etiqueta="Notas privadas"
+        marcado={formulario.notasPrivadas}
+        deshabilitado={deshabilitado}
+        alCambiar={(notasPrivadas) => alCambiar({ ...formulario, notasPrivadas })}
+      />
     </Bloque>
   )
 }

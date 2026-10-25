@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -61,3 +62,14 @@ def test_team_con_nombre_vacio_falla() -> None:
 def test_limite_de_teams_es_un_error_de_validacion() -> None:
     with pytest.raises(ErrorDeValidacion):
         Team(usuario_id=uuid4(), nombre="Team", orden=5)
+
+
+def test_team_nace_visible_para_amigos() -> None:
+    assert Team(uuid4(), "Mi team", 1).oculto_para_amigos is False
+
+
+def test_team_acepta_el_flag_y_replace_lo_conserva() -> None:
+    team = Team(uuid4(), "Mi team", 1, oculto_para_amigos=True)
+    assert team.oculto_para_amigos is True
+    assert replace(team, nombre="Otro").oculto_para_amigos is True
+    assert replace(team, oculto_para_amigos=False).oculto_para_amigos is False

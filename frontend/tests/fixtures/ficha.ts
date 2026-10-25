@@ -49,7 +49,8 @@ export function fichaDeReferencia(): FichaEntrada {
       }
     ],
     notasHabilidades: 'Habilidad 1: ataque electrico | Habilidad 2: curacion',
-    notas: 'Aniimo de referencia'
+    notas: 'Aniimo de referencia',
+    notasPrivadas: false
   }
 }
 
@@ -119,6 +120,14 @@ export function entradaDeApiDeReferencia(): Record<string, unknown> {
       }
     ],
     notas_habilidades: 'Habilidad 1: ataque electrico | Habilidad 2: curacion',
-    notas: 'Aniimo de referencia'
+    notas: 'Aniimo de referencia',
+    notas_privadas: false
   }
+}
+
+export function omitir<T extends object, K extends keyof T>(objeto: T, clave: K): Omit<T, K> {
+  return Object.fromEntries(Object.entries(objeto).filter(([nombre]) => nombre !== clave)) as Omit<
+    T,
+    K
+  >
 }

@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, MappedColumn, mapped_column, relationship
 
 from app.domain.catalogos import Elemento, PosicionObjeto, PotencialInnato, Rareza, Rol, Stat
+from app.domain.entidades import EstadoDeAmistad
 from app.domain.imagenes import TAMANO_MAXIMO, TipoDeImagen
 from app.infrastructure.database import Base
 
@@ -122,6 +123,7 @@ class TeamModelo(Base):
     usuario_id: Mapped[UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"))
     nombre: Mapped[str] = mapped_column(String(50))
     orden: Mapped[int] = mapped_column(SmallInteger)
+    oculto_para_amigos: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
 
     aniimos: Mapped[list["AniimoDelTeamModelo"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True
@@ -171,6 +173,7 @@ class AniimoDelTeamModelo(Base):
     despertares_total: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     notas_habilidades: Mapped[str | None] = mapped_column(Text)
     notas: Mapped[str | None] = mapped_column(Text)
+    notas_privadas: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
 
     vars().update(_columnas_de_stats())
 
@@ -240,3 +243,27 @@ class ImagenAniimoModelo(Base):
     actualizada_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class AmistadModelo(Base):
+    __tablename__ = "amistad"
+    __table_args__ = (
+        CheckConstraint("usuario_a_id < usuario_b_id", name="par_ordenado"),
+        CheckConstraint(
+            "solicitante_id IN (usuario_a_id, usuario_b_id)", name="solicitante_en_par"
+        ),
+        CheckConstraint(
+            "(estado = 'aceptada') = (aceptada_en IS NOT NULL)", name="aceptada_en_coherente"
+        ),
+        UniqueConstraint("usuario_a_id", "usuario_b_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    usuario_a_id: Mapped[UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"))
+    usuario_b_id: Mapped[UUID] = mapped_column(
+        ForeignKey("usuario.id", ondelete="CASCADE"), index=True
+    )
+    solicitante_id: Mapped[UUID]
+    estado: Mapped[EstadoDeAmistad] = mapped_column(_enum(EstadoDeAmistad, "estado"))
+    creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    aceptada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

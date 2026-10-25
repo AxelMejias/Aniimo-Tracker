@@ -14,7 +14,12 @@ from app.domain.entidades import (
     Team,
     ValoresDeStat,
 )
-from app.domain.errores import AniimoNoEncontrado, LimiteDeTeamsAlcanzado, TeamNoEncontrado
+from app.domain.errores import (
+    AniimoNoEncontrado,
+    LimiteDeTeamsAlcanzado,
+    TeamNoEncontrado,
+    ValorInvalido,
+)
 from app.domain.imagenes import TipoDeImagen
 
 _SLOTS = (1, 2, 3, 4)
@@ -41,6 +46,7 @@ class DatosDeFicha:
     objetos: tuple[ObjetoTransportado, ...]
     notas_habilidades: str | None
     notas: str | None
+    notas_privadas: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +86,7 @@ def _aniimo_del_slot(uow: UnitOfWork, team: Team, slot: int) -> AniimoDelTeam:
     return aniimo
 
 
-def _resumir(uow: UnitOfWork, teams: list[Team]) -> list[ResumenDeTeam]:
+def resumir(uow: UnitOfWork, teams: list[Team]) -> list[ResumenDeTeam]:
     aniimos = uow.aniimos.listar_por_teams([t.id for t in teams])
     con_imagen = uow.imagenes.ids_con_imagen([a.id for a in aniimos])
     por_team_y_slot = {(a.team_id, a.slot): a for a in aniimos}
@@ -96,13 +102,25 @@ def _resumir(uow: UnitOfWork, teams: list[Team]) -> list[ResumenDeTeam]:
     return resumenes
 
 
+def ficha_del_team(uow: UnitOfWork, team: Team, slot: int) -> FichaGuardada | None:
+    aniimo = uow.aniimos.obtener_por_slot(team.id, slot)
+    if aniimo is None:
+        return None
+    return FichaGuardada(aniimo, bool(uow.imagenes.ids_con_imagen([aniimo.id])))
+
+
+def imagen_del_team(uow: UnitOfWork, team: Team, slot: int) -> ImagenAniimo | None:
+    aniimo = uow.aniimos.obtener_por_slot(team.id, slot)
+    return None if aniimo is None else uow.imagenes.obtener(aniimo.id)
+
+
 class ServicioDeTeams:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
     def listar(self, usuario_id: UUID) -> list[ResumenDeTeam]:
         with UnitOfWork(self._session_factory) as uow:
-            return _resumir(uow, uow.teams.listar_por_usuario(usuario_id))
+            return resumir(uow, uow.teams.listar_por_usuario(usuario_id))
 
     def crear(self, usuario_id: UUID, nombre: str) -> ResumenDeTeam:
         with UnitOfWork(self._session_factory) as uow:
@@ -113,14 +131,27 @@ class ServicioDeTeams:
             team = Team(usuario_id=usuario_id, nombre=nombre, orden=libres[0])
             uow.teams.agregar(team)
             uow.commit()
-            return _resumir(uow, [team])[0]
+            return resumir(uow, [team])[0]
 
-    def renombrar(self, usuario_id: UUID, team_id: UUID, nombre: str) -> ResumenDeTeam:
+    def editar(
+        self,
+        usuario_id: UUID,
+        team_id: UUID,
+        *,
+        nombre: str | None = None,
+        oculto_para_amigos: bool | None = None,
+    ) -> ResumenDeTeam:
+        if nombre is None and oculto_para_amigos is None:
+            raise ValorInvalido("cambios")
         with UnitOfWork(self._session_factory) as uow:
-            team = replace(_team_del_usuario(uow, usuario_id, team_id), nombre=nombre)
+            team = _team_del_usuario(uow, usuario_id, team_id)
+            if nombre is not None:
+                team = replace(team, nombre=nombre)
+            if oculto_para_amigos is not None:
+                team = replace(team, oculto_para_amigos=oculto_para_amigos)
             uow.teams.actualizar(team)
             uow.commit()
-            return _resumir(uow, [team])[0]
+            return resumir(uow, [team])[0]
 
     def borrar(self, usuario_id: UUID, team_id: UUID) -> None:
         with UnitOfWork(self._session_factory) as uow:
@@ -130,11 +161,7 @@ class ServicioDeTeams:
 
     def obtener_ficha(self, usuario_id: UUID, team_id: UUID, slot: int) -> FichaGuardada | None:
         with UnitOfWork(self._session_factory) as uow:
-            team = _team_del_usuario(uow, usuario_id, team_id)
-            aniimo = uow.aniimos.obtener_por_slot(team.id, slot)
-            if aniimo is None:
-                return None
-            return FichaGuardada(aniimo, bool(uow.imagenes.ids_con_imagen([aniimo.id])))
+            return ficha_del_team(uow, _team_del_usuario(uow, usuario_id, team_id), slot)
 
     def guardar_ficha(
         self, usuario_id: UUID, team_id: UUID, slot: int, datos: DatosDeFicha

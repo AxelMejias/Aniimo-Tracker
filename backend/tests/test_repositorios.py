@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -7,7 +8,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.unit_of_work import UnitOfWork
 from app.domain.catalogos import PosicionObjeto, Rareza
 from app.domain.entidades import (
+    Amistad,
     AniimoDelTeam,
+    EstadoDeAmistad,
     ImagenAniimo,
     MaterialEstrella,
     ObjetoTransportado,
@@ -302,3 +305,155 @@ def test_ids_con_imagen_devuelve_solo_los_que_tienen(
         assert uow.imagenes.ids_con_imagen(todos) == {aniimos[0].id, aniimos[2].id}
         assert uow.imagenes.ids_con_imagen([]) == set()
         assert uow.imagenes.ids_con_imagen([aniimos[1].id, uuid4()]) == set()
+
+
+def test_listar_usuarios_por_ids(session_factory: sessionmaker[Session]) -> None:
+    a = persistir_usuario(session_factory, "a")
+    persistir_usuario(session_factory, "b")
+    c = persistir_usuario(session_factory, "c")
+    with UnitOfWork(session_factory) as uow:
+        assert {u.id for u in uow.usuarios.listar_por_ids([a.id, c.id])} == {a.id, c.id}
+        assert uow.usuarios.listar_por_ids([a.id, uuid4()]) == [a]
+
+
+def test_listar_usuarios_por_ids_vacio_no_consulta_la_base(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with UnitOfWork(session_factory) as uow:
+        uow.session.close()
+        assert uow.usuarios.listar_por_ids([]) == []
+
+
+def test_amistad_entre_dos_usuarios_en_cualquier_orden(
+    session_factory: sessionmaker[Session],
+) -> None:
+    a = persistir_usuario(session_factory, "a")
+    b = persistir_usuario(session_factory, "b")
+    c = persistir_usuario(session_factory, "c")
+    amistad = Amistad.solicitar(a.id, b.id)
+    with UnitOfWork(session_factory) as uow:
+        uow.amistades.agregar(amistad)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.amistades.obtener_entre(a.id, b.id) == uow.amistades.obtener_entre(b.id, a.id)
+        encontrada = uow.amistades.obtener_entre(b.id, a.id)
+        assert encontrada is not None
+        assert encontrada.solicitante_id == a.id
+        assert uow.amistades.obtener_entre(a.id, c.id) is None
+        assert uow.amistades.obtener_entre(c.id, a.id) is None
+
+
+def test_amistades_de_un_usuario_solo_las_suyas(session_factory: sessionmaker[Session]) -> None:
+    a = persistir_usuario(session_factory, "a")
+    b = persistir_usuario(session_factory, "b")
+    c = persistir_usuario(session_factory, "c")
+    d = persistir_usuario(session_factory, "d")
+    e = persistir_usuario(session_factory, "e")
+    ahora = datetime(2026, 1, 1, tzinfo=UTC)
+    con_b = Amistad.solicitar(a.id, b.id).aceptar(ahora)
+    con_c = Amistad.solicitar(c.id, a.id)
+    ajena = Amistad.solicitar(d.id, e.id)
+    with UnitOfWork(session_factory) as uow:
+        for amistad in (con_b, con_c, ajena):
+            uow.amistades.agregar(amistad)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert {x.id for x in uow.amistades.listar_de(a.id)} == {con_b.id, con_c.id}
+        assert {x.id for x in uow.amistades.listar_de(d.id)} == {ajena.id}
+        assert uow.amistades.listar_de(b.id) == [con_b]
+
+
+def test_amistad_round_trip_de_pendiente_a_aceptada(
+    session_factory: sessionmaker[Session],
+) -> None:
+    a = persistir_usuario(session_factory, "a")
+    b = persistir_usuario(session_factory, "b")
+    amistad = Amistad.solicitar(b.id, a.id)
+    with UnitOfWork(session_factory) as uow:
+        uow.amistades.agregar(amistad)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        leida = uow.amistades.obtener(amistad.id)
+        assert leida == amistad
+        assert leida is not None
+        assert leida.estado is EstadoDeAmistad.PENDIENTE
+        assert leida.aceptada_en is None
+        aceptada = leida.aceptar(datetime(2026, 2, 2, tzinfo=UTC))
+        uow.amistades.actualizar(aceptada)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        releida = uow.amistades.obtener(amistad.id)
+        assert releida == aceptada
+        assert releida is not None
+        assert releida.estado is EstadoDeAmistad.ACEPTADA
+        assert releida.aceptada_en == datetime(2026, 2, 2, tzinfo=UTC)
+
+
+def test_borrar_una_amistad_la_elimina(session_factory: sessionmaker[Session]) -> None:
+    a = persistir_usuario(session_factory, "a")
+    b = persistir_usuario(session_factory, "b")
+    amistad = Amistad.solicitar(a.id, b.id)
+    with UnitOfWork(session_factory) as uow:
+        uow.amistades.agregar(amistad)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        uow.amistades.borrar(amistad.id)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.amistades.obtener_entre(a.id, b.id) is None
+
+
+def test_unit_of_work_expone_los_seis_repositorios(
+    session_factory: sessionmaker[Session],
+) -> None:
+    with UnitOfWork(session_factory) as uow:
+        for nombre in ("usuarios", "teams", "aniimos", "sesiones", "imagenes", "amistades"):
+            assert hasattr(uow, nombre)
+
+
+def test_solo_teams_visibles(session_factory: sessionmaker[Session]) -> None:
+    a = persistir_usuario(session_factory, "a")
+    visible = persistir_team(session_factory, a, orden=1)
+    oculto = replace(persistir_team(session_factory, a, orden=2), oculto_para_amigos=True)
+    with UnitOfWork(session_factory) as uow:
+        uow.teams.actualizar(oculto)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        assert uow.teams.listar_visibles_de_usuario(a.id) == [visible]
+        assert uow.teams.obtener_visible_de_usuario(visible.id, a.id) == visible
+        assert uow.teams.obtener_visible_de_usuario(oculto.id, a.id) is None
+        assert [t.id for t in uow.teams.listar_por_usuario(a.id)] == [visible.id, oculto.id]
+        assert uow.teams.obtener_de_usuario(oculto.id, a.id) == oculto
+
+
+def test_teams_visibles_solo_del_duenio(session_factory: sessionmaker[Session]) -> None:
+    a = persistir_usuario(session_factory, "a")
+    b = persistir_usuario(session_factory, "b")
+    de_a = persistir_team(session_factory, a)
+    persistir_team(session_factory, b)
+    with UnitOfWork(session_factory) as uow:
+        assert uow.teams.listar_visibles_de_usuario(a.id) == [de_a]
+        assert uow.teams.obtener_visible_de_usuario(de_a.id, b.id) is None
+
+
+def test_round_trip_de_los_flags_de_privacidad(session_factory: sessionmaker[Session]) -> None:
+    usuario = persistir_usuario(session_factory)
+    team = Team(usuario_id=usuario.id, nombre="T", orden=1, oculto_para_amigos=True)
+    aniimo = AniimoDelTeam(team_id=team.id, slot=1, nombre="A", notas_privadas=True)
+    with UnitOfWork(session_factory) as uow:
+        uow.teams.agregar(team)
+        uow.aniimos.agregar(aniimo)
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        leido_team = uow.teams.obtener(team.id)
+        assert leido_team is not None
+        assert leido_team.oculto_para_amigos is True
+        leido = uow.aniimos.obtener(aniimo.id)
+        assert leido is not None
+        assert leido.notas_privadas is True
+        uow.aniimos.actualizar(replace(leido, notas_privadas=False))
+        uow.commit()
+    with UnitOfWork(session_factory) as uow:
+        releido = uow.aniimos.obtener(aniimo.id)
+        assert releido is not None
+        assert releido.notas_privadas is False

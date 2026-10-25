@@ -10,6 +10,7 @@ from pydantic import (
     StringConstraints,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
 
 from app.application.teams import DatosDeFicha, FichaGuardada, ResumenDeSlot, ResumenDeTeam
@@ -49,6 +50,22 @@ class NombreEntrada(BaseModel):
     model_config = _ESTRICTO
 
     nombre: Nombre
+
+
+class EdicionDeTeamEntrada(BaseModel):
+    model_config = _ESTRICTO
+
+    nombre: Nombre | None = None
+    oculto_para_amigos: bool | None = None
+
+    @model_validator(mode="after")
+    def _al_menos_uno_y_ninguno_nulo(self) -> Self:
+        enviados = self.model_fields_set
+        if not enviados:
+            raise ValueError("Se debe enviar al menos un campo")
+        if any(getattr(self, campo) is None for campo in enviados):
+            raise ValueError("Los campos enviados no pueden ser nulos")
+        return self
 
 
 class StatFicha(BaseModel):
@@ -118,7 +135,7 @@ class ObjetoFicha(BaseModel):
     efecto_nucleo_notas: TextoDeObjeto
 
 
-class FichaEntrada(BaseModel):
+class FichaBase(BaseModel):
     model_config = _ESTRICTO
 
     nombre: Nombre
@@ -141,6 +158,10 @@ class FichaEntrada(BaseModel):
             raise ValueError("Las posiciones de los objetos no pueden repetirse")
         return objetos
 
+
+class FichaEntrada(FichaBase):
+    notas_privadas: bool
+
     def a_datos(self) -> DatosDeFicha:
         entrenamiento = self.entrenamiento
         return DatosDeFicha(
@@ -162,7 +183,25 @@ class FichaEntrada(BaseModel):
             objetos=tuple(ObjetoTransportado(**o.model_dump()) for o in self.objetos),
             notas_habilidades=self.notas_habilidades,
             notas=self.notas,
+            notas_privadas=self.notas_privadas,
         )
+
+
+def campos_de_ficha(aniimo: AniimoDelTeam) -> dict[str, object]:
+    return {
+        "nombre": aniimo.nombre,
+        "elemento": aniimo.elemento,
+        "rol": aniimo.rol,
+        "potencial_innato": aniimo.potencial_innato,
+        "personalidad": aniimo.personalidad,
+        "nivel": aniimo.nivel,
+        "cp": aniimo.cp,
+        "stats": StatsFicha(**{stat: StatFicha(**asdict(aniimo.stats[stat])) for stat in Stat}),
+        "entrenamiento": _entrenamiento_de(aniimo),
+        "objetos": [ObjetoFicha(**asdict(o)) for o in aniimo.objetos],
+        "notas_habilidades": aniimo.notas_habilidades,
+        "notas": aniimo.notas,
+    }
 
 
 class FichaSalida(FichaEntrada):
@@ -175,18 +214,8 @@ class FichaSalida(FichaEntrada):
         return cls(
             slot=aniimo.slot,
             tiene_imagen=guardada.tiene_imagen,
-            nombre=aniimo.nombre,
-            elemento=aniimo.elemento,
-            rol=aniimo.rol,
-            potencial_innato=aniimo.potencial_innato,
-            personalidad=aniimo.personalidad,
-            nivel=aniimo.nivel,
-            cp=aniimo.cp,
-            stats=StatsFicha(**{stat: StatFicha(**asdict(aniimo.stats[stat])) for stat in Stat}),
-            entrenamiento=_entrenamiento_de(aniimo),
-            objetos=[ObjetoFicha(**asdict(o)) for o in aniimo.objetos],
-            notas_habilidades=aniimo.notas_habilidades,
-            notas=aniimo.notas,
+            notas_privadas=aniimo.notas_privadas,
+            **campos_de_ficha(aniimo),
         )
 
 
@@ -245,6 +274,7 @@ class TeamSalida(BaseModel):
     id: UUID
     nombre: str
     orden: int
+    oculto_para_amigos: bool
     slots: list[SlotSalida]
 
     @classmethod
@@ -254,6 +284,7 @@ class TeamSalida(BaseModel):
             id=team.id,
             nombre=team.nombre,
             orden=team.orden,
+            oculto_para_amigos=team.oculto_para_amigos,
             slots=[SlotSalida.desde(slot) for slot in resumen.slots],
         )
 

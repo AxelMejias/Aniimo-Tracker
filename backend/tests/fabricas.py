@@ -1,6 +1,7 @@
-from dataclasses import fields
+from dataclasses import dataclass, fields
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 from httpx import Response
@@ -209,4 +210,46 @@ def ficha_de_referencia() -> dict[str, Any]:
         ],
         "notas_habilidades": "Habilidad 1: ataque electrico | Habilidad 2: curacion",
         "notas": "Aniimo de referencia",
+        "notas_privadas": False,
     }
+
+
+@dataclass(frozen=True)
+class Persona:
+    nombre: str
+    id: UUID
+    api: ClienteAutenticado
+
+
+@dataclass(frozen=True)
+class Red:
+    """A y B amigos aceptados; C pidio amistad a A; A pidio amistad a D; E sin relacion."""
+
+    a: Persona
+    b: Persona
+    c: Persona
+    d: Persona
+    e: Persona
+
+
+def persona(cliente: TestClient, session_factory: sessionmaker[Session], nombre: str) -> Persona:
+    api = autenticar(cliente, nombre)
+    with UnitOfWork(session_factory) as uow:
+        usuario = uow.usuarios.obtener_por_nombre_usuario(nombre)
+    assert usuario is not None
+    return Persona(nombre, usuario.id, api)
+
+
+def amistad_aceptada(uno: Persona, otro: Persona) -> None:
+    assert (
+        uno.api.post("/api/amigos/solicitudes", json={"usuario_id": str(otro.id)}).status_code
+        == 201
+    )
+    assert otro.api.post(f"/api/amigos/solicitudes/{uno.id}/aceptar").status_code == 200
+
+
+def solicitud_pendiente(solicitante: Persona, destinatario: Persona) -> None:
+    respuesta = solicitante.api.post(
+        "/api/amigos/solicitudes", json={"usuario_id": str(destinatario.id)}
+    )
+    assert respuesta.status_code == 201

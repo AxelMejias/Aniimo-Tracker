@@ -3,7 +3,8 @@ import {
   entradaDeApiDeReferencia,
   fichaDeApiDeReferencia,
   fichaDeReferencia,
-  fichaGuardadaDeReferencia
+  fichaGuardadaDeReferencia,
+  omitir
 } from '../../../tests/fixtures/ficha'
 import {
   camposDeValidacion,
@@ -37,6 +38,31 @@ describe('fichaAApi', () => {
       nivel_requerido_siguiente_etapa: null,
       materiales: []
     })
+  })
+})
+
+describe('notas privadas y visibilidad', () => {
+  it('fichaAApi envia notas_privadas', () => {
+    expect(fichaAApi({ ...fichaDeReferencia(), notasPrivadas: true }).notas_privadas).toBe(true)
+    expect(fichaAApi(fichaDeReferencia()).notas_privadas).toBe(false)
+  })
+
+  it('fichaDeApi traduce notas_privadas', () => {
+    const api = { ...fichaDeApiDeReferencia(), notas_privadas: true }
+    expect(fichaDeApi(api).notasPrivadas).toBe(true)
+  })
+
+  it('fichaDeApi rechaza una ficha sin notas_privadas', () => {
+    const sin = omitir(fichaDeApiDeReferencia(), 'notas_privadas')
+    expect(() => fichaDeApi(sin)).toThrow(RespuestaInvalida)
+  })
+
+  it('teamDeApi traduce oculto_para_amigos y lo exige', () => {
+    const base = { id: 'x', nombre: 'Raid', orden: 1, slots: [] }
+    expect(teamDeApi({ ...base, oculto_para_amigos: true }).ocultoParaAmigos).toBe(true)
+    expect(teamDeApi({ ...base, oculto_para_amigos: false }).ocultoParaAmigos).toBe(false)
+    expect(() => teamDeApi(base)).toThrow(RespuestaInvalida)
+    expect(() => teamDeApi({ ...base, oculto_para_amigos: 'si' })).toThrow(RespuestaInvalida)
   })
 })
 
@@ -79,6 +105,7 @@ describe('teamDeApi', () => {
     id: '3f2b1c4e-8a7d-4e21-9c55-0d9f6a1b2c3d',
     nombre: 'Principal',
     orden: 1,
+    oculto_para_amigos: false,
     slots: [
       { slot: 1, aniimo: resumen },
       { slot: 2, aniimo: null },

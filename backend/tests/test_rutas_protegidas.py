@@ -24,6 +24,14 @@ PROTEGIDAS = {
     ("GET", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
     ("PUT", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
     ("DELETE", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
+    ("GET", "/api/usuarios"),
+    ("GET", "/api/amigos"),
+    ("POST", "/api/amigos/solicitudes"),
+    ("POST", "/api/amigos/solicitudes/{usuario_id}/aceptar"),
+    ("DELETE", "/api/amigos/{usuario_id}"),
+    ("GET", "/api/amigos/{usuario_id}/teams"),
+    ("GET", "/api/amigos/{usuario_id}/teams/{team_id}/aniimo/{slot}"),
+    ("GET", "/api/amigos/{usuario_id}/teams/{team_id}/aniimo/{slot}/imagen"),
 }
 
 
@@ -76,3 +84,24 @@ def test_todas_las_rutas_de_teams_declaran_usuario_actual(app_api: FastAPI) -> N
     }
     assert len(de_teams) == 10
     assert de_teams <= _con_usuario_actual(app_api, protegidas=True)
+
+
+def test_las_rutas_de_amistad_declaran_usuario_actual(app_api: FastAPI) -> None:
+    de_amistad = {
+        (metodo, path)
+        for path, metodos, _ in _rutas(app_api)
+        if path.startswith(("/api/usuarios", "/api/amigos"))
+        for metodo in metodos
+    }
+    assert len(de_amistad) == 8
+    assert de_amistad <= _con_usuario_actual(app_api, protegidas=True)
+
+
+def test_las_rutas_de_lectura_de_amigos_son_todas_get(app_api: FastAPI) -> None:
+    de_lectura = [
+        (path, metodos)
+        for path, metodos, _ in _rutas(app_api)
+        if path.startswith("/api/amigos/{usuario_id}/teams")
+    ]
+    assert len(de_lectura) == 3
+    assert all(metodos == {"GET"} for _, metodos in de_lectura)

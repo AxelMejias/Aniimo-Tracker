@@ -16,6 +16,7 @@ import {
   TAMANO_MAXIMO_DE_IMAGEN,
   TIPOS_DE_IMAGEN,
   type FichaEntrada,
+  type PedidoCambiarVisibilidad,
   type PedidoCrear,
   type PedidoDeSlot,
   type PedidoDeTeam,
@@ -28,7 +29,7 @@ const PATRON_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 export type ClasificacionDePedidoDeImagen = 'valido' | 'datos-invalidos' | 'imagen-invalida'
 
-function tieneClaves(valor: unknown, claves: readonly string[]): valor is Record<string, unknown> {
+export function tieneClaves(valor: unknown, claves: readonly string[]): valor is Record<string, unknown> {
   if (!esObjetoPlano(valor)) {
     return false
   }
@@ -56,11 +57,11 @@ function esCatalogoONulo(
   return valor === null || esCodigoDe(catalogo, valor)
 }
 
-function esIdDeTeam(valor: unknown): valor is string {
+export function esIdDeTeam(valor: unknown): valor is string {
   return typeof valor === 'string' && PATRON_UUID.test(valor)
 }
 
-function esSlot(valor: unknown): valor is number {
+export function esSlot(valor: unknown): valor is number {
   return esEntero(valor) && valor >= 1 && valor <= 4
 }
 
@@ -77,6 +78,14 @@ export function esPedidoRenombrar(valor: unknown): valor is PedidoRenombrar {
     tieneClaves(valor, ['teamId', 'nombre']) &&
     esIdDeTeam(valor.teamId) &&
     esTexto(valor.nombre, LARGO_MAXIMO_NOMBRE_CORTO)
+  )
+}
+
+export function esPedidoCambiarVisibilidad(valor: unknown): valor is PedidoCambiarVisibilidad {
+  return (
+    tieneClaves(valor, ['teamId', 'ocultoParaAmigos']) &&
+    esIdDeTeam(valor.teamId) &&
+    typeof valor.ocultoParaAmigos === 'boolean'
   )
 }
 
@@ -168,7 +177,8 @@ export function esFichaEntrada(valor: unknown): valor is FichaEntrada {
       'entrenamiento',
       'objetos',
       'notasHabilidades',
-      'notas'
+      'notas',
+      'notasPrivadas'
     ]) &&
     esTexto(valor.nombre, LARGO_MAXIMO_NOMBRE_CORTO) &&
     esCatalogoONulo(ELEMENTOS, valor.elemento) &&
@@ -183,7 +193,8 @@ export function esFichaEntrada(valor: unknown): valor is FichaEntrada {
     Array.isArray(valor.objetos) &&
     valor.objetos.every(esObjeto) &&
     esTextoONulo(valor.notasHabilidades, LARGO_MAXIMO_NOTAS) &&
-    esTextoONulo(valor.notas, LARGO_MAXIMO_NOTAS)
+    esTextoONulo(valor.notas, LARGO_MAXIMO_NOTAS) &&
+    typeof valor.notasPrivadas === 'boolean'
   )
 }
 

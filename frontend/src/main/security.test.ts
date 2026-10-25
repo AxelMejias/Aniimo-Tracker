@@ -3,8 +3,31 @@ import {
   denyPermission,
   denyWindowOpen,
   getMainWindowOptions,
+  getWebPreferences,
   isAllowedNavigation
 } from './security'
+
+describe('getWebPreferences', () => {
+  it('devuelve las cuatro opciones de endurecimiento y el preload', () => {
+    expect(getWebPreferences('/p/preload.js')).toEqual({
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      preload: '/p/preload.js'
+    })
+  })
+
+  it('usa el preload recibido', () => {
+    expect(getWebPreferences('/otro.js').preload).toBe('/otro.js')
+  })
+
+  it('es la fuente de las webPreferences de la ventana principal', () => {
+    expect(getMainWindowOptions('/p/preload.js').webPreferences).toEqual(
+      getWebPreferences('/p/preload.js')
+    )
+  })
+})
 
 describe('getMainWindowOptions', () => {
   const options = getMainWindowOptions('/path/to/preload.js')
@@ -37,6 +60,11 @@ describe('isAllowedNavigation', () => {
     expect(isAllowedNavigation(builtIndexUrl, builtIndexUrl)).toBe(true)
   })
 
+  it('acepta como remitente la URL del overlay con hash en dev y en file', () => {
+    expect(isAllowedNavigation(`${devServerUrl}/#overlay`, devServerUrl)).toBe(true)
+    expect(isAllowedNavigation(`${builtIndexUrl}#overlay`, builtIndexUrl)).toBe(true)
+  })
+
   it('blocks an external https origin', () => {
     expect(isAllowedNavigation('https://example.com', devServerUrl)).toBe(false)
   })
@@ -65,6 +93,12 @@ describe('denyWindowOpen', () => {
 })
 
 describe('denyPermission', () => {
+  it('deniega display-capture y media por ser incondicional', () => {
+    for (const permiso of ['display-capture', 'media']) {
+      expect((denyPermission as (p?: string) => false)(permiso)).toBe(false)
+    }
+  })
+
   it('always denies', () => {
     expect(denyPermission()).toBe(false)
   })

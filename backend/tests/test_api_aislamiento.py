@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from httpx import Response
 
-from tests.fabricas import ClienteAutenticado, ficha_de_referencia
+from tests.fabricas import ClienteAutenticado, Red, ficha_de_referencia
 from tests.imagenes_de_prueba import PNG, WEBP
 
 NO_ENCONTRADO = {"detail": "No encontrado"}
@@ -120,3 +120,51 @@ def test_slot_fuera_de_rango_responde_422(
 ) -> None:
     for metodo in ("GET", "DELETE"):
         assert usuario_a.request(metodo, f"/api/teams/{team_de_a}/aniimo/{slot}").status_code == 422
+
+
+IDS_DE_AMIGO = [*IDS, "ocultar"]
+
+
+def _pedidos_de_amigo(team_id: str) -> list[Pedido]:
+    return [
+        *_pedidos(team_id),
+        ("PATCH", f"/api/teams/{team_id}", {"json": {"oculto_para_amigos": True}}),
+    ]
+
+
+@pytest.fixture
+def team_de_a_con_amigo(red: Red) -> str:
+    team_id = str(red.a.api.post("/api/teams", json={"nombre": "Privado"}).json()["id"])
+    red.a.api.put(f"/api/teams/{team_id}/aniimo/1", json=ficha_de_referencia())
+    red.a.api.put(
+        f"/api/teams/{team_id}/aniimo/1/imagen",
+        content=WEBP,
+        headers={"Content-Type": "image/webp"},
+    )
+    return team_id
+
+
+@pytest.mark.parametrize("indice", range(len(IDS_DE_AMIGO)), ids=IDS_DE_AMIGO)
+def test_un_amigo_aceptado_no_puede_usar_las_rutas_de_teams_sobre_datos_de_otro(
+    red: Red, team_de_a_con_amigo: str, indice: int
+) -> None:
+    respuesta = _enviar(red.b.api, _pedidos_de_amigo(team_de_a_con_amigo)[indice])
+    assert respuesta.status_code == 404
+    assert respuesta.json() == NO_ENCONTRADO
+    [team] = red.a.api.get("/api/teams").json()["teams"]
+    assert team["nombre"] == "Privado"
+    assert team["oculto_para_amigos"] is False
+    assert team["slots"][0]["aniimo"]["nombre"] == "Irisalis"
+    assert red.a.api.get(f"/api/teams/{team_de_a_con_amigo}/aniimo/1/imagen").content == WEBP
+    assert red.b.api.get("/api/teams").json() == {"teams": []}
+
+
+@pytest.mark.parametrize("metodo", ["PUT", "DELETE", "POST", "PATCH"])
+def test_las_rutas_de_lectura_de_amigos_rechazan_escrituras_con_405(
+    red: Red, team_de_a_con_amigo: str, metodo: str
+) -> None:
+    base = f"/api/amigos/{red.a.id}/teams/{team_de_a_con_amigo}/aniimo/1"
+    for ruta in (base, f"{base}/imagen", f"/api/amigos/{red.a.id}/teams"):
+        kwargs: dict[str, Any] = {"json": ficha_de_referencia()}
+        assert red.b.api.request(metodo, ruta, **kwargs).status_code == 405
+    assert red.a.api.get(f"/api/teams/{team_de_a_con_amigo}/aniimo/1").status_code == 200

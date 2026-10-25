@@ -1,17 +1,47 @@
 import { vi, type Mock } from 'vitest'
-import type { AuthApi, TeamsApi } from '../../src/preload/api'
-import type { ResultadoAuth, ResultadoSesion } from '../../src/shared/auth'
+import type { AmigosApi, AuthApi, OverlayApi, TeamsApi } from '../../src/preload/api'
 import type {
+  Amigo,
+  ResultadoBuscar,
+  ResultadoFichaDeAmigo,
+  ResultadoImagenDeAmigo,
+  ResultadoListarAmigos,
+  ResultadoTeamsDeAmigo,
+  ResultadoUsuario,
+  ResultadoVacioDeAmigos,
+  Solicitud
+} from '../../src/shared/amigos'
+import type { ResultadoAuth, ResultadoSesion } from '../../src/shared/auth'
+import type { ResultadoOverlay, ResultadoSeleccion } from '../../src/shared/overlay'
+import type {
+  FichaDeAmigo,
   ResultadoFicha,
   ResultadoImagen,
   ResultadoListar,
   ResultadoTeam,
   ResultadoVacio,
   ResumenDeAniimo,
+  TeamDeAmigo,
   TeamResumen
 } from '../../src/shared/teams'
+import { fichaDeReferencia, omitir } from './ficha'
 
 export const SESION_DE_AXEL: ResultadoSesion = { ok: true, nombreUsuario: 'axel' }
+
+export const ID_DE_BRUNO = '7a1d3c52-6b0e-4f3a-8d21-5c9e4b7a0f11'
+export const ID_DE_CARLA = '9c4e1b70-2d3f-4a58-b6e7-1f0a8c3d5e22'
+
+export const BRUNO: Amigo = {
+  id: ID_DE_BRUNO,
+  nombreUsuario: 'bruno',
+  desde: '2026-10-25T10:00:00Z'
+}
+
+export const SOLICITUD_DE_CARLA: Solicitud = {
+  id: ID_DE_CARLA,
+  nombreUsuario: 'carla',
+  creadaEn: '2026-10-25T11:00:00Z'
+}
 
 export const RESUMEN_DE_IRISALIS: ResumenDeAniimo = {
   nombre: 'Irisalis',
@@ -27,24 +57,44 @@ export const RESUMEN_DE_IRISALIS: ResumenDeAniimo = {
 export function teamDePrueba(
   nombre = 'Principal',
   orden = 1,
-  aniimos: Record<number, ResumenDeAniimo> = {}
+  aniimos: Record<number, ResumenDeAniimo> = {},
+  ocultoParaAmigos = false
 ): TeamResumen {
   return {
     id: `00000000-0000-4000-8000-00000000000${orden}`,
     nombre,
     orden,
+    ocultoParaAmigos,
     slots: [1, 2, 3, 4].map((slot) => ({ slot, aniimo: aniimos[slot] ?? null }))
   }
+}
+
+export function teamDeAmigoDePrueba(
+  nombre = 'Principal',
+  orden = 1,
+  aniimos: Record<number, ResumenDeAniimo> = {}
+): TeamDeAmigo {
+  const team = omitir(teamDePrueba(nombre, orden, aniimos), 'ocultoParaAmigos')
+  return { ...team, id: `00000000-0000-4000-9000-00000000000${orden}` }
+}
+
+export function fichaDeAmigoDePrueba(cambios: Partial<FichaDeAmigo> = {}): FichaDeAmigo {
+  const ficha = omitir(fichaDeReferencia(), 'notasPrivadas')
+  return { ...ficha, slot: 1, tieneImagen: false, ...cambios }
 }
 
 export interface ApiFalsa {
   readonly auth: Record<keyof AuthApi, Mock>
   readonly teams: Record<keyof TeamsApi, Mock>
+  readonly amigos: Record<keyof AmigosApi, Mock>
+  readonly overlay: Record<keyof OverlayApi, Mock>
 }
 
 interface Sobrescrituras {
   readonly auth?: Partial<AuthApi>
   readonly teams?: Partial<TeamsApi>
+  readonly amigos?: Partial<AmigosApi>
+  readonly overlay?: Partial<OverlayApi>
 }
 
 type Funcion = (...args: never[]) => unknown
@@ -72,6 +122,10 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
       ok: true,
       team: teamDePrueba('Renombrado')
     }),
+    cambiarVisibilidad: async (): Promise<ResultadoTeam> => ({
+      ok: true,
+      team: teamDePrueba('Principal', 1, {}, true)
+    }),
     borrar: async (): Promise<ResultadoVacio> => ({ ok: true }),
     obtenerFicha: async (): Promise<ResultadoFicha> => ({ ok: true, ficha: null }),
     guardarFicha: async (): Promise<ResultadoFicha> => ({ ok: true, ficha: null }),
@@ -81,10 +135,42 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     borrarImagen: async (): Promise<ResultadoVacio> => ({ ok: true }),
     ...sobrescribir.teams
   })
+  const amigos = comoMocks<AmigosApi>({
+    buscar: async (): Promise<ResultadoBuscar> => ({ ok: true, usuario: null }),
+    listar: async (): Promise<ResultadoListarAmigos> => ({
+      ok: true,
+      amigos: [],
+      recibidas: [],
+      enviadas: []
+    }),
+    enviarSolicitud: async (): Promise<ResultadoUsuario> => ({
+      ok: true,
+      usuario: { id: ID_DE_BRUNO, nombreUsuario: 'bruno', relacion: 'solicitud-enviada' }
+    }),
+    aceptarSolicitud: async (): Promise<ResultadoUsuario> => ({
+      ok: true,
+      usuario: { id: ID_DE_CARLA, nombreUsuario: 'carla', relacion: 'amigo' }
+    }),
+    eliminar: async (): Promise<ResultadoVacioDeAmigos> => ({ ok: true }),
+    listarTeams: async (): Promise<ResultadoTeamsDeAmigo> => ({
+      ok: true,
+      usuario: { id: ID_DE_BRUNO, nombreUsuario: 'bruno' },
+      teams: []
+    }),
+    obtenerFicha: async (): Promise<ResultadoFichaDeAmigo> => ({ ok: true, ficha: null }),
+    obtenerImagen: async (): Promise<ResultadoImagenDeAmigo> => ({ ok: true, imagen: null }),
+    ...sobrescribir.amigos
+  })
+  const overlay = comoMocks<OverlayApi>({
+    abrir: async (): Promise<ResultadoOverlay> => ({ ok: true }),
+    cerrar: async (): Promise<ResultadoOverlay> => ({ ok: true }),
+    obtenerSeleccion: async (): Promise<ResultadoSeleccion> => ({ ok: true, seleccion: null }),
+    ...sobrescribir.overlay
+  })
   Object.defineProperty(window, 'aniimo', {
-    value: { appName: 'Aniimo Team Tracker', auth, teams },
+    value: { appName: 'Aniimo Team Tracker', auth, teams, amigos, overlay },
     configurable: true,
     writable: true
   })
-  return { auth, teams }
+  return { auth, teams, amigos, overlay }
 }

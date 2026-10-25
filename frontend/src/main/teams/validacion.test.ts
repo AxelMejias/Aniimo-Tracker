@@ -3,6 +3,7 @@ import { fichaDeReferencia } from '../../../tests/fixtures/ficha'
 import type { FichaEntrada } from '../../shared/teams'
 import {
   esFichaEntrada,
+  esPedidoCambiarVisibilidad,
   esPedidoCrear,
   esPedidoDeSlot,
   esPedidoDeTeam,
@@ -46,6 +47,35 @@ describe('esPedidoCrear', () => {
     ['arreglo', ['Raid']]
   ])('rechaza %s', (_caso, valor) => {
     expect(esPedidoCrear(valor)).toBe(false)
+  })
+})
+
+describe('esPedidoCambiarVisibilidad', () => {
+  it('acepta teamId UUID y ocultoParaAmigos booleano', () => {
+    expect(esPedidoCambiarVisibilidad({ teamId: TEAM_ID, ocultoParaAmigos: true })).toBe(true)
+    expect(esPedidoCambiarVisibilidad({ teamId: TEAM_ID, ocultoParaAmigos: false })).toBe(true)
+  })
+
+  it.each([
+    ['ocultoParaAmigos string', { teamId: TEAM_ID, ocultoParaAmigos: 'true' }],
+    ['ocultoParaAmigos numero', { teamId: TEAM_ID, ocultoParaAmigos: 1 }],
+    ['sin teamId', { ocultoParaAmigos: true }],
+    ['teamId invalido', { teamId: 'x', ocultoParaAmigos: true }],
+    ['sin ocultoParaAmigos', { teamId: TEAM_ID }],
+    ['clave extra', { teamId: TEAM_ID, ocultoParaAmigos: true, nombre: 'x' }],
+    ['null', null]
+  ])('rechaza %s', (_caso, valor) => {
+    expect(esPedidoCambiarVisibilidad(valor)).toBe(false)
+  })
+})
+
+describe('notasPrivadas en la ficha', () => {
+  it('acepta booleanos y rechaza lo demas', () => {
+    expect(esFichaEntrada(conCambios((f) => (f.notasPrivadas = true)))).toBe(true)
+    expect(esFichaEntrada(conCambios((f) => (f.notasPrivadas = false)))).toBe(true)
+    expect(esFichaEntrada(conCambios((f) => delete f.notasPrivadas))).toBe(false)
+    expect(esFichaEntrada(conCambios((f) => (f.notasPrivadas = 'si')))).toBe(false)
+    expect(esFichaEntrada(conCambios((f) => (f.notasPrivadas = null)))).toBe(false)
   })
 })
 

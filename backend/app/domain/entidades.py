@@ -2,11 +2,14 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from types import MappingProxyType
 from uuid import UUID, uuid4
 
 from app.domain.catalogos import Elemento, PosicionObjeto, PotencialInnato, Rareza, Rol, Stat
 from app.domain.errores import (
+    AmistadNoEncontrada,
+    AutoAmistad,
     DespertaresInconsistentes,
     ImagenDemasiadoGrande,
     ImagenInvalida,
@@ -79,12 +82,49 @@ class Sesion:
         return replace(self, expira_en=min(ahora + inactividad, self.vence_en))
 
 
+class EstadoDeAmistad(StrEnum):
+    PENDIENTE = "pendiente"
+    ACEPTADA = "aceptada"
+
+
+@dataclass(frozen=True, slots=True)
+class Amistad:
+    usuario_a_id: UUID
+    usuario_b_id: UUID
+    solicitante_id: UUID
+    estado: EstadoDeAmistad = EstadoDeAmistad.PENDIENTE
+    creada_en: datetime = field(default_factory=lambda: datetime.now(UTC))
+    aceptada_en: datetime | None = None
+    id: UUID = field(default_factory=uuid4)
+
+    @classmethod
+    def solicitar(
+        cls, solicitante_id: UUID, destinatario_id: UUID, creada_en: datetime | None = None
+    ) -> "Amistad":
+        if solicitante_id == destinatario_id:
+            raise AutoAmistad
+        menor, mayor = sorted((solicitante_id, destinatario_id))
+        extra = {} if creada_en is None else {"creada_en": creada_en}
+        return cls(usuario_a_id=menor, usuario_b_id=mayor, solicitante_id=solicitante_id, **extra)
+
+    def aceptar(self, ahora: datetime) -> "Amistad":
+        return replace(self, estado=EstadoDeAmistad.ACEPTADA, aceptada_en=ahora)
+
+    def otro(self, usuario_id: UUID) -> UUID:
+        if usuario_id == self.usuario_a_id:
+            return self.usuario_b_id
+        if usuario_id == self.usuario_b_id:
+            return self.usuario_a_id
+        raise AmistadNoEncontrada
+
+
 @dataclass(frozen=True, slots=True)
 class Team:
     usuario_id: UUID
     nombre: str
     orden: int
     id: UUID = field(default_factory=uuid4)
+    oculto_para_amigos: bool = False
 
     def __post_init__(self) -> None:
         _no_vacio("nombre", self.nombre)
@@ -157,6 +197,7 @@ class AniimoDelTeam:
     notas_habilidades: str | None = None
     notas: str | None = None
     id: UUID = field(default_factory=uuid4)
+    notas_privadas: bool = False
 
     def __post_init__(self) -> None:
         if not 1 <= self.slot <= 4:

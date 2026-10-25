@@ -22,7 +22,16 @@ from app.domain.entidades import (
 )
 from app.infrastructure.database import make_engine
 from app.main import create_app
-from tests.fabricas import ClienteAutenticado, HasherEspia, RelojFalso, autenticar
+from tests.fabricas import (
+    ClienteAutenticado,
+    HasherEspia,
+    Red,
+    RelojFalso,
+    amistad_aceptada,
+    autenticar,
+    persona,
+    solicitud_pendiente,
+)
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -173,3 +182,15 @@ def usuario_a(cliente_api: TestClient) -> ClienteAutenticado:
 @pytest.fixture
 def usuario_b(cliente_api: TestClient) -> ClienteAutenticado:
     return autenticar(cliente_api, "usuario_b")
+
+
+@pytest.fixture
+def red(cliente_api: TestClient, session_factory: sessionmaker[Session]) -> Red:
+    a, b, c, d, e = (
+        persona(cliente_api, session_factory, nombre)
+        for nombre in ("usuario_a", "usuario_b", "usuario_c", "usuario_d", "usuario_e")
+    )
+    amistad_aceptada(a, b)
+    solicitud_pendiente(c, a)
+    solicitud_pendiente(a, d)
+    return Red(a, b, c, d, e)

@@ -11,11 +11,14 @@ import {
 import type {
   Entrenamiento,
   Ficha,
+  FichaBase,
+  FichaDeAmigo,
   FichaEntrada,
   Material,
   Objeto,
   ResumenDeAniimo,
   SlotDeTeam,
+  TeamDeAmigo,
   TeamResumen,
   ValoresDeStat
 } from '../../shared/teams'
@@ -29,14 +32,14 @@ export class RespuestaInvalida extends Error {
 
 type Registro = Record<string, unknown>
 
-function registro(valor: unknown): Registro {
+export function registro(valor: unknown): Registro {
   if (!esObjetoPlano(valor)) {
     throw new RespuestaInvalida()
   }
   return valor
 }
 
-function lista(valor: unknown): unknown[] {
+export function lista(valor: unknown): unknown[] {
   if (!Array.isArray(valor)) {
     throw new RespuestaInvalida()
   }
@@ -54,7 +57,7 @@ function enteroONulo(valor: unknown): number | null {
   return valor === null ? null : entero(valor)
 }
 
-function texto(valor: unknown): string {
+export function texto(valor: unknown): string {
   if (typeof valor !== 'string') {
     throw new RespuestaInvalida()
   }
@@ -129,7 +132,8 @@ export function fichaAApi(ficha: FichaEntrada): Registro {
       efecto_nucleo_notas: o.efectoNucleoNotas
     })),
     notas_habilidades: ficha.notasHabilidades,
-    notas: ficha.notas
+    notas: ficha.notas,
+    notas_privadas: ficha.notasPrivadas
   }
 }
 
@@ -178,12 +182,9 @@ function objetoDeApi(valor: unknown): Objeto {
   }
 }
 
-export function fichaDeApi(valor: unknown): Ficha {
-  const f = registro(valor)
+function fichaBaseDeApi(f: Registro): FichaBase {
   const stats = registro(f.stats)
   return {
-    slot: entero(f.slot),
-    tieneImagen: booleano(f.tiene_imagen),
     nombre: texto(f.nombre),
     elemento: codigoONulo(ELEMENTOS, f.elemento),
     rol: codigoONulo(ROLES, f.rol),
@@ -198,6 +199,25 @@ export function fichaDeApi(valor: unknown): Ficha {
     objetos: lista(f.objetos).map(objetoDeApi),
     notasHabilidades: textoONulo(f.notas_habilidades),
     notas: textoONulo(f.notas)
+  }
+}
+
+export function fichaDeApi(valor: unknown): Ficha {
+  const f = registro(valor)
+  return {
+    ...fichaBaseDeApi(f),
+    slot: entero(f.slot),
+    tieneImagen: booleano(f.tiene_imagen),
+    notasPrivadas: booleano(f.notas_privadas)
+  }
+}
+
+export function fichaDeAmigoDeApi(valor: unknown): FichaDeAmigo {
+  const f = registro(valor)
+  return {
+    ...fichaBaseDeApi(f),
+    slot: entero(f.slot),
+    tieneImagen: booleano(f.tiene_imagen)
   }
 }
 
@@ -220,7 +240,7 @@ function slotDeApi(valor: unknown): SlotDeTeam {
   return { slot: entero(s.slot), aniimo: s.aniimo === null ? null : resumenDeApi(s.aniimo) }
 }
 
-export function teamDeApi(valor: unknown): TeamResumen {
+export function teamDeAmigoDeApi(valor: unknown): TeamDeAmigo {
   const t = registro(valor)
   return {
     id: texto(t.id),
@@ -228,6 +248,11 @@ export function teamDeApi(valor: unknown): TeamResumen {
     orden: entero(t.orden),
     slots: lista(t.slots).map(slotDeApi)
   }
+}
+
+export function teamDeApi(valor: unknown): TeamResumen {
+  const t = registro(valor)
+  return { ...teamDeAmigoDeApi(t), ocultoParaAmigos: booleano(t.oculto_para_amigos) }
 }
 
 export function listaDeTeamsDeApi(valor: unknown): TeamResumen[] {

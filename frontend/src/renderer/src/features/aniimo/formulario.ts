@@ -41,6 +41,7 @@ export interface FormularioDeFicha {
   readonly objetos: readonly FormularioDeObjeto[]
   readonly notasHabilidades: string
   readonly notas: string
+  readonly notasPrivadas: boolean
 }
 
 export const CANTIDAD_DE_MATERIALES = 3
@@ -84,7 +85,8 @@ export function formularioVacio(): FormularioDeFicha {
     materiales: Array.from({ length: CANTIDAD_DE_MATERIALES }, () => MATERIAL_VACIO),
     objetos: POSICIONES_DE_OBJETO_EN_ORDEN.map(objetoVacio),
     notasHabilidades: '',
-    notas: ''
+    notas: '',
+    notasPrivadas: false
   }
 }
 
@@ -147,7 +149,8 @@ export function formularioDeFicha(ficha: Ficha | FichaEntrada): FormularioDeFich
     materiales,
     objetos,
     notasHabilidades: ficha.notasHabilidades ?? '',
-    notas: ficha.notas ?? ''
+    notas: ficha.notas ?? '',
+    notasPrivadas: 'notasPrivadas' in ficha && ficha.notasPrivadas
   }
 }
 

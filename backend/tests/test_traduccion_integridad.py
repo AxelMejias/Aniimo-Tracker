@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.unit_of_work import UnitOfWork
 from app.domain.catalogos import Stat
-from app.domain.entidades import AniimoDelTeam, Team, Usuario
+from app.domain.entidades import Amistad, AniimoDelTeam, Team, Usuario
 from app.domain.errores import (
+    AmistadExistente,
     DespertaresInconsistentes,
     ErrorDeDominio,
     ErrorDeIntegridad,
@@ -178,4 +179,20 @@ def test_imagen_de_mas_de_un_mebibyte_lanza_imagen_demasiado_grande(
             )
         )
         with pytest.raises(ImagenDemasiadoGrande):
+            uow.commit()
+
+
+@pytest.mark.parametrize("invertir", [False, True])
+def test_par_duplicado_se_traduce_a_amistad_existente(
+    session_factory: sessionmaker[Session], invertir: bool
+) -> None:
+    a = persistir_usuario(session_factory, "a")
+    b = persistir_usuario(session_factory, "b")
+    with UnitOfWork(session_factory) as uow:
+        uow.amistades.agregar(Amistad.solicitar(a.id, b.id))
+        uow.commit()
+    solicitante, destinatario = (b, a) if invertir else (a, b)
+    with UnitOfWork(session_factory) as uow:
+        uow.amistades.agregar(Amistad.solicitar(solicitante.id, destinatario.id))
+        with pytest.raises(AmistadExistente):
             uow.commit()

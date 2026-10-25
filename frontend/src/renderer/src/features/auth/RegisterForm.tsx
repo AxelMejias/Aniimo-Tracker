@@ -1,7 +1,10 @@
-import { useState, type FormEvent, type ReactElement } from 'react'
+import { useId, useState, type FormEvent, type ReactElement } from 'react'
 import type { Credenciales, ErrorDeAuth } from '../../../../shared/auth'
 import { mensajeDeError } from './mensajes'
 import { validarRegistro } from './validacionRegistro'
+
+const AYUDA_DE_USUARIO = '3 a 32 letras, números o guion bajo.'
+const AYUDA_DE_CONTRASENA = 'Mínimo 12 caracteres.'
 
 interface RegisterFormProps {
   readonly alEnviar: (credenciales: Credenciales) => Promise<ErrorDeAuth | null>
@@ -12,6 +15,8 @@ export default function RegisterForm({ alEnviar }: RegisterFormProps): ReactElem
   const [contrasena, setContrasena] = useState('')
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const idAyudaUsuario = useId()
+  const idAyudaContrasena = useId()
 
   async function enviar(evento: FormEvent<HTMLFormElement>): Promise<void> {
     evento.preventDefault()
@@ -42,10 +47,14 @@ export default function RegisterForm({ alEnviar }: RegisterFormProps): ReactElem
           type="text"
           autoComplete="username"
           maxLength={64}
+          aria-describedby={idAyudaUsuario}
           value={nombreUsuario}
           onChange={(evento) => setNombreUsuario(evento.target.value)}
         />
       </label>
+      <p className="auth-form__help" id={idAyudaUsuario}>
+        {AYUDA_DE_USUARIO}
+      </p>
       <label className="auth-form__field">
         Contraseña
         <input
@@ -53,17 +62,21 @@ export default function RegisterForm({ alEnviar }: RegisterFormProps): ReactElem
           type="password"
           autoComplete="new-password"
           maxLength={256}
+          aria-describedby={idAyudaContrasena}
           value={contrasena}
           onChange={(evento) => setContrasena(evento.target.value)}
         />
       </label>
+      <p className="auth-form__help" id={idAyudaContrasena}>
+        {AYUDA_DE_CONTRASENA}
+      </p>
       {mensaje !== null && (
         <p className="auth-form__message" role="alert">
           {mensaje}
         </p>
       )}
       <button className="auth-form__submit" type="submit" disabled={enviando}>
-        Crear cuenta
+        {enviando ? 'Creando cuenta…' : 'Crear cuenta'}
       </button>
     </form>
   )

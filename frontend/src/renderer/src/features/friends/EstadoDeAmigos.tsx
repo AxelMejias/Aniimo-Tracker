@@ -8,17 +8,20 @@ import {
   type ReactElement,
   type ReactNode
 } from 'react'
-import type { Amigo, Solicitud } from '../../../../shared/amigos'
+import type { Amigo, ErrorDeAmigos, Solicitud } from '../../../../shared/amigos'
 
 export interface EstadoDeAmigos {
   readonly amigos: readonly Amigo[]
   readonly recibidas: readonly Solicitud[]
   readonly enviadas: readonly Solicitud[]
   readonly cargado: boolean
+  readonly error: ErrorDeAmigos | null
   refrescar(): Promise<void>
 }
 
-const VACIO = { amigos: [], recibidas: [], enviadas: [], cargado: false } as const
+const VACIO = { amigos: [], recibidas: [], enviadas: [], cargado: false, error: null } as const
+
+const ERROR_INESPERADO: ErrorDeAmigos = { ok: false, error: 'error-inesperado' }
 
 const Contexto = createContext<EstadoDeAmigos | null>(null)
 
@@ -46,12 +49,14 @@ export function ProveedorDeAmigos({
       .then((resultado) => {
         if (resultado.ok) {
           const { amigos, recibidas, enviadas } = resultado
-          setDatos({ amigos, recibidas, enviadas, cargado: true })
+          setDatos({ amigos, recibidas, enviadas, cargado: true, error: null })
         } else if (resultado.error === 'sesion-vencida') {
           sesionVencida.current()
+        } else {
+          setDatos((actual) => ({ ...actual, error: resultado }))
         }
       })
-      .catch(() => undefined)
+      .catch(() => setDatos((actual) => ({ ...actual, error: ERROR_INESPERADO })))
       .finally(() => {
         enVuelo.current = null
       })

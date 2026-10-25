@@ -1,7 +1,13 @@
 import type { ErrorDeAmigos } from '../../../../shared/amigos'
+import {
+  MENSAJE_ERROR_INESPERADO,
+  MENSAJE_NOMBRE_DE_USUARIO_INVALIDO,
+  MENSAJE_SESION_VENCIDA,
+  MENSAJE_SIN_CONEXION
+} from '../../shared/mensajes'
 
-export const MENSAJE_NOMBRE_DE_USUARIO_INVALIDO =
-  'El nombre de usuario debe tener entre 3 y 32 letras, números o guiones bajos'
+export { MENSAJE_NOMBRE_DE_USUARIO_INVALIDO }
+export const MENSAJE_BUSQUEDA_PROPIA = 'Ese es tu usuario'
 export const MENSAJE_SIN_ACCESO = 'Ya no tenés acceso a esos datos'
 
 export function mensajeDeErrorDeAmigos(resultado: ErrorDeAmigos): string {
@@ -13,13 +19,13 @@ export function mensajeDeErrorDeAmigos(resultado: ErrorDeAmigos): string {
     case 'datos-invalidos':
       return MENSAJE_NOMBRE_DE_USUARIO_INVALIDO
     case 'sesion-vencida':
-      return 'Tu sesión venció, volvé a iniciar sesión'
+      return MENSAJE_SESION_VENCIDA
     case 'sin-conexion':
-      return 'No se pudo conectar con el servidor'
+      return MENSAJE_SIN_CONEXION
     case 'credenciales-invalidas':
     case 'nombre-no-disponible':
     case 'demasiados-intentos':
     case 'error-inesperado':
-      return 'Ocurrió un error inesperado'
+      return MENSAJE_ERROR_INESPERADO
   }
 }

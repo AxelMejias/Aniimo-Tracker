@@ -169,6 +169,9 @@ describe('estado de amigos centralizado', () => {
       })
     }
     expect(screen.getByRole('heading', { level: 2, name: 'Mis teams' })).toBeInTheDocument()
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync()
+    })
     expect(vi.getTimerCount()).toBe(0)
     const llamadas = api.amigos.listar.mock.calls.length
     expect(llamadas).toBeGreaterThan(0)

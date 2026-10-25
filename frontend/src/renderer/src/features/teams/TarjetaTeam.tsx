@@ -3,8 +3,8 @@ import type { ErrorDeOverlay } from '../../../../shared/overlay'
 import type { ErrorDeTeams, TeamResumen } from '../../../../shared/teams'
 import Confirmacion from '../../shared/components/Confirmacion'
 import {
-  MENSAJE_NOMBRE_DE_TEAM_INVALIDO,
   MENSAJE_OVERLAY_NO_ABIERTO,
+  mensajeDeErrorDeNombreDeTeam,
   mensajeDeErrorDeTeams
 } from './mensajes'
 import TarjetaAniimo from './TarjetaAniimo'
@@ -47,11 +47,7 @@ export default function TarjetaTeam({
       setEditando(false)
       setMensaje(null)
     } else {
-      setMensaje(
-        error.error === 'datos-invalidos'
-          ? MENSAJE_NOMBRE_DE_TEAM_INVALIDO
-          : mensajeDeErrorDeTeams(error)
-      )
+      setMensaje(mensajeDeErrorDeNombreDeTeam(error))
     }
   }
 

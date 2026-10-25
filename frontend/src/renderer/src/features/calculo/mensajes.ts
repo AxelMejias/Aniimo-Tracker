@@ -4,6 +4,11 @@ import type {
   NotaDeObjeto,
   TerminoDeDesglose
 } from '../../../../shared/calculo'
+import {
+  MENSAJE_ERROR_INESPERADO,
+  MENSAJE_SESION_VENCIDA,
+  MENSAJE_SIN_CONEXION
+} from '../../shared/mensajes'
 
 export const TEXTO_DE_DATOS_DE_EJEMPLO =
   'Datos de ejemplo: estos números son inventados y no sirven para el juego real.'
@@ -20,18 +25,18 @@ export function mensajeDeErrorDeCalculo(error: CodigoDeErrorDeCalculo): string {
     case 'no-disponible':
       return 'El cálculo no está disponible: el catálogo de crecimiento es inválido'
     case 'sin-conexion':
-      return 'No se pudo conectar con el servidor'
+      return MENSAJE_SIN_CONEXION
     case 'especie-desconocida':
       return 'La especie elegida no está en el catálogo'
     case 'datos-invalidos':
       return 'Revisá los datos de la ficha para calcular'
     case 'sesion-vencida':
-      return 'Tu sesión venció, volvé a iniciar sesión'
+      return MENSAJE_SESION_VENCIDA
     case 'credenciales-invalidas':
     case 'nombre-no-disponible':
     case 'demasiados-intentos':
     case 'error-inesperado':
-      return 'Ocurrió un error inesperado'
+      return MENSAJE_ERROR_INESPERADO
   }
 }
 

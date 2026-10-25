@@ -269,3 +269,18 @@ describe('refresco sin polling', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 })
+
+describe('estado de carga', () => {
+  it('muestra Cargando mientras lee la seleccion', () => {
+    instalarApi({ overlay: { obtenerSeleccion: () => new Promise(() => undefined) } })
+    render(<OverlayApp />)
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
+  })
+
+  it('el estado de carga desaparece cuando llegan los datos', async () => {
+    conSeleccion()
+    render(<OverlayApp />)
+    await screen.findByRole('heading', { name: 'Principal' })
+    expect(screen.queryByText('Cargando…')).toBeNull()
+  })
+})

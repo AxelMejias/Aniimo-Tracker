@@ -578,7 +578,7 @@ describe('errores', () => {
     await abrirEditor()
     fireEvent.click(screen.getByRole('button', { name: 'Sugerencia de stats' }))
 
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
   })
 
   it('sesion vencida al pedir el catalogo avisa a la pagina', async () => {
@@ -610,7 +610,7 @@ describe('errores', () => {
 
     calcular()
 
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     expect(within(fila('ATQ')).getByText('522 aprox.')).toBeInTheDocument()
   })
 

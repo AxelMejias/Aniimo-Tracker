@@ -50,3 +50,15 @@ def test_every_settings_field_is_listed_in_backend_env_example() -> None:
     for field_name in Settings.model_fields:
         env_var = field_name.upper()
         assert env_var in content, f"Falta {env_var} en backend/.env.example"
+
+
+def test_backend_env_example_never_has_a_demo_password_value() -> None:
+    content = _read_example(BACKEND_DIR / ".env.example")
+    assert _value_of(content, "DATOS_DEMO_CONTRASENA") in {None, ""}, (
+        "DATOS_DEMO_CONTRASENA debe quedar vacía en backend/.env.example"
+    )
+
+
+def test_demo_password_variable_is_listed_in_backend_env_example() -> None:
+    content = _read_example(BACKEND_DIR / ".env.example")
+    assert _value_of(content, "DATOS_DEMO_CONTRASENA") == ""

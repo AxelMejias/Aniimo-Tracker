@@ -152,7 +152,7 @@ describe('teams de un amigo', () => {
     await verTeamsDeBruno({
       amigos: { ...base.amigos, listarTeams: async () => ({ ok: false, error: 'sin-conexion' }) }
     })
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Volver a Amigos' }))
     expect(await screen.findByRole('heading', { level: 2, name: 'Amigos' })).toBeInTheDocument()
   })

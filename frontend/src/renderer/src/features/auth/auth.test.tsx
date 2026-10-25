@@ -128,7 +128,7 @@ describe('arranque', () => {
     instalarApi({ obtenerSesion: async () => ({ ok: false, error: 'sin-conexion' }) })
     render(<App />)
     await verLogin()
-    expect(screen.getByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(screen.getByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
   })
 })
 
@@ -177,7 +177,7 @@ describe('login', () => {
   })
 
   it.each([
-    ['sin-conexion', 'No se pudo conectar con el servidor'],
+    ['sin-conexion', 'No se pudo conectar con el servidor. Revisá que el backend esté levantado.'],
     ['error-inesperado', 'Ocurrió un error inesperado'],
     ['datos-invalidos', 'Revisá los datos ingresados']
   ] as const)('el codigo %s muestra su mensaje en espanol', async (codigo, texto) => {
@@ -207,7 +207,7 @@ describe('login', () => {
     await screen.findByText('Usuario o contraseña incorrectos')
     escribir('Contraseña', 'otra-clave-larga')
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
-    await screen.findByText('No se pudo conectar con el servidor')
+    await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')
     expect(screen.queryByText('Usuario o contraseña incorrectos')).not.toBeInTheDocument()
   })
 })
@@ -250,7 +250,7 @@ describe('registro', () => {
       render(<App />)
       await enviarRegistro(nombre, 'una-clave-larga')
       expect(await screen.findByRole('alert')).toHaveTextContent(
-        'letras, números y guion bajo'
+        'letras, números o guiones bajos'
       )
       expect(auth.registrarse).not.toHaveBeenCalled()
     }
@@ -333,9 +333,9 @@ describe('formularios', () => {
     render(<App />)
     await enviarLogin()
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Iniciando sesión…' })).toBeDisabled()
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciando sesión…' }))
     expect(auth.iniciarSesion).toHaveBeenCalledTimes(1)
     terminar(ENTRA_AXEL)
     await screen.findByText('axel')

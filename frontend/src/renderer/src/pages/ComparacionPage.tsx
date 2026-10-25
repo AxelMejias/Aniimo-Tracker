@@ -14,6 +14,7 @@ import SelectorDeLado, {
 import { TablaDeComparacion, TablaDeTeams } from '../features/comparacion/TablaDeComparacion'
 import { useEstadoDeAmigos } from '../features/friends/EstadoDeAmigos'
 import { MENSAJE_SIN_ACCESO } from '../features/friends/mensajes'
+import { MENSAJE_ERROR_INESPERADO, MENSAJE_SIN_CONEXION } from '../shared/mensajes'
 import '../features/comparacion/comparacion.css'
 
 export interface LadoInicial {
@@ -28,10 +29,8 @@ interface ComparacionPageProps {
   readonly alSesionVencida: () => void
 }
 
-const MENSAJE_INCOMPLETA = 'Completá la selección de los dos lados para comparar'
+const MENSAJE_INCOMPLETA = 'Elegí un slot en los dos lados para comparar fichas, o en ninguno para comparar teams.'
 const MENSAJE_SLOT_VACIO = 'El slot elegido no tiene un Aniimo'
-const MENSAJE_SIN_CONEXION = 'No se pudo conectar con el servidor'
-const MENSAJE_INESPERADO = 'Ocurrió un error inesperado'
 
 type Lectura<T> =
   | { readonly ok: true; readonly valor: T }
@@ -221,7 +220,7 @@ export default function ComparacionPage({
       const otro = errores.find((error) => error !== null)
       setResultado({
         tipo: 'mensaje',
-        texto: otro === 'sin-conexion' ? MENSAJE_SIN_CONEXION : MENSAJE_INESPERADO
+        texto: otro === 'sin-conexion' ? MENSAJE_SIN_CONEXION : MENSAJE_ERROR_INESPERADO
       })
     })
     return () => {
@@ -240,7 +239,7 @@ export default function ComparacionPage({
 
   return (
     <section className="principal__seccion comparacion">
-      <h2 className="principal__subtitulo">Comparar</h2>
+      <h2 className="principal__subtitulo" tabIndex={-1}>Comparar</h2>
       <div className="comparacion__lados">
         <SelectorDeLado
           titulo="Lado izquierdo"

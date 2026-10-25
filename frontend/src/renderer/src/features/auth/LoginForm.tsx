@@ -70,7 +70,7 @@ export default function LoginForm({ alEnviar, aviso }: LoginFormProps): ReactEle
         </p>
       )}
       <button className="auth-form__submit" type="submit" disabled={enviando}>
-        Iniciar sesión
+        {enviando ? 'Iniciando sesión…' : 'Iniciar sesión'}
       </button>
       {cuentaDeTest !== null && (
         <button

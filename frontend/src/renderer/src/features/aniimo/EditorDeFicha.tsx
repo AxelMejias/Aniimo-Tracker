@@ -1,4 +1,11 @@
-import { useEffect, useState, type ClipboardEvent, type FormEvent, type ReactElement } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type ReactElement
+} from 'react'
 import type { ErrorDeTeams, Ficha } from '../../../../shared/teams'
 import Confirmacion from '../../shared/components/Confirmacion'
 import { useCatalogoCompartido } from '../calculo/useCatalogo'
@@ -41,8 +48,9 @@ interface EditorDeFichaProps {
   readonly slot: number
   readonly inicial: Ficha | null
   readonly recodificar: Recodificador
-  readonly alVolver: () => void
+  readonly alVolver: (guardada: boolean) => void
   readonly alSesionVencida: () => void
+  readonly alCambiarSinGuardar?: (hayCambios: boolean) => void
 }
 
 export default function EditorDeFicha({
@@ -51,11 +59,14 @@ export default function EditorDeFicha({
   inicial,
   recodificar,
   alVolver,
-  alSesionVencida
+  alSesionVencida,
+  alCambiarSinGuardar
 }: EditorDeFichaProps): ReactElement {
-  const [formulario, setFormulario] = useState<FormularioDeFicha>(() =>
+  const [formularioInicial] = useState<FormularioDeFicha>(() =>
     inicial === null ? formularioVacio() : formularioDeFicha(inicial)
   )
+  const [formulario, setFormulario] = useState<FormularioDeFicha>(formularioInicial)
+  const formRef = useRef<HTMLFormElement>(null)
   const [errores, setErrores] = useState<ErroresDeFicha>({})
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [mensajeDeImagen, setMensajeDeImagen] = useState<string | null>(null)
@@ -67,9 +78,25 @@ export default function EditorDeFicha({
   const [existe, setExiste] = useState(inicial !== null)
   const [pendiente, setPendiente] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
+  const [descartando, setDescartando] = useState(false)
 
   const catalogo = useCatalogoCompartido(alSesionVencida)
   const tieneImagenGuardada = inicial?.tieneImagen ?? false
+
+  const hayCambios =
+    JSON.stringify(formulario) !== JSON.stringify(formularioInicial) ||
+    imagen.pendiente !== null ||
+    imagen.quitar
+
+  useEffect(() => {
+    alCambiarSinGuardar?.(hayCambios)
+  }, [hayCambios, alCambiarSinGuardar])
+
+  useEffect(() => {
+    if (Object.keys(errores).length > 0) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+    }
+  }, [errores])
 
   useEffect(() => {
     if (!tieneImagenGuardada) {
@@ -186,7 +213,7 @@ export default function EditorDeFicha({
       }
       setExiste(true)
       if (await guardarImagen()) {
-        alVolver()
+        alVolver(true)
       }
     } finally {
       setPendiente(false)
@@ -198,7 +225,7 @@ export default function EditorDeFicha({
     try {
       const resultado = await window.aniimo.teams.vaciarSlot({ teamId, slot })
       if (resultado.ok) {
-        alVolver()
+        alVolver(false)
         return
       }
       setConfirmando(false)
@@ -215,8 +242,10 @@ export default function EditorDeFicha({
   const propiedades = { formulario, errores, deshabilitado: pendiente, alCambiar: setFormulario }
 
   return (
-    <form className="ficha" onSubmit={(e) => void guardar(e)} onPaste={alPegar} noValidate>
-      <h2 className="ficha__titulo">Ficha del Aniimo (slot {slot})</h2>
+    <form ref={formRef} className="ficha" onSubmit={(e) => void guardar(e)} onPaste={alPegar} noValidate>
+      <h2 className="ficha__titulo" tabIndex={-1}>
+        Ficha del Aniimo (slot {slot})
+      </h2>
       <DatosGenerales
         {...propiedades}
         imagen={
@@ -238,6 +267,15 @@ export default function EditorDeFicha({
           {mensaje}
         </p>
       )}
+      {descartando && (
+        <Confirmacion
+          mensaje="¿Descartar los cambios de la ficha?"
+          etiquetaConfirmar="Descartar cambios"
+          deshabilitado={pendiente}
+          alConfirmar={() => alVolver(false)}
+          alCancelar={() => setDescartando(false)}
+        />
+      )}
       {confirmando && (
         <Confirmacion
           mensaje={`¿Borrar a ${formulario.nombre.trim() === '' ? 'este Aniimo' : formulario.nombre}?`}
@@ -250,7 +288,11 @@ export default function EditorDeFicha({
         <button className="ficha__guardar" type="submit" disabled={pendiente}>
           Guardar
         </button>
-        <button type="button" disabled={pendiente} onClick={alVolver}>
+        <button
+          type="button"
+          disabled={pendiente}
+          onClick={() => (hayCambios ? setDescartando(true) : alVolver(false))}
+        >
           Cancelar
         </button>
         {existe && (

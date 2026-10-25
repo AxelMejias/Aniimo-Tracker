@@ -32,6 +32,11 @@ export default function OverlayApp(): ReactElement {
             {MENSAJE_FALLO}
           </p>
         )}
+        {datos.tipo === 'cargando' && (
+          <p className="overlay__estado" role="status">
+            Cargando…
+          </p>
+        )}
         {datos.tipo === 'sin-seleccion' && (
           <p className="overlay__estado">{MENSAJE_SIN_SELECCION}</p>
         )}

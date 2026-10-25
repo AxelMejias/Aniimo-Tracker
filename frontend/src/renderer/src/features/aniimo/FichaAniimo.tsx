@@ -7,8 +7,9 @@ import { recodificarImagen, type Recodificador } from './recodificarImagen'
 interface FichaAniimoProps {
   readonly teamId: string
   readonly slot: number
-  readonly alVolver: () => void
+  readonly alVolver: (guardada: boolean) => void
   readonly alSesionVencida: () => void
+  readonly alCambiarSinGuardar?: (hayCambios: boolean) => void
   readonly recodificar?: Recodificador
 }
 
@@ -22,6 +23,7 @@ export default function FichaAniimo({
   slot,
   alVolver,
   alSesionVencida,
+  alCambiarSinGuardar,
   recodificar = recodificarImagen
 }: FichaAniimoProps): ReactElement {
   const [estado, setEstado] = useState<EstadoDeCarga>({ tipo: 'cargando' })
@@ -54,7 +56,7 @@ export default function FichaAniimo({
     return (
       <div className="ficha__estado">
         <p role="alert">{mensajeDeErrorDeTeams(estado.error)}</p>
-        <button type="button" onClick={alVolver}>
+        <button type="button" onClick={() => alVolver(false)}>
           Volver
         </button>
       </div>
@@ -68,6 +70,7 @@ export default function FichaAniimo({
       recodificar={recodificar}
       alVolver={alVolver}
       alSesionVencida={alSesionVencida}
+      {...(alCambiarSinGuardar === undefined ? {} : { alCambiarSinGuardar })}
     />
   )
 }

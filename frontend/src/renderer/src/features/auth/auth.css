@@ -80,3 +80,9 @@
   font-size: var(--font-size-small);
   cursor: pointer;
 }
+
+.auth-form__help {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}

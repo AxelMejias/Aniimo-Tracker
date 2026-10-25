@@ -208,7 +208,7 @@ describe('Comparar: seleccion', () => {
     await elegir('izquierdo', { duenio: 'Yo', team: 'Principal', slot: 'Slot 1' })
     await elegir('derecho', { duenio: 'bruno', team: 'Raid' })
     expect(
-      screen.getByText('Completá la selección de los dos lados para comparar')
+      screen.getByText('Elegí un slot en los dos lados para comparar fichas, o en ninguno para comparar teams.')
     ).toBeInTheDocument()
     expect(api.teams.obtenerFicha).not.toHaveBeenCalled()
     expect(api.amigos.obtenerFicha).not.toHaveBeenCalled()
@@ -299,7 +299,7 @@ describe('Comparar: estado de amigos, acceso y sesion', () => {
     await abrirComparar(apiBase({ obtenerFicha: async () => ({ ok: false, error: 'sin-conexion' }) }))
     await elegir('izquierdo', { duenio: 'Yo', team: 'Principal', slot: 'Slot 1' })
     await elegir('derecho', { duenio: 'bruno', team: 'Raid', slot: 'Slot 2' })
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).toBeNull()
   })
 })

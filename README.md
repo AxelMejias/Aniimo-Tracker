@@ -84,10 +84,52 @@ The optional "Sugerencia de stats" panel on your own Aniimo card suggests stats 
 
 ## Run it
 
-Requirements: Docker, Python 3.11+ and Node.js.
+Requirements: Docker Desktop, Python 3.11+ and Node.js. The one-command script is for Windows 11 (PowerShell); the manual steps below work anywhere.
+
+### First time
+
+```powershell
+# 1. Config files (nothing secret is committed; fill in the passwords yourself)
+Copy-Item .env.example .env                        # set POSTGRES_PASSWORD
+Copy-Item backend\.env.example backend\.env         # use the same password in DATABASE_URL
+
+# 2. Backend dependencies
+py -3.11 -m venv backend\.venv
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
+
+# 3. Desktop app dependencies
+cd frontend; npm install; cd ..
+```
+
+### One command
+
+```powershell
+scripts\levantar.ps1
+```
+
+If PowerShell blocks local scripts, run it as `powershell -ExecutionPolicy Bypass -File scripts\levantar.ps1` instead of changing your system policy.
+
+The script checks the config files, Docker and ports 8000 and 5173 (if one is busy it tells you which process owns it and never closes it for you), starts the `db` database, runs `alembic upgrade head`, starts the backend on `127.0.0.1:8000` as a child process of the same console and then opens the app. When you close the app (or press Ctrl+C) it stops the backend it started. To only run the checks without starting anything: `scripts\levantar.ps1 -SoloVerificar`.
+
+The database keeps running afterwards. To stop it: `docker compose stop db`.
+
+### Demo data
+
+To try the app with ready-made accounts, set `DATOS_DEMO_CONTRASENA` (12 to 128 characters) in `backend/.env`, then, with the database running, from `backend/`:
+
+```powershell
+.venv\Scripts\python.exe -m app.datos_demo              # creates demo_ana, demo_beto and demo_caro
+.venv\Scripts\python.exe -m app.datos_demo --reiniciar  # deletes and recreates only those three accounts
+```
+
+It only writes to the development database (`127.0.0.1:5434`, never the test one), uses made-up Aniimo without images, and never prints the password. `demo_ana` and `demo_beto` are friends, `demo_caro` has a pending request to `demo_ana`, and `demo_ana` has a hidden team and an Aniimo with private notes.
+
+To get a "Cuenta test" button on the login screen (development only), copy `frontend/.env.example` to `frontend/.env.development.local`, set `VITE_CUENTA_TEST_USUARIO=demo_ana` and the same password as `DATOS_DEMO_CONTRASENA` in `VITE_CUENTA_TEST_CONTRASENA`. That file is ignored by git.
+
+### Manual steps (any OS)
 
 ```bash
-# 1. Databases (set POSTGRES_PASSWORD in a .env file at the repo root first)
+# 1. Database (set POSTGRES_PASSWORD in a .env file at the repo root first)
 docker compose up -d db
 
 # 2. Backend
@@ -97,7 +139,7 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 cp .env.example .env          # use the same password you set for Postgres
 alembic upgrade head
-python -m app
+python -m app                 # exits with a clear message if the database is down or not migrated
 
 # 3. Desktop app (in another terminal)
 cd frontend
@@ -108,7 +150,11 @@ npm run dev
 ## Tests
 
 ```bash
-# Backend (needs the test database: docker compose up -d db-test)
+# Backend: start the test database first (port 5433, its data is thrown away on stop)
+docker compose up -d db-test
+# then point TEST_DATABASE_URL at it (same user and password as your .env, port 5433)
+# PowerShell: $env:TEST_DATABASE_URL = "postgresql+psycopg://aniimo:<password>@127.0.0.1:5433/aniimo"
+# bash:       export TEST_DATABASE_URL="postgresql+psycopg://aniimo:<password>@127.0.0.1:5433/aniimo"
 cd backend && pytest
 
 # Desktop app

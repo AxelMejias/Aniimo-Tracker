@@ -51,7 +51,7 @@ export default function FichaDeSoloLectura({ ficha, imagen }: FichaDeSoloLectura
   const { entrenamiento } = ficha
   return (
     <div className="ficha ficha--solo-lectura">
-      <h2 className="ficha__titulo">
+      <h2 className="ficha__titulo" tabIndex={-1}>
         Ficha de solo lectura: {ficha.nombre} (slot {ficha.slot})
       </h2>
       <Grupo titulo="Datos generales">

@@ -1,9 +1,20 @@
 import type { ErrorDeTeams } from '../../../../shared/teams'
+import {
+  MENSAJE_ERROR_INESPERADO,
+  MENSAJE_SESION_VENCIDA,
+  MENSAJE_SIN_CONEXION
+} from '../../shared/mensajes'
 
 export const MENSAJE_NOMBRE_DE_TEAM_INVALIDO =
   'El nombre del team debe tener entre 1 y 50 caracteres'
 
 export const MENSAJE_OVERLAY_NO_ABIERTO = 'No se pudo abrir el overlay'
+
+export function mensajeDeErrorDeNombreDeTeam(resultado: ErrorDeTeams): string {
+  return resultado.error === 'datos-invalidos'
+    ? MENSAJE_NOMBRE_DE_TEAM_INVALIDO
+    : mensajeDeErrorDeTeams(resultado)
+}
 
 export function mensajeDeErrorDeTeams(resultado: ErrorDeTeams): string {
   switch (resultado.error) {
@@ -18,13 +29,13 @@ export function mensajeDeErrorDeTeams(resultado: ErrorDeTeams): string {
     case 'imagen-invalida':
       return 'La imagen no es válida: solo PNG, JPEG o WebP de hasta 1 MiB'
     case 'sesion-vencida':
-      return 'Tu sesión venció, volvé a iniciar sesión'
+      return MENSAJE_SESION_VENCIDA
     case 'sin-conexion':
-      return 'No se pudo conectar con el servidor'
+      return MENSAJE_SIN_CONEXION
     case 'credenciales-invalidas':
     case 'nombre-no-disponible':
     case 'demasiados-intentos':
     case 'error-inesperado':
-      return 'Ocurrió un error inesperado'
+      return MENSAJE_ERROR_INESPERADO
   }
 }

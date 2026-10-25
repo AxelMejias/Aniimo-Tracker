@@ -94,7 +94,7 @@ describe('carga de la ficha', () => {
     render(
       <FichaAniimo teamId={TEAM_ID} slot={1} alVolver={vi.fn()} alSesionVencida={vi.fn()} />
     )
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Guardar' })).toBeNull()
   })
 
@@ -269,7 +269,7 @@ describe('guardar', () => {
     })
     const { alVolver } = await abrir()
     guardar()
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     expect(alVolver).not.toHaveBeenCalled()
   })
 
@@ -778,5 +778,55 @@ describe('parche y etapa en la ficha de solo lectura', () => {
       <FichaDeSoloLectura ficha={fichaGuardadaDeReferencia()} imagen={null} />
     )
     expect(container.querySelector('[style]')).toBeNull()
+  })
+})
+
+describe('descartar cambios y foco al primer error', () => {
+  it('Cancelar sin cambios vuelve directo sin guardar', async () => {
+    instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(alVolver).toHaveBeenCalledWith(false)
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('con una imagen pegada sin guardar Cancelar pide confirmacion', async () => {
+    instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+    pegar(archivo('image/png'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Quitar imagen' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(alVolver).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar cambios' }))
+    expect(alVolver).toHaveBeenCalledWith(false)
+  })
+
+  it('guardar con exito avisa que se guardo', async () => {
+    instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+    guardar()
+    await waitFor(() => expect(alVolver).toHaveBeenCalledWith(true))
+  })
+
+  it('una validacion del cliente deja el foco en el primer campo con error', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    escribir('Nombre', '')
+    escribir('Nivel', 'abc')
+    guardar()
+    await waitFor(() => expect(campo('Nombre')).toHaveFocus())
+  })
+
+  it('un error del backend con campos deja el foco en el primer campo con error', async () => {
+    instalarApi({
+      teams: {
+        ...conFicha(),
+        guardarFicha: async () => ({ ok: false, error: 'datos-invalidos', campos: ['nivel'] })
+      }
+    })
+    await abrir()
+    guardar()
+    await waitFor(() => expect(campo('Nivel')).toHaveFocus())
   })
 })

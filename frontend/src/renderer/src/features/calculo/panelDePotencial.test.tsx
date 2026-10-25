@@ -462,7 +462,7 @@ describe('desactualizado y errores', () => {
     await abrirPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Calcular potencial' }))
 
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Guardar' })).toBeEnabled()
   })
 

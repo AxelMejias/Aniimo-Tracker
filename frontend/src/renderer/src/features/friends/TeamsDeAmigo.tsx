@@ -27,6 +27,7 @@ export default function TeamsDeAmigo({
   alSesionVencida
 }: TeamsDeAmigoProps): ReactElement {
   const [estado, setEstado] = useState<Estado>({ tipo: 'cargando' })
+  const [intento, setIntento] = useState(0)
   const avisos = useRef({ alSinAcceso, alSesionVencida })
   avisos.current = { alSinAcceso, alSesionVencida }
 
@@ -49,7 +50,12 @@ export default function TeamsDeAmigo({
     return () => {
       activo = false
     }
-  }, [amigo.id])
+  }, [amigo.id, intento])
+
+  function reintentar(): void {
+    setEstado({ tipo: 'cargando' })
+    setIntento((actual) => actual + 1)
+  }
 
   const cargarImagen: CargarImagenDeTarjeta = useCallback(
     (teamId, slot) => window.aniimo.amigos.obtenerImagen({ usuarioId: amigo.id, teamId, slot }),
@@ -58,14 +64,21 @@ export default function TeamsDeAmigo({
 
   return (
     <section className="principal__seccion">
-      <h2 className="principal__subtitulo">Teams de {amigo.nombreUsuario}</h2>
+      <h2 className="principal__subtitulo" tabIndex={-1}>Teams de {amigo.nombreUsuario}</h2>
       <div>
         <button type="button" onClick={alVolver}>
           Volver a Amigos
         </button>
       </div>
       {estado.tipo === 'cargando' && <p className="lista-de-teams__estado">Cargando teams…</p>}
-      {estado.tipo === 'error' && <p role="alert">{mensajeDeErrorDeAmigos(estado.error)}</p>}
+      {estado.tipo === 'error' && (
+        <div className="lista-de-teams__estado">
+          <p role="alert">{mensajeDeErrorDeAmigos(estado.error)}</p>
+          <button type="button" onClick={reintentar}>
+            Reintentar
+          </button>
+        </div>
+      )}
       {estado.tipo === 'listo' && estado.teams.length === 0 && (
         <p className="lista-de-teams__estado">
           {amigo.nombreUsuario} todavía no tiene teams para mostrar

@@ -274,7 +274,7 @@ describe('pantalla Amigos: solicitudes y amigos', () => {
     })
     await within(seccion('Recibidas')).findByText('carla')
     fireEvent.click(within(seccion('Recibidas')).getByRole('button', { name: 'Aceptar' }))
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     expect(within(seccion('Recibidas')).getByText('carla')).toBeInTheDocument()
   })
 

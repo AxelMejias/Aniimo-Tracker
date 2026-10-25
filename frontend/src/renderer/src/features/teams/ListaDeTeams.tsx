@@ -1,12 +1,14 @@
 import { useState, type FormEvent, type ReactElement } from 'react'
 import type { ErrorDeOverlay } from '../../../../shared/overlay'
 import type { TeamResumen } from '../../../../shared/teams'
-import { mensajeDeErrorDeTeams } from './mensajes'
+import { mensajeDeErrorDeNombreDeTeam, mensajeDeErrorDeTeams } from './mensajes'
 import TarjetaTeam from './TarjetaTeam'
 import { useTeams } from './useTeams'
 import './teams.css'
 
 const MAXIMO_DE_TEAMS = 4
+const TEXTO_SIN_TEAMS = `Todavía no tenés teams. Creá el primero (podés tener hasta ${MAXIMO_DE_TEAMS}).`
+const TEXTO_MAXIMO_DE_TEAMS = `Llegaste al máximo de ${MAXIMO_DE_TEAMS} teams.`
 
 interface ListaDeTeamsProps {
   readonly alAbrirSlot: (teamId: string, slot: number) => void
@@ -73,12 +75,16 @@ export default function ListaDeTeams({
       setCreando(false)
       setMensaje(null)
     } else {
-      setMensaje(mensajeDeErrorDeTeams(error))
+      setMensaje(mensajeDeErrorDeNombreDeTeam(error))
     }
   }
 
   return (
     <div className="lista-de-teams">
+      {teams.length === 0 && <p className="lista-de-teams__estado">{TEXTO_SIN_TEAMS}</p>}
+      {teams.length >= MAXIMO_DE_TEAMS && (
+        <p className="lista-de-teams__estado">{TEXTO_MAXIMO_DE_TEAMS}</p>
+      )}
       {teams.map((team) => (
         <TarjetaTeam
           key={team.id}

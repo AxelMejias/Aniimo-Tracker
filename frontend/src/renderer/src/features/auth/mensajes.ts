@@ -1,4 +1,9 @@
 import type { ErrorDeAuth } from '../../../../shared/auth'
+import {
+  MENSAJE_ERROR_INESPERADO,
+  MENSAJE_SESION_VENCIDA,
+  MENSAJE_SIN_CONEXION
+} from '../../shared/mensajes'
 
 function describirEspera(segundos: number): string {
   if (segundos < 60) {
@@ -21,10 +26,10 @@ export function mensajeDeError(resultado: ErrorDeAuth): string {
         ? 'Demasiados intentos, probá más tarde'
         : `Demasiados intentos, probá de nuevo en ${describirEspera(resultado.reintentarEnSegundos)}`
     case 'sesion-vencida':
-      return 'Tu sesión venció, volvé a iniciar sesión'
+      return MENSAJE_SESION_VENCIDA
     case 'sin-conexion':
-      return 'No se pudo conectar con el servidor'
+      return MENSAJE_SIN_CONEXION
     case 'error-inesperado':
-      return 'Ocurrió un error inesperado'
+      return MENSAJE_ERROR_INESPERADO
   }
 }

@@ -97,3 +97,11 @@
   display: flex;
   gap: var(--space-sm);
 }
+
+.amigos__estado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  color: var(--color-text-muted);
+}

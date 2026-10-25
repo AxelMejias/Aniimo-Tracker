@@ -78,7 +78,7 @@ describe('listado de teams', () => {
       teams: { listar: async () => ({ ok: false, error: 'sin-conexion' }) }
     })
     render(<App />)
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     api.teams.listar.mockResolvedValueOnce({ ok: true, teams: [teamDePrueba('Recargado')] })
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(await screen.findByRole('heading', { name: 'Recargado' })).toBeInTheDocument()
@@ -403,7 +403,7 @@ describe('ocultar un team a los amigos', () => {
       error: 'sin-conexion'
     })
     fireEvent.click(casilla())
-    expect(await screen.findByText('No se pudo conectar con el servidor')).toBeInTheDocument()
+    expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
     expect(casilla().checked).toBe(false)
     expect(casilla()).toBeEnabled()
   })

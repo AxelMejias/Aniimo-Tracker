@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { useEffect, useRef, type ReactElement } from 'react'
 import './Confirmacion.css'
 
 interface ConfirmacionProps {
@@ -16,6 +16,27 @@ export default function Confirmacion({
   alConfirmar,
   alCancelar
 }: ConfirmacionProps): ReactElement {
+  const botonCancelar = useRef<HTMLButtonElement>(null)
+  const cancelar = useRef(alCancelar)
+  cancelar.current = alCancelar
+
+  useEffect(() => {
+    botonCancelar.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    if (deshabilitado) {
+      return
+    }
+    function alPresionar(evento: KeyboardEvent): void {
+      if (evento.key === 'Escape') {
+        cancelar.current()
+      }
+    }
+    document.addEventListener('keydown', alPresionar)
+    return () => document.removeEventListener('keydown', alPresionar)
+  }, [deshabilitado])
+
   return (
     <div className="confirmacion" role="alertdialog" aria-label="Confirmación">
       <p className="confirmacion__mensaje">{mensaje}</p>
@@ -28,7 +49,7 @@ export default function Confirmacion({
         >
           {etiquetaConfirmar}
         </button>
-        <button type="button" disabled={deshabilitado} onClick={alCancelar}>
+        <button ref={botonCancelar} type="button" disabled={deshabilitado} onClick={alCancelar}>
           Cancelar
         </button>
       </div>

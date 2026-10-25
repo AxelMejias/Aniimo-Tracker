@@ -12,7 +12,7 @@ export default function MisTeamsPage({
 }: MisTeamsPageProps): ReactElement {
   return (
     <section className="principal__seccion">
-      <h2 className="principal__subtitulo">Mis teams</h2>
+      <h2 className="principal__subtitulo" tabIndex={-1}>Mis teams</h2>
       <ListaDeTeams alAbrirSlot={alAbrirSlot} alSesionVencida={alSesionVencida} />
     </section>
   )

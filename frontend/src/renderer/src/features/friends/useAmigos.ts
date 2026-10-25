@@ -7,12 +7,18 @@ import {
   type UsuarioEncontrado
 } from '../../../../shared/amigos'
 import { useEstadoDeAmigos } from './EstadoDeAmigos'
-import { MENSAJE_NOMBRE_DE_USUARIO_INVALIDO, mensajeDeErrorDeAmigos } from './mensajes'
+import {
+  MENSAJE_BUSQUEDA_PROPIA,
+  MENSAJE_NOMBRE_DE_USUARIO_INVALIDO,
+  mensajeDeErrorDeAmigos
+} from './mensajes'
 
 export interface UseAmigos {
   readonly amigos: readonly Amigo[]
   readonly recibidas: readonly Solicitud[]
   readonly enviadas: readonly Solicitud[]
+  readonly cargado: boolean
+  readonly errorDeLectura: string | null
   readonly pendiente: boolean
   readonly resultado: UsuarioEncontrado | null | undefined
   readonly mensaje: string | null
@@ -25,8 +31,8 @@ export interface UseAmigos {
 
 type Accion = () => Promise<{ readonly ok: true } | ErrorDeAmigos>
 
-export function useAmigos(alSesionVencida: () => void): UseAmigos {
-  const { amigos, recibidas, enviadas, refrescar } = useEstadoDeAmigos()
+export function useAmigos(alSesionVencida: () => void, nombrePropio: string): UseAmigos {
+  const { amigos, recibidas, enviadas, cargado, error, refrescar } = useEstadoDeAmigos()
   const [pendiente, setPendiente] = useState(false)
   const [resultado, setResultado] = useState<UsuarioEncontrado | null | undefined>(undefined)
   const [mensaje, setMensaje] = useState<string | null>(null)
@@ -68,6 +74,11 @@ export function useAmigos(alSesionVencida: () => void): UseAmigos {
         setMensaje(MENSAJE_NOMBRE_DE_USUARIO_INVALIDO)
         return
       }
+      if (nombre.toLowerCase() === nombrePropio.toLowerCase()) {
+        setResultado(undefined)
+        setMensaje(MENSAJE_BUSQUEDA_PROPIA)
+        return
+      }
       await ejecutar(async () => {
         const respuesta = await window.aniimo.amigos.buscar({ nombreUsuario: nombre })
         if (respuesta.ok) {
@@ -76,7 +87,7 @@ export function useAmigos(alSesionVencida: () => void): UseAmigos {
         return respuesta
       })
     },
-    [ejecutar]
+    [ejecutar, nombrePropio]
   )
 
   const enviarSolicitud = useCallback(
@@ -127,6 +138,8 @@ export function useAmigos(alSesionVencida: () => void): UseAmigos {
     amigos,
     recibidas,
     enviadas,
+    cargado,
+    errorDeLectura: error === null ? null : mensajeDeErrorDeAmigos(error),
     pendiente,
     resultado,
     mensaje,

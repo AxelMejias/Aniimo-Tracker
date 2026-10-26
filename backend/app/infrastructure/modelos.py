@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     LargeBinary,
     SmallInteger,
@@ -43,8 +44,8 @@ def _enum(catalogo: type[StrEnum], nombre: str, longitud: int | None = None) -> 
     )
 
 
-def _columnas_de_stats() -> dict[str, MappedColumn]:
-    columnas: dict[str, MappedColumn] = {}
+def _columnas_de_stats() -> dict[str, MappedColumn[int]]:
+    columnas: dict[str, MappedColumn[int]] = {}
     for stat in Stat:
         columnas[f"{stat}_valor"] = mapped_column(Integer, nullable=False, server_default=text("0"))
         columnas[f"{stat}_potencial"] = mapped_column(
@@ -116,8 +117,18 @@ class TeamModelo(Base):
     __tablename__ = "team"
     __table_args__ = (
         CheckConstraint("nombre <> ''", name="nombre_no_vacio"),
-        CheckConstraint("orden BETWEEN 1 AND 4", name="orden_rango"),
-        UniqueConstraint("usuario_id", "orden"),
+        CheckConstraint("orden BETWEEN 1 AND 20", name="orden_rango"),
+        CheckConstraint(
+            "portada_slot IS NULL OR portada_slot BETWEEN 1 AND 4", name="portada_slot_rango"
+        ),
+        # Diferible para intercambiar posiciones al reordenar; el alta falla igual al instante.
+        UniqueConstraint("usuario_id", "orden", deferrable=True, initially="IMMEDIATE"),
+        UniqueConstraint("usuario_id", "id"),
+        ForeignKeyConstraint(
+            ["usuario_id", "grupo_id"],
+            ["grupo_de_teams.usuario_id", "grupo_de_teams.id"],
+            ondelete="SET NULL (grupo_id)",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -125,10 +136,35 @@ class TeamModelo(Base):
     nombre: Mapped[str] = mapped_column(String(50))
     orden: Mapped[int] = mapped_column(SmallInteger)
     oculto_para_amigos: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    grupo_id: Mapped[UUID | None] = mapped_column(index=True)
+    portada_slot: Mapped[int | None] = mapped_column(SmallInteger)
 
     aniimos: Mapped[list["AniimoDelTeamModelo"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True
     )
+
+
+class GrupoDeTeamsModelo(Base):
+    __tablename__ = "grupo_de_teams"
+    __table_args__ = (
+        CheckConstraint("nombre <> ''", name="nombre_no_vacio"),
+        CheckConstraint("orden BETWEEN 1 AND 4", name="orden_rango"),
+        UniqueConstraint("usuario_id", "orden", deferrable=True, initially="IMMEDIATE"),
+        UniqueConstraint("usuario_id", "id"),
+        ForeignKeyConstraint(
+            ["usuario_id", "portada_team_id"],
+            ["team.usuario_id", "team.id"],
+            ondelete="SET NULL (portada_team_id)",
+            use_alter=True,
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    usuario_id: Mapped[UUID] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"))
+    nombre: Mapped[str] = mapped_column(String(50))
+    orden: Mapped[int] = mapped_column(SmallInteger)
+    portada_team_id: Mapped[UUID | None]
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AniimoDelTeamModelo(Base):

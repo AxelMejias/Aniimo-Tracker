@@ -95,7 +95,7 @@ def test_team_ajeno_e_inexistente_son_indistinguibles(
 def test_b_no_ve_los_teams_de_a_en_su_listado(
     usuario_b: ClienteAutenticado, team_de_a: str
 ) -> None:
-    assert usuario_b.get("/api/teams").json() == {"teams": []}
+    assert usuario_b.get("/api/teams").json() == {"teams": [], "grupos": []}
 
 
 @pytest.mark.parametrize(
@@ -156,7 +156,7 @@ def test_un_amigo_aceptado_no_puede_usar_las_rutas_de_teams_sobre_datos_de_otro(
     assert team["oculto_para_amigos"] is False
     assert team["slots"][0]["aniimo"]["nombre"] == "Irisalis"
     assert red.a.api.get(f"/api/teams/{team_de_a_con_amigo}/aniimo/1/imagen").content == WEBP
-    assert red.b.api.get("/api/teams").json() == {"teams": []}
+    assert red.b.api.get("/api/teams").json() == {"teams": [], "grupos": []}
 
 
 @pytest.mark.parametrize("metodo", ["PUT", "DELETE", "POST", "PATCH"])

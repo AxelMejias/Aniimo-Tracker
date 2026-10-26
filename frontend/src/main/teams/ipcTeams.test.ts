@@ -15,6 +15,9 @@ const TEAM: TeamResumen = {
   nombre: 'Principal',
   orden: 1,
   ocultoParaAmigos: false,
+  grupoId: null,
+  portadaSlot: null,
+  portadaEfectivaSlot: null,
   slots: []
 }
 
@@ -26,10 +29,11 @@ function preparar(sobrescribir: Partial<ClienteTeams> = {}) {
     }
   }
   const cliente = {
-    listar: vi.fn(async () => ({ ok: true as const, teams: [TEAM] })),
+    listar: vi.fn(async () => ({ ok: true as const, teams: [TEAM], grupos: [] })),
     crear: vi.fn(async () => ({ ok: true as const, team: TEAM })),
     renombrar: vi.fn(async () => ({ ok: true as const, team: TEAM })),
     cambiarVisibilidad: vi.fn(async () => ({ ok: true as const, team: TEAM })),
+    elegirPortada: vi.fn(async () => ({ ok: true as const, team: TEAM })),
     borrar: vi.fn(async () => ({ ok: true as const })),
     obtenerFicha: vi.fn(async () => ({ ok: true as const, ficha: null })),
     guardarFicha: vi.fn(async () => ({ ok: true as const, ficha: null })),
@@ -62,6 +66,8 @@ const PEDIDOS_VALIDOS: [keyof typeof CANALES_TEAMS, keyof ClienteTeams, unknown]
   ['crear', 'crear', { nombre: 'Raid' }],
   ['renombrar', 'renombrar', { teamId: TEAM_ID, nombre: 'Raid' }],
   ['cambiarVisibilidad', 'cambiarVisibilidad', { teamId: TEAM_ID, ocultoParaAmigos: true }],
+  ['elegirPortada', 'elegirPortada', { teamId: TEAM_ID, slot: 3 }],
+  ['elegirPortada', 'elegirPortada', { teamId: TEAM_ID, slot: null }],
   ['borrar', 'borrar', { teamId: TEAM_ID }],
   ['obtenerFicha', 'obtenerFicha', { teamId: TEAM_ID, slot: 1 }],
   ['guardarFicha', 'guardarFicha', { teamId: TEAM_ID, slot: 1, ficha: fichaDeReferencia() }],
@@ -78,6 +84,10 @@ const PEDIDOS_INVALIDOS: [keyof typeof CANALES_TEAMS, unknown][] = [
   ['cambiarVisibilidad', { teamId: TEAM_ID, ocultoParaAmigos: 'true' }],
   ['cambiarVisibilidad', { ocultoParaAmigos: true }],
   ['cambiarVisibilidad', { teamId: TEAM_ID, ocultoParaAmigos: true, extra: 1 }],
+  ['elegirPortada', { teamId: TEAM_ID, slot: 0 }],
+  ['elegirPortada', { teamId: TEAM_ID, slot: '3' }],
+  ['elegirPortada', { teamId: TEAM_ID }],
+  ['elegirPortada', { teamId: TEAM_ID, slot: 3, extra: 1 }],
   [
     'guardarFicha',
     {
@@ -94,10 +104,10 @@ const PEDIDOS_INVALIDOS: [keyof typeof CANALES_TEAMS, unknown][] = [
 ]
 
 describe('registrarManejadoresDeTeams', () => {
-  it('registra exactamente los once canales de teams', () => {
+  it('registra exactamente los doce canales de teams', () => {
     const { manejadores } = preparar()
     expect([...manejadores.keys()].sort()).toEqual(Object.values(CANALES_TEAMS).sort())
-    expect(manejadores.size).toBe(11)
+    expect(manejadores.size).toBe(12)
   })
 
   it.each(PEDIDOS_VALIDOS)(
@@ -142,6 +152,14 @@ describe('registrarManejadoresDeTeams', () => {
       }
     }
   )
+
+  it('elegirPortada con slot 3 y con null llama al cliente con ese mismo pedido', async () => {
+    const { cliente, invocar } = preparar()
+    await invocar(CANALES_TEAMS.elegirPortada, ORIGEN_PROPIO, { teamId: TEAM_ID, slot: 3 })
+    await invocar(CANALES_TEAMS.elegirPortada, ORIGEN_PROPIO, { teamId: TEAM_ID, slot: null })
+    expect(cliente.elegirPortada).toHaveBeenNthCalledWith(1, { teamId: TEAM_ID, slot: 3 })
+    expect(cliente.elegirPortada).toHaveBeenNthCalledWith(2, { teamId: TEAM_ID, slot: null })
+  })
 
   it('listar ignora cualquier payload extra y solo verifica el remitente', async () => {
     const { cliente, invocar } = preparar()

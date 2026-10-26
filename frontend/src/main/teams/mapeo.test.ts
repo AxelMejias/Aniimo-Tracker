@@ -10,8 +10,10 @@ import {
   camposDeValidacion,
   fichaAApi,
   fichaDeApi,
+  grupoDeAmigoDeApi,
   listaDeTeamsDeApi,
   RespuestaInvalida,
+  teamDeAmigoDeApi,
   teamDeApi
 } from './mapeo'
 
@@ -58,7 +60,15 @@ describe('notas privadas y visibilidad', () => {
   })
 
   it('teamDeApi traduce oculto_para_amigos y lo exige', () => {
-    const base = { id: 'x', nombre: 'Raid', orden: 1, slots: [] }
+    const base = {
+      id: 'x',
+      nombre: 'Raid',
+      orden: 1,
+      grupo_id: null,
+      portada_slot: null,
+      portada_efectiva_slot: null,
+      slots: []
+    }
     expect(teamDeApi({ ...base, oculto_para_amigos: true }).ocultoParaAmigos).toBe(true)
     expect(teamDeApi({ ...base, oculto_para_amigos: false }).ocultoParaAmigos).toBe(false)
     expect(() => teamDeApi(base)).toThrow(RespuestaInvalida)
@@ -90,6 +100,9 @@ describe('fichaDeApi', () => {
   })
 })
 
+const GRUPO_ID = '8b0e5d6a-3c21-4f7e-a1d4-9e2c7b6f0a13'
+const OTRO_GRUPO_ID = '5d7a9c10-2b3e-4c85-8f16-0a4d3e2b1c99'
+
 describe('teamDeApi', () => {
   const resumen = {
     nombre: 'Irisalis',
@@ -106,12 +119,24 @@ describe('teamDeApi', () => {
     nombre: 'Principal',
     orden: 1,
     oculto_para_amigos: false,
+    grupo_id: null,
+    portada_slot: null,
+    portada_efectiva_slot: 1,
     slots: [
       { slot: 1, aniimo: resumen },
       { slot: 2, aniimo: null },
       { slot: 3, aniimo: null },
       { slot: 4, aniimo: null }
     ]
+  }
+
+  const grupoApi = {
+    id: GRUPO_ID,
+    nombre: 'Buildeado',
+    orden: 1,
+    team_ids: [team.id],
+    portada_team_id: team.id,
+    portada_efectiva_team_id: team.id
   }
 
   it('traduce el resumen a camelCase y deja los slots vacios en null', () => {
@@ -144,12 +169,91 @@ describe('teamDeApi', () => {
     expect(() => teamDeApi(null)).toThrow(RespuestaInvalida)
   })
 
-  it('listaDeTeamsDeApi traduce cada team', () => {
-    expect(listaDeTeamsDeApi({ teams: [team, { ...team, orden: 2 }] }).map((t) => t.orden)).toEqual([
-      1, 2
+  it('traduce el grupo, la portada elegida y la portada efectiva del team', () => {
+    const traducido = teamDeApi({
+      ...team,
+      grupo_id: GRUPO_ID,
+      portada_slot: 3,
+      portada_efectiva_slot: 3
+    })
+    expect(traducido).toMatchObject({ grupoId: GRUPO_ID, portadaSlot: 3, portadaEfectivaSlot: 3 })
+    expect(teamDeApi(team)).toMatchObject({
+      grupoId: null,
+      portadaSlot: null,
+      portadaEfectivaSlot: 1
+    })
+  })
+
+  it.each([
+    ['sin grupo_id', omitir(team, 'grupo_id')],
+    ['grupo_id numerico', { ...team, grupo_id: 5 }],
+    ['sin portada_slot', omitir(team, 'portada_slot')],
+    ['portada_slot texto', { ...team, portada_slot: '3' }],
+    ['sin portada_efectiva_slot', omitir(team, 'portada_efectiva_slot')]
+  ])('rechaza un team %s', (_caso, invalido) => {
+    expect(() => teamDeApi(invalido)).toThrow(RespuestaInvalida)
+  })
+
+  it('listaDeTeamsDeApi traduce cada team y cada grupo', () => {
+    const lista = listaDeTeamsDeApi({
+      teams: [team, { ...team, orden: 2 }],
+      grupos: [grupoApi, { ...grupoApi, id: OTRO_GRUPO_ID, orden: 2, portada_team_id: null }]
+    })
+    expect(lista.teams.map((t) => t.orden)).toEqual([1, 2])
+    expect(lista.grupos).toEqual([
+      {
+        id: GRUPO_ID,
+        nombre: 'Buildeado',
+        orden: 1,
+        teamIds: [team.id],
+        portadaTeamId: team.id,
+        portadaEfectivaTeamId: team.id
+      },
+      {
+        id: OTRO_GRUPO_ID,
+        nombre: 'Buildeado',
+        orden: 2,
+        teamIds: [team.id],
+        portadaTeamId: null,
+        portadaEfectivaTeamId: team.id
+      }
     ])
-    expect(listaDeTeamsDeApi({ teams: [] })).toEqual([])
-    expect(() => listaDeTeamsDeApi({ teams: null })).toThrow(RespuestaInvalida)
+    expect(listaDeTeamsDeApi({ teams: [], grupos: [] })).toEqual({ teams: [], grupos: [] })
+  })
+
+  it.each([
+    ['teams nulo', { teams: null, grupos: [] }],
+    ['sin grupos', { teams: [] }],
+    ['grupos nulo', { teams: [], grupos: null }],
+    ['team_ids con un numero', { teams: [], grupos: [{ ...grupoApi, team_ids: [1] }] }],
+    ['grupo sin nombre', { teams: [], grupos: [omitir(grupoApi, 'nombre')] }],
+    ['portada efectiva numerica', { teams: [], grupos: [{ ...grupoApi, portada_efectiva_team_id: 3 }] }]
+  ])('listaDeTeamsDeApi rechaza %s', (_caso, invalida) => {
+    expect(() => listaDeTeamsDeApi(invalida)).toThrow(RespuestaInvalida)
+  })
+
+  it('traduce el team y el grupo de un amigo, donde portada_slot ya es la efectiva', () => {
+    const delAmigo = omitir(omitir(team, 'oculto_para_amigos'), 'portada_efectiva_slot')
+    expect(teamDeAmigoDeApi({ ...delAmigo, grupo_id: GRUPO_ID, portada_slot: 2 })).toMatchObject({
+      grupoId: GRUPO_ID,
+      portadaSlot: 2
+    })
+    expect(
+      grupoDeAmigoDeApi({
+        id: GRUPO_ID,
+        nombre: 'Competitivo',
+        orden: 1,
+        team_ids: [team.id],
+        portada_team_id: team.id
+      })
+    ).toEqual({
+      id: GRUPO_ID,
+      nombre: 'Competitivo',
+      orden: 1,
+      teamIds: [team.id],
+      portadaTeamId: team.id
+    })
+    expect(() => teamDeAmigoDeApi(omitir(delAmigo, 'grupo_id'))).toThrow(RespuestaInvalida)
   })
 })
 

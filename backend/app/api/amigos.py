@@ -72,8 +72,8 @@ def eliminar(usuario_id: IdDeUsuario, usuario: Autenticado, servicio: Servicio) 
 def teams_de_amigo(
     usuario_id: IdDeUsuario, usuario: Autenticado, servicio: Servicio
 ) -> TeamsDeAmigoSalida:
-    amigo, resumenes = servicio.teams_de_amigo(usuario.id, usuario_id)
-    return TeamsDeAmigoSalida.desde(amigo, resumenes)
+    amigo, lista = servicio.teams_de_amigo(usuario.id, usuario_id)
+    return TeamsDeAmigoSalida.desde(amigo, lista)
 
 
 @router_amigos.get("/{usuario_id}/teams/{team_id}/aniimo/{slot}")

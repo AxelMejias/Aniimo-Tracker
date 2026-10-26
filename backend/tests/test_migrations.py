@@ -22,7 +22,8 @@ TABLAS_CORE = {
 }
 TABLAS_CON_SESION = TABLAS_CORE | {"sesion"}
 TABLAS_CON_IMAGEN = TABLAS_CON_SESION | {"imagen_aniimo"}
-TABLAS_DEL_MODELO = TABLAS_CON_IMAGEN | {"amistad"}
+TABLAS_CON_AMISTAD = TABLAS_CON_IMAGEN | {"amistad"}
+TABLAS_DEL_MODELO = TABLAS_CON_AMISTAD | {"grupo_de_teams"}
 
 
 @pytest.fixture
@@ -382,3 +383,106 @@ def test_los_check_de_fecha_y_etapa_tienen_el_nombre_de_la_convencion(
 
     assert "ck_aniimo_del_team_fecha_parche_rango" in nombres
     assert "ck_aniimo_del_team_etapa_estrella_rango" in nombres
+
+
+def _crear_teams(engine: Engine, ordenes: list[int]) -> str:
+    with engine.begin() as connection:
+        usuario_id = connection.execute(
+            text(
+                "INSERT INTO usuario (id, nombre_usuario, password_hash) "
+                "VALUES (gen_random_uuid(), :nombre, 'x') RETURNING id"
+            ),
+            {"nombre": f"u{uuid4().hex[:12]}"},
+        ).scalar_one()
+        for orden in ordenes:
+            team_id = connection.execute(
+                text(
+                    "INSERT INTO team (id, usuario_id, nombre, orden) "
+                    "VALUES (gen_random_uuid(), :u, :n, :o) RETURNING id"
+                ),
+                {"u": usuario_id, "n": f"Team {orden}", "o": orden},
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO aniimo_del_team (id, team_id, slot, nombre) "
+                    "VALUES (gen_random_uuid(), :t, 1, 'A')"
+                ),
+                {"t": team_id},
+            )
+        return str(usuario_id)
+
+
+def _foto_de_teams(engine: Engine) -> list[tuple[object, ...]]:
+    with engine.connect() as connection:
+        filas = connection.execute(
+            text(
+                "SELECT t.id, t.usuario_id, t.nombre, t.orden, t.oculto_para_amigos, a.id "
+                "FROM team t JOIN aniimo_del_team a ON a.team_id = t.id ORDER BY t.id"
+            )
+        ).all()
+    return [tuple(fila) for fila in filas]
+
+
+def _diferible(engine: Engine, nombre: str) -> tuple[bool, bool]:
+    with engine.connect() as connection:
+        fila = connection.execute(
+            text("SELECT condeferrable, condeferred FROM pg_constraint WHERE conname = :n"),
+            {"n": nombre},
+        ).one()
+    return fila[0], fila[1]
+
+
+def test_ida_y_vuelta_007_006_deja_los_datos_y_el_esquema_iguales(
+    base_migrable: Engine, alembic_config: Config
+) -> None:
+    command.downgrade(alembic_config, "006")
+    try:
+        _crear_teams(base_migrable, [1, 2, 4])
+        antes = _foto_de_teams(base_migrable)
+        columnas_antes = set(_columnas(base_migrable, "team"))
+        command.upgrade(alembic_config, "007")
+        command.downgrade(alembic_config, "006")
+        assert _foto_de_teams(base_migrable) == antes
+        assert set(_columnas(base_migrable, "team")) == columnas_antes
+        assert "grupo_de_teams" not in inspect(base_migrable).get_table_names()
+        assert _diferible(base_migrable, "uq_team_usuario_id_orden") == (False, False)
+    finally:
+        _limpiar_usuarios(base_migrable)
+
+
+def test_tras_007_los_teams_existentes_quedan_sueltos_y_sin_portada(
+    base_migrable: Engine, alembic_config: Config
+) -> None:
+    command.downgrade(alembic_config, "006")
+    try:
+        _crear_teams(base_migrable, [1, 2, 3, 4])
+        command.upgrade(alembic_config, "007")
+        with base_migrable.connect() as connection:
+            filas = connection.execute(text("SELECT grupo_id, portada_slot FROM team")).all()
+        assert [tuple(fila) for fila in filas] == [(None, None)] * 4
+    finally:
+        _limpiar_usuarios(base_migrable)
+
+
+def test_tras_007_las_unicidades_de_orden_son_diferibles_pero_inmediatas(
+    migrated_engine: Engine,
+) -> None:
+    assert _diferible(migrated_engine, "uq_team_usuario_id_orden") == (True, False)
+    assert _diferible(migrated_engine, "uq_grupo_de_teams_usuario_id_orden") == (True, False)
+
+
+def test_el_downgrade_con_un_team_de_orden_5_falla_con_mensaje_y_no_borra_nada(
+    base_migrable: Engine, alembic_config: Config
+) -> None:
+    command.upgrade(alembic_config, "head")
+    try:
+        _crear_teams(base_migrable, [1, 5])
+        with pytest.raises(RuntimeError, match="más de 4 teams"):
+            command.downgrade(alembic_config, "006")
+        with base_migrable.connect() as connection:
+            ordenes = connection.execute(text("SELECT orden FROM team ORDER BY orden")).scalars()
+            assert list(ordenes) == [1, 5]
+            version = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        assert version == "007"
+    finally:
+        _limpiar_usuarios(base_migrable)

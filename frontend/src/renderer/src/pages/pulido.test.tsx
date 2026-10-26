@@ -14,6 +14,7 @@ afterEach(cleanup)
 const TEAMS_CON_IRISALIS = {
   listar: async () => ({
     ok: true as const,
+    grupos: [],
     teams: [teamDePrueba('Principal', 1, { 1: RESUMEN_DE_IRISALIS })]
   })
 }

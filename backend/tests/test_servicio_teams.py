@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.application.teams import ServicioDeTeams
 from app.application.unit_of_work import UnitOfWork
 from app.domain.catalogos import PosicionObjeto
-from app.domain.entidades import AniimoDelTeam, ImagenAniimo, Team, Usuario
+from app.domain.entidades import MAXIMO_DE_TEAMS, AniimoDelTeam, ImagenAniimo, Team, Usuario
 from app.domain.errores import (
     AniimoNoEncontrado,
     ErrorDeValidacion,
@@ -92,20 +92,28 @@ def test_crear_devuelve_cuatro_slots_vacios(servicio: ServicioDeTeams, usuario: 
     ]
 
 
-def test_crear_un_quinto_team_lanza_limite_y_no_crea_nada(
+def test_crear_el_team_21_lanza_limite_y_no_crea_nada(
+    servicio: ServicioDeTeams, usuario: Usuario
+) -> None:
+    for n in range(MAXIMO_DE_TEAMS):
+        servicio.crear(usuario.id, f"T{n}")
+    with pytest.raises(LimiteDeTeamsAlcanzado):
+        servicio.crear(usuario.id, "Otro")
+    assert _ordenes(servicio, usuario) == list(range(1, MAXIMO_DE_TEAMS + 1))
+
+
+def test_crear_un_quinto_team_ya_no_lanza_limite(
     servicio: ServicioDeTeams, usuario: Usuario
 ) -> None:
     for n in range(4):
         servicio.crear(usuario.id, f"T{n}")
-    with pytest.raises(LimiteDeTeamsAlcanzado):
-        servicio.crear(usuario.id, "Otro")
-    assert _ordenes(servicio, usuario) == [1, 2, 3, 4]
+    assert servicio.crear(usuario.id, "Quinto").team.orden == 5
 
 
 def test_el_limite_de_teams_es_por_usuario(
     servicio: ServicioDeTeams, usuario: Usuario, otro: Usuario
 ) -> None:
-    for n in range(4):
+    for n in range(MAXIMO_DE_TEAMS):
         servicio.crear(usuario.id, f"T{n}")
     assert servicio.crear(otro.id, "Mio").team.orden == 1
 

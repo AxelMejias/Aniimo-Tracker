@@ -13,6 +13,7 @@ from app.domain.errores import (
     DespertaresInconsistentes,
     ImagenDemasiadoGrande,
     ImagenInvalida,
+    LimiteDeGruposAlcanzado,
     LimiteDeTeamsAlcanzado,
     PersonalidadInvalida,
     PotencialFueraDeRango,
@@ -25,9 +26,13 @@ _PERSONALIDAD = re.compile(r"[EI][NS][TF][JP]")
 _MAX_MATERIALES = 3
 _MAX_OBJETOS = 2
 _POTENCIAL_MAX = 20
+_SLOTS_POR_TEAM = 4
 FECHA_DE_PARCHE_MINIMA = date(2020, 1, 1)
 FECHA_DE_PARCHE_MAXIMA = date(2099, 12, 31)
 ETAPA_DE_ESTRELLA_MAXIMA = 7
+MAXIMO_DE_TEAMS = 20
+MAXIMO_DE_GRUPOS = 4
+MAXIMO_DE_TEAMS_POR_GRUPO = 5
 
 
 def normalizar_nombre_usuario(nombre_usuario: str) -> str:
@@ -107,8 +112,14 @@ class Amistad:
         if solicitante_id == destinatario_id:
             raise AutoAmistad
         menor, mayor = sorted((solicitante_id, destinatario_id))
-        extra = {} if creada_en is None else {"creada_en": creada_en}
-        return cls(usuario_a_id=menor, usuario_b_id=mayor, solicitante_id=solicitante_id, **extra)
+        if creada_en is None:
+            return cls(usuario_a_id=menor, usuario_b_id=mayor, solicitante_id=solicitante_id)
+        return cls(
+            usuario_a_id=menor,
+            usuario_b_id=mayor,
+            solicitante_id=solicitante_id,
+            creada_en=creada_en,
+        )
 
     def aceptar(self, ahora: datetime) -> "Amistad":
         return replace(self, estado=EstadoDeAmistad.ACEPTADA, aceptada_en=ahora)
@@ -128,11 +139,29 @@ class Team:
     orden: int
     id: UUID = field(default_factory=uuid4)
     oculto_para_amigos: bool = False
+    grupo_id: UUID | None = None
+    portada_slot: int | None = None
 
     def __post_init__(self) -> None:
         _no_vacio("nombre", self.nombre)
-        if not 1 <= self.orden <= 4:
+        if not 1 <= self.orden <= MAXIMO_DE_TEAMS:
             raise LimiteDeTeamsAlcanzado
+        if self.portada_slot is not None and not 1 <= self.portada_slot <= _SLOTS_POR_TEAM:
+            raise SlotInvalido
+
+
+@dataclass(frozen=True, slots=True)
+class GrupoDeTeams:
+    usuario_id: UUID
+    nombre: str
+    orden: int
+    portada_team_id: UUID | None = None
+    id: UUID = field(default_factory=uuid4)
+
+    def __post_init__(self) -> None:
+        _no_vacio("nombre", self.nombre)
+        if not 1 <= self.orden <= MAXIMO_DE_GRUPOS:
+            raise LimiteDeGruposAlcanzado
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,7 +234,7 @@ class AniimoDelTeam:
     notas_privadas: bool = False
 
     def __post_init__(self) -> None:
-        if not 1 <= self.slot <= 4:
+        if not 1 <= self.slot <= _SLOTS_POR_TEAM:
             raise SlotInvalido
         _no_vacio("nombre", self.nombre)
         _minimo("nivel", self.nivel, 1)

@@ -47,11 +47,21 @@ function llamada(fetchFalso: ReturnType<typeof preparar>['fetchFalso'], n = 0) {
   }
 }
 
+const GRUPO_ID = '8b0e5d6a-3c21-4f7e-a1d4-9e2c7b6f0a13'
+const grupoApi = {
+  id: GRUPO_ID,
+  nombre: 'Competitivo',
+  orden: 1,
+  team_ids: [TEAM_ID],
+  portada_team_id: TEAM_ID
+}
 const usuarioApi = { id: USUARIO_ID, nombre_usuario: 'bruno', relacion: 'ninguna' }
 const teamApi = {
   id: TEAM_ID,
   nombre: 'Principal',
   orden: 1,
+  grupo_id: GRUPO_ID,
+  portada_slot: 2,
   slots: [1, 2, 3, 4].map((slot) => ({ slot, aniimo: null }))
 }
 
@@ -104,7 +114,7 @@ describe('rutas, metodos y autorizacion', () => {
       'GET',
       `/amigos/${USUARIO_ID}/teams`,
       (c) => c.listarTeams({ usuarioId: USUARIO_ID }),
-      json(200, { usuario: { id: USUARIO_ID, nombre_usuario: 'bruno' }, teams: [teamApi] })
+      json(200, { usuario: { id: USUARIO_ID, nombre_usuario: 'bruno' }, teams: [teamApi], grupos: [grupoApi] })
     ],
     [
       'obtenerFicha',
@@ -199,15 +209,49 @@ describe('resultados traducidos', () => {
 
   it('listarTeams devuelve el duenio y los teams sin el flag de visibilidad', async () => {
     const { cliente } = preparar(
-      json(200, { usuario: { id: USUARIO_ID, nombre_usuario: 'bruno' }, teams: [teamApi] })
+      json(200, { usuario: { id: USUARIO_ID, nombre_usuario: 'bruno' }, teams: [teamApi], grupos: [grupoApi] })
     )
     const resultado = await cliente.listarTeams({ usuarioId: USUARIO_ID })
     expect(resultado).toEqual({
       ok: true,
       usuario: { id: USUARIO_ID, nombreUsuario: 'bruno' },
-      teams: [{ id: TEAM_ID, nombre: 'Principal', orden: 1, slots: teamApi.slots }]
+      teams: [
+        {
+          id: TEAM_ID,
+          nombre: 'Principal',
+          orden: 1,
+          grupoId: GRUPO_ID,
+          portadaSlot: 2,
+          slots: teamApi.slots
+        }
+      ],
+      grupos: [
+        {
+          id: GRUPO_ID,
+          nombre: 'Competitivo',
+          orden: 1,
+          teamIds: [TEAM_ID],
+          portadaTeamId: TEAM_ID
+        }
+      ]
     })
     expect(JSON.stringify(resultado)).not.toContain('ocultoParaAmigos')
+    expect(JSON.stringify(resultado)).not.toContain('portadaEfectiva')
+  })
+
+  it('listarTeams con un equipo sin grupo_id o sin lista de grupos es error-inesperado', async () => {
+    const duenio = { id: USUARIO_ID, nombre_usuario: 'bruno' }
+    const sinGrupoId = { ...teamApi, grupo_id: undefined }
+    const primero = preparar(json(200, { usuario: duenio, teams: [sinGrupoId], grupos: [] }))
+    expect(await primero.cliente.listarTeams({ usuarioId: USUARIO_ID })).toEqual({
+      ok: false,
+      error: 'error-inesperado'
+    })
+    const segundo = preparar(json(200, { usuario: duenio, teams: [teamApi] }))
+    expect(await segundo.cliente.listarTeams({ usuarioId: USUARIO_ID })).toEqual({
+      ok: false,
+      error: 'error-inesperado'
+    })
   })
 
   it('obtenerFicha usa el mapeo de la ficha y no agrega notasPrivadas', async () => {

@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic_core import ErrorDetails
 
+from app.domain.entidades import MAXIMO_DE_GRUPOS, MAXIMO_DE_TEAMS, MAXIMO_DE_TEAMS_POR_GRUPO
 from app.domain.errores import (
     AmistadExistente,
     AmistadNoEncontrada,
@@ -12,10 +13,15 @@ from app.domain.errores import (
     CalculoNoDisponible,
     CredencialesInvalidas,
     ErrorDeValidacion,
+    GrupoLleno,
+    GrupoNoEncontrado,
     ImagenDemasiadoGrande,
     ImagenInvalida,
+    LimiteDeGruposAlcanzado,
     LimiteDeTeamsAlcanzado,
     NombreUsuarioDuplicado,
+    OrdenDesactualizado,
+    PosicionDeGrupoOcupada,
     PosicionDeTeamOcupada,
     SesionInvalida,
     SlotOcupado,
@@ -67,6 +73,7 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(TeamNoEncontrado)
+    @app.exception_handler(GrupoNoEncontrado)
     @app.exception_handler(AniimoNoEncontrado)
     @app.exception_handler(AmistadNoEncontrada)
     @app.exception_handler(UsuarioNoEncontrado)
@@ -81,10 +88,38 @@ def register_error_handlers(app: FastAPI) -> None:
     async def handle_limite_de_teams(request: Request, exc: LimiteDeTeamsAlcanzado) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
-            content={"detail": "Ya tenés el máximo de 4 teams"},
+            content={"detail": f"Ya tenés el máximo de {MAXIMO_DE_TEAMS} teams"},
+        )
+
+    @app.exception_handler(LimiteDeGruposAlcanzado)
+    async def handle_limite_de_grupos(
+        request: Request, exc: LimiteDeGruposAlcanzado
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": f"Ya tenés el máximo de {MAXIMO_DE_GRUPOS} grupos"},
+        )
+
+    @app.exception_handler(GrupoLleno)
+    async def handle_grupo_lleno(request: Request, exc: GrupoLleno) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "detail": f"Ese grupo ya tiene el máximo de {MAXIMO_DE_TEAMS_POR_GRUPO} teams"
+            },
+        )
+
+    @app.exception_handler(OrdenDesactualizado)
+    async def handle_orden_desactualizado(
+        request: Request, exc: OrdenDesactualizado
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "El orden cambió; recargá e intentá de nuevo"},
         )
 
     @app.exception_handler(PosicionDeTeamOcupada)
+    @app.exception_handler(PosicionDeGrupoOcupada)
     @app.exception_handler(SlotOcupado)
     async def handle_conflicto_de_carga(request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(

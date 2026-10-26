@@ -13,6 +13,7 @@ export const CANALES_TEAMS = {
   crear: 'teams:crear',
   renombrar: 'teams:renombrar',
   cambiarVisibilidad: 'teams:cambiar-visibilidad',
+  elegirPortada: 'teams:elegir-portada',
   borrar: 'teams:borrar',
   obtenerFicha: 'teams:obtener-ficha',
   guardarFicha: 'teams:guardar-ficha',
@@ -21,6 +22,14 @@ export const CANALES_TEAMS = {
   guardarImagen: 'teams:guardar-imagen',
   borrarImagen: 'teams:borrar-imagen'
 } as const
+
+export const MAXIMO_DE_TEAMS = 20
+export const MAXIMO_DE_GRUPOS = 4
+export const MAXIMO_DE_TEAMS_POR_GRUPO = 5
+
+export const MENSAJE_MAXIMO_DE_TEAMS = `Ya tenés el máximo de ${MAXIMO_DE_TEAMS} teams`
+export const MENSAJE_MAXIMO_DE_GRUPOS = `Ya tenés el máximo de ${MAXIMO_DE_GRUPOS} grupos`
+export const MENSAJE_GRUPO_LLENO = `Ese grupo ya tiene el máximo de ${MAXIMO_DE_TEAMS_POR_GRUPO} teams`
 
 export const LARGO_MAXIMO_NOMBRE_CORTO = 50
 export const LARGO_MAXIMO_NOTAS_DE_STAT = 500
@@ -36,6 +45,8 @@ export type CodigoDeErrorDeTeams =
   | CodigoDeError
   | 'no-encontrado'
   | 'limite-de-teams'
+  | 'limite-de-grupos'
+  | 'grupo-lleno'
   | 'conflicto'
   | 'imagen-invalida'
 
@@ -130,10 +141,25 @@ export interface TeamResumen {
   readonly nombre: string
   readonly orden: number
   readonly ocultoParaAmigos: boolean
+  readonly grupoId: string | null
+  readonly portadaSlot: number | null
+  readonly portadaEfectivaSlot: number | null
   readonly slots: readonly SlotDeTeam[]
 }
 
-export type TeamDeAmigo = Omit<TeamResumen, 'ocultoParaAmigos'>
+// Para un amigo, portadaSlot ya es la portada efectiva.
+export type TeamDeAmigo = Omit<TeamResumen, 'ocultoParaAmigos' | 'portadaEfectivaSlot'>
+
+export interface GrupoResumen {
+  readonly id: string
+  readonly nombre: string
+  readonly orden: number
+  readonly teamIds: readonly string[]
+  readonly portadaTeamId: string | null
+  readonly portadaEfectivaTeamId: string | null
+}
+
+export type GrupoDeAmigo = Omit<GrupoResumen, 'portadaEfectivaTeamId'>
 
 export interface PedidoCrear {
   readonly nombre: string
@@ -147,6 +173,11 @@ export interface PedidoRenombrar {
 export interface PedidoCambiarVisibilidad {
   readonly teamId: string
   readonly ocultoParaAmigos: boolean
+}
+
+export interface PedidoElegirPortada {
+  readonly teamId: string
+  readonly slot: number | null
 }
 
 export interface PedidoDeTeam {
@@ -168,7 +199,11 @@ export interface PedidoGuardarImagen extends PedidoDeSlot {
 }
 
 export type ResultadoListar =
-  | { readonly ok: true; readonly teams: readonly TeamResumen[] }
+  | {
+      readonly ok: true
+      readonly teams: readonly TeamResumen[]
+      readonly grupos: readonly GrupoResumen[]
+    }
   | ErrorDeTeams
 
 export type ResultadoTeam = { readonly ok: true; readonly team: TeamResumen } | ErrorDeTeams

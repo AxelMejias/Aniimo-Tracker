@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.domain.entidades import Team, Usuario, normalizar_nombre_usuario
+from app.domain.entidades import MAXIMO_DE_TEAMS, Team, Usuario, normalizar_nombre_usuario
 from app.domain.errores import ErrorDeValidacion, LimiteDeTeamsAlcanzado, ValorInvalido
 
 
@@ -42,12 +42,16 @@ def test_usuario_es_inmutable() -> None:
         usuario.nombre_usuario = "otro"  # type: ignore[misc]
 
 
-@pytest.mark.parametrize("orden", [1, 2, 3, 4])
-def test_team_acepta_orden_de_1_a_4(orden: int) -> None:
+def test_el_maximo_de_teams_es_20() -> None:
+    assert MAXIMO_DE_TEAMS == 20
+
+
+@pytest.mark.parametrize("orden", [1, 4, 5, 13, MAXIMO_DE_TEAMS])
+def test_team_acepta_orden_de_1_al_maximo(orden: int) -> None:
     assert Team(usuario_id=uuid4(), nombre="Team", orden=orden).orden == orden
 
 
-@pytest.mark.parametrize("orden", [0, 5, -1])
+@pytest.mark.parametrize("orden", [0, MAXIMO_DE_TEAMS + 1, -1])
 def test_team_con_orden_fuera_de_rango_es_limite_de_teams(orden: int) -> None:
     with pytest.raises(LimiteDeTeamsAlcanzado):
         Team(usuario_id=uuid4(), nombre="Team", orden=orden)
@@ -61,7 +65,7 @@ def test_team_con_nombre_vacio_falla() -> None:
 
 def test_limite_de_teams_es_un_error_de_validacion() -> None:
     with pytest.raises(ErrorDeValidacion):
-        Team(usuario_id=uuid4(), nombre="Team", orden=5)
+        Team(usuario_id=uuid4(), nombre="Team", orden=MAXIMO_DE_TEAMS + 1)
 
 
 def test_team_nace_visible_para_amigos() -> None:

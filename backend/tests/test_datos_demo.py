@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.amigos import ServicioDeAmigos
 from app.application.auth import ServicioDeAuth
+from app.application.grupos import ServicioDeGrupos
 from app.application.teams import ServicioDeTeams
 from app.application.unit_of_work import UnitOfWork
 from app.datos_demo import (
@@ -112,6 +113,7 @@ class Servicios:
             session_factory, hasher_barato(), timedelta(minutes=30), timedelta(hours=12), reloj
         )
         self.teams = ServicioDeTeams(session_factory)
+        self.grupos = ServicioDeGrupos(session_factory)
         self.amigos = ServicioDeAmigos(session_factory, reloj)
 
 
@@ -121,7 +123,9 @@ def servicios(session_factory: sessionmaker[Session]) -> Servicios:
 
 
 def _crear(servicios: Servicios) -> None:
-    crear_datos_demo(servicios.auth, servicios.teams, servicios.amigos, CONTRASENA_DE_DEMO)
+    crear_datos_demo(
+        servicios.auth, servicios.teams, servicios.grupos, servicios.amigos, CONTRASENA_DE_DEMO
+    )
 
 
 def _usuario_id(session_factory: sessionmaker[Session], nombre: str):  # noqa: ANN202
@@ -136,27 +140,104 @@ def _nombres_de_teams(servicios: Servicios, nombre: str) -> dict[str, int]:
     return {r.team.nombre: sum(1 for s in r.slots if s.aniimo is not None) for r in resumenes}
 
 
+ANA_ESPERADA = {
+    "Principal": 3,
+    "Jefes": 2,
+    "Torre": 4,
+    "Raid": 3,
+    "PvP": 4,
+    "Pruebas": 1,
+    "Subiendo": 2,
+    "Hielo": 1,
+    "Casa": 4,
+    "Jardín": 2,
+    "Farmeo": 0,
+    "Eventos": 1,
+}
+BETO_ESPERADO = {"Ranked": 2, "Torneo": 1, "Entrenamiento": 3, "Paseo": 1}
+CARO_ESPERADO = {"Demo Caro": 1}
+
+
 def test_crea_las_tres_cuentas_con_sus_teams_y_aniimos(servicios: Servicios) -> None:
     resumen = crear_datos_demo(
-        servicios.auth, servicios.teams, servicios.amigos, CONTRASENA_DE_DEMO
+        servicios.auth, servicios.teams, servicios.grupos, servicios.amigos, CONTRASENA_DE_DEMO
     )
     assert resumen.cuentas == CUENTAS_DE_DEMO
-    assert _nombres_de_teams(servicios, "demo_ana") == {"Demo Principal": 3, "Demo Pruebas": 1}
-    assert _nombres_de_teams(servicios, "demo_beto") == {"Demo Beto": 2}
-    assert _nombres_de_teams(servicios, "demo_caro") == {"Demo Caro": 1}
-    assert (resumen.teams, resumen.aniimos) == (4, 7)
+    assert _nombres_de_teams(servicios, "demo_ana") == ANA_ESPERADA
+    assert _nombres_de_teams(servicios, "demo_beto") == BETO_ESPERADO
+    assert _nombres_de_teams(servicios, "demo_caro") == CARO_ESPERADO
+    assert (resumen.teams, resumen.aniimos) == (17, 35)
 
 
-def test_ana_tiene_un_team_oculto_y_un_aniimo_con_notas_privadas(servicios: Servicios) -> None:
+def test_ana_tiene_solo_jefes_oculto_y_un_aniimo_con_notas_privadas(servicios: Servicios) -> None:
     _crear(servicios)
     ana = _usuario_id(servicios.session_factory, "demo_ana")
     por_nombre = {r.team.nombre: r for r in servicios.teams.listar(ana)}
-    assert por_nombre["Demo Pruebas"].team.oculto_para_amigos is True
-    assert por_nombre["Demo Principal"].team.oculto_para_amigos is False
+    ocultos = [n for n, r in por_nombre.items() if r.team.oculto_para_amigos]
+    assert ocultos == ["Jefes"]
     aniimos = [s.aniimo for r in por_nombre.values() for s in r.slots if s.aniimo is not None]
     con_privadas = [a for a in aniimos if a.notas_privadas]
     assert len(con_privadas) == 1
     assert con_privadas[0].notas
+
+
+def test_ana_tiene_tres_grupos_con_sus_tamanos_y_portadas(servicios: Servicios) -> None:
+    _crear(servicios)
+    lista = servicios.teams.listar_con_grupos(_usuario_id(servicios.session_factory, "demo_ana"))
+    nombre_de = {r.team.id: r.team.nombre for r in lista.teams}
+    vistos = [
+        (
+            g.grupo.nombre,
+            g.grupo.orden,
+            [nombre_de[t] for t in g.team_ids],
+            nombre_de[g.portada_efectiva_team_id] if g.portada_efectiva_team_id else None,
+        )
+        for g in lista.grupos
+    ]
+    assert vistos == [
+        ("Buildeado", 1, ["Principal", "Jefes", "Torre", "Raid", "PvP"], "Principal"),
+        ("En proceso", 2, ["Pruebas", "Subiendo", "Hielo"], "Pruebas"),
+        ("Homeland", 3, ["Casa", "Jardín"], "Casa"),
+    ]
+    elegidas = {g.grupo.nombre: g.grupo.portada_team_id for g in lista.grupos}
+    assert all(elegidas.values())
+    sueltos = [r.team.nombre for r in lista.teams if r.team.grupo_id is None]
+    assert sueltos == ["Farmeo", "Eventos"]
+
+
+def test_ana_tiene_un_team_vacio_y_una_portada_de_aniimo_que_no_es_el_slot_1(
+    servicios: Servicios,
+) -> None:
+    _crear(servicios)
+    lista = servicios.teams.listar_con_grupos(_usuario_id(servicios.session_factory, "demo_ana"))
+    por_nombre = {r.team.nombre: r for r in lista.teams}
+    assert all(s.aniimo is None for s in por_nombre["Farmeo"].slots)
+    assert por_nombre["Farmeo"].portada_efectiva_slot is None
+    assert por_nombre["Principal"].portada_efectiva_slot == 1
+    assert por_nombre["Torre"].team.portada_slot == 3
+    assert por_nombre["Torre"].portada_efectiva_slot == 3
+
+
+def test_beto_tiene_el_grupo_competitivo_y_un_team_suelto(servicios: Servicios) -> None:
+    _crear(servicios)
+    lista = servicios.teams.listar_con_grupos(_usuario_id(servicios.session_factory, "demo_beto"))
+    [grupo] = lista.grupos
+    nombre_de = {r.team.id: r.team.nombre for r in lista.teams}
+    assert grupo.grupo.nombre == "Competitivo"
+    assert [nombre_de[t] for t in grupo.team_ids] == ["Ranked", "Torneo", "Entrenamiento"]
+    assert [r.team.nombre for r in lista.teams if r.team.grupo_id is None] == ["Paseo"]
+
+
+def test_beto_ve_buildeado_con_cuatro_teams_y_sin_jefes(servicios: Servicios) -> None:
+    _crear(servicios)
+    ana = _usuario_id(servicios.session_factory, "demo_ana")
+    beto = _usuario_id(servicios.session_factory, "demo_beto")
+    _, lista = servicios.amigos.teams_de_amigo(beto, ana)
+    nombre_de = {r.team.id: r.team.nombre for r in lista.teams}
+    visto = {g.grupo.nombre: [nombre_de[t] for t in g.team_ids] for g in lista.grupos}
+    assert visto["Buildeado"] == ["Principal", "Torre", "Raid", "PvP"]
+    assert "Jefes" not in nombre_de.values()
+    assert len(lista.teams) == 11
 
 
 def test_ana_y_beto_son_amigos_y_caro_tiene_una_solicitud_pendiente_a_ana(
@@ -181,14 +262,16 @@ def test_beto_no_ve_el_team_oculto_ni_las_notas_privadas(
     respuesta = cliente_api.get(f"/api/amigos/{ana}/teams", headers=cabeceras)
     assert respuesta.status_code == 200
     teams = respuesta.json()["teams"]
-    assert [t["nombre"] for t in teams] == ["Demo Principal"]
-    principal = next(r for r in servicios.teams.listar(ana) if r.team.nombre == "Demo Principal")
+    assert "Jefes" not in [t["nombre"] for t in teams]
+    assert len(teams) == 11
+    visible = next(t for t in teams if t["nombre"] == "Principal")
+    principal = next(r for r in servicios.teams.listar(ana) if r.team.nombre == "Principal")
     privado = next(
         s.aniimo for s in principal.slots if s.aniimo is not None and s.aniimo.notas_privadas
     )
     assert privado.notas
     ficha = cliente_api.get(
-        f"/api/amigos/{ana}/teams/{teams[0]['id']}/aniimo/{privado.slot}", headers=cabeceras
+        f"/api/amigos/{ana}/teams/{visible['id']}/aniimo/{privado.slot}", headers=cabeceras
     ).json()["aniimo"]
     assert ficha["notas"] is None
     assert ficha["notas_habilidades"] is None
@@ -196,10 +279,10 @@ def test_beto_no_ve_el_team_oculto_ni_las_notas_privadas(
         s.slot for s in principal.slots if s.aniimo is not None and not s.aniimo.notas_privadas
     ]
     for slot in otros:
-        visible = cliente_api.get(
-            f"/api/amigos/{ana}/teams/{teams[0]['id']}/aniimo/{slot}", headers=cabeceras
+        otro = cliente_api.get(
+            f"/api/amigos/{ana}/teams/{visible['id']}/aniimo/{slot}", headers=cabeceras
         ).json()["aniimo"]
-        assert visible["nombre"]
+        assert otro["nombre"]
 
 
 def test_los_aniimos_de_demo_no_tienen_imagenes(
@@ -224,6 +307,7 @@ def test_la_segunda_corrida_no_cambia_nada_e_informa(servicios: Servicios) -> No
     primera = preparar_datos_demo(
         servicios.auth,
         servicios.teams,
+        servicios.grupos,
         servicios.amigos,
         servicios.session_factory,
         CONTRASENA_DE_DEMO,
@@ -233,6 +317,7 @@ def test_la_segunda_corrida_no_cambia_nada_e_informa(servicios: Servicios) -> No
     segunda = preparar_datos_demo(
         servicios.auth,
         servicios.teams,
+        servicios.grupos,
         servicios.amigos,
         servicios.session_factory,
         CONTRASENA_DE_DEMO,
@@ -242,7 +327,7 @@ def test_la_segunda_corrida_no_cambia_nada_e_informa(servicios: Servicios) -> No
     assert segunda.ya_existian is True
     assert "--reiniciar" in segunda.texto()
     assert {n: _usuario_id(servicios.session_factory, n) for n in CUENTAS_DE_DEMO} == ids_antes
-    assert _nombres_de_teams(servicios, "demo_ana") == {"Demo Principal": 3, "Demo Pruebas": 1}
+    assert _nombres_de_teams(servicios, "demo_ana") == ANA_ESPERADA
 
 
 def test_si_existe_una_sola_cuenta_del_set_tampoco_toca_nada(servicios: Servicios) -> None:
@@ -250,6 +335,7 @@ def test_si_existe_una_sola_cuenta_del_set_tampoco_toca_nada(servicios: Servicio
     resumen = preparar_datos_demo(
         servicios.auth,
         servicios.teams,
+        servicios.grupos,
         servicios.amigos,
         servicios.session_factory,
         CONTRASENA_DE_DEMO,
@@ -267,6 +353,7 @@ def test_reiniciar_recrea_las_tres_cuentas_y_no_toca_cuentas_ajenas(servicios: S
     resumen = preparar_datos_demo(
         servicios.auth,
         servicios.teams,
+        servicios.grupos,
         servicios.amigos,
         servicios.session_factory,
         CONTRASENA_DE_DEMO,
@@ -276,9 +363,9 @@ def test_reiniciar_recrea_las_tres_cuentas_y_no_toca_cuentas_ajenas(servicios: S
     assert resumen.borradas == CUENTAS_DE_DEMO
     ids_despues = {n: _usuario_id(servicios.session_factory, n) for n in CUENTAS_DE_DEMO}
     assert all(ids_despues[n] != ids_antes[n] for n in CUENTAS_DE_DEMO)
-    assert _nombres_de_teams(servicios, "demo_ana") == {"Demo Principal": 3, "Demo Pruebas": 1}
-    assert _nombres_de_teams(servicios, "demo_beto") == {"Demo Beto": 2}
-    assert _nombres_de_teams(servicios, "demo_caro") == {"Demo Caro": 1}
+    assert _nombres_de_teams(servicios, "demo_ana") == ANA_ESPERADA
+    assert _nombres_de_teams(servicios, "demo_beto") == BETO_ESPERADO
+    assert _nombres_de_teams(servicios, "demo_caro") == CARO_ESPERADO
     assert _usuario_id(servicios.session_factory, "otra_cuenta") == ajena.id
 
 
@@ -375,4 +462,4 @@ def test_main_reiniciar_informa_lo_borrado_y_recrea(
     salida = capsys.readouterr().out
     assert codigo == 0
     assert "Borradas" in salida
-    assert _nombres_de_teams(servicios, "demo_ana") == {"Demo Principal": 3, "Demo Pruebas": 1}
+    assert _nombres_de_teams(servicios, "demo_ana") == ANA_ESPERADA

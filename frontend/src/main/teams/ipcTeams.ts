@@ -7,6 +7,7 @@ import {
   esPedidoCrear,
   esPedidoDeSlot,
   esPedidoDeTeam,
+  esPedidoElegirPortada,
   esPedidoGuardarFicha,
   esPedidoRenombrar,
   validarPedidoDeImagen
@@ -16,6 +17,7 @@ import type {
   PedidoCrear,
   PedidoDeSlot,
   PedidoDeTeam,
+  PedidoElegirPortada,
   PedidoGuardarFicha,
   PedidoGuardarImagen,
   PedidoRenombrar
@@ -46,6 +48,10 @@ export function registrarManejadoresDeTeams(
     conPedido<PedidoCambiarVisibilidad>(esPedidoCambiarVisibilidad, (pedido) =>
       cliente.cambiarVisibilidad(pedido)
     )
+  )
+  registrar(
+    CANALES_TEAMS.elegirPortada,
+    conPedido<PedidoElegirPortada>(esPedidoElegirPortada, (pedido) => cliente.elegirPortada(pedido))
   )
   registrar(
     CANALES_TEAMS.borrar,

@@ -42,7 +42,7 @@ def _aniimo_invalido(team_id: UUID, **campos: object) -> AniimoDelTeamModelo:
 
 
 CHECKS_CON_EQUIVALENTE: list[tuple[str, type[ErrorDeDominio], Callable[[UUID, UUID], Any]]] = [
-    ("orden_5", LimiteDeTeamsAlcanzado, lambda u, t: _team_invalido(u, orden=5)),
+    ("orden_21", LimiteDeTeamsAlcanzado, lambda u, t: _team_invalido(u, orden=21)),
     ("slot_5", SlotInvalido, lambda u, t: _aniimo_invalido(t, slot=5)),
     ("slot_0", SlotInvalido, lambda u, t: _aniimo_invalido(t, slot=0)),
     ("personalidad", PersonalidadInvalida, lambda u, t: _aniimo_invalido(t, personalidad="EEFJ")),

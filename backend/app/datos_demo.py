@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.amigos import ServicioDeAmigos
 from app.application.auth import HasherDeContrasenas, ServicioDeAuth
+from app.application.grupos import ServicioDeGrupos
 from app.application.teams import DatosDeFicha, ServicioDeTeams
 from app.application.unit_of_work import UnitOfWork
 from app.core.reloj import ahora_utc
@@ -193,45 +194,147 @@ _ANA_PRINCIPAL = (
         fecha_parche=None,
     ),
 )
-_ANA_PRUEBAS = (_ficha("Demoluz", 30, elemento=Elemento.SAGRADO, rol=Rol.REGEN),)
-_BETO = (
+_ELEMENTOS = tuple(Elemento)
+_ROLES = tuple(Rol)
+
+
+def _equipo(*nombres: str) -> tuple[DatosDeFicha, ...]:
+    return tuple(
+        _ficha(
+            nombre,
+            30 + indice * 6,
+            elemento=_ELEMENTOS[indice % len(_ELEMENTOS)],
+            rol=_ROLES[indice % len(_ROLES)],
+        )
+        for indice, nombre in enumerate(nombres)
+    )
+
+
+_ANA_JEFES = (
     _ficha("Demovolt", 55, elemento=Elemento.ELECTRICO, rol=Rol.BREAK, personalidad="ENTP"),
     _ficha("Demoroca", 38, elemento=Elemento.ROCA, rol=Rol.AYUDA, personalidad="ISTJ"),
 )
+_ANA_TORRE = _equipo("Demoluz", "Demoflama", "Demobrisa", "Demovolt")
+_BETO_RANKED = _ANA_JEFES
 _CARO = (_ficha("Demosombra", 66, elemento=Elemento.OSCURO, rol=Rol.DPS, personalidad="INFP"),)
 
+# Team: (nombre, fichas, oculto, slot de portada). Grupo: (nombre, teams, team de portada).
+_TeamDeDemo = tuple[str, Sequence[DatosDeFicha], bool, int | None]
+_GrupoDeDemo = tuple[str, Sequence[_TeamDeDemo], str]
 
-def _cargar_team(
-    teams: ServicioDeTeams,
-    usuario_id: UUID,
-    nombre: str,
-    fichas: Sequence[DatosDeFicha],
-    *,
-    oculto: bool = False,
-) -> None:
+_ANA_GRUPOS: tuple[_GrupoDeDemo, ...] = (
+    (
+        "Buildeado",
+        (
+            ("Principal", _ANA_PRINCIPAL, False, None),
+            ("Jefes", _ANA_JEFES, True, None),
+            ("Torre", _ANA_TORRE, False, 3),
+            ("Raid", _equipo("Demoroca", "Demohielo", "Demoluz"), False, None),
+            ("PvP", _equipo("Demovolt", "Demoflama", "Demobrisa", "Demoroca"), False, None),
+        ),
+        "Principal",
+    ),
+    (
+        "En proceso",
+        (
+            ("Pruebas", _equipo("Demoluz"), False, None),
+            ("Subiendo", _equipo("Demohielo", "Demobrisa"), False, None),
+            ("Hielo", _equipo("Demohielo"), False, None),
+        ),
+        "Pruebas",
+    ),
+    (
+        "Homeland",
+        (
+            ("Casa", _equipo("Demoroca", "Demoluz", "Demoflama", "Demobrisa"), False, None),
+            ("Jardín", _equipo("Demobrisa", "Demohielo"), False, None),
+        ),
+        "Casa",
+    ),
+)
+_ANA_SUELTOS: tuple[_TeamDeDemo, ...] = (
+    ("Farmeo", (), False, None),
+    ("Eventos", _equipo("Demovolt"), False, None),
+)
+_BETO_GRUPOS: tuple[_GrupoDeDemo, ...] = (
+    (
+        "Competitivo",
+        (
+            ("Ranked", _BETO_RANKED, False, None),
+            ("Torneo", _equipo("Demoluz"), False, None),
+            ("Entrenamiento", _equipo("Demoflama", "Demobrisa", "Demohielo"), False, None),
+        ),
+        "Ranked",
+    ),
+)
+_BETO_SUELTOS: tuple[_TeamDeDemo, ...] = (("Paseo", _equipo("Demoroca"), False, None),)
+
+
+_CUENTAS: tuple[tuple[Sequence[_GrupoDeDemo], Sequence[_TeamDeDemo]], ...] = (
+    (_ANA_GRUPOS, _ANA_SUELTOS),
+    (_BETO_GRUPOS, _BETO_SUELTOS),
+    ((), (("Demo Caro", _CARO, False, None),)),
+)
+
+
+def _cargar_team(teams: ServicioDeTeams, usuario_id: UUID, equipo: _TeamDeDemo) -> UUID:
+    nombre, fichas, oculto, portada_slot = equipo
     resumen = teams.crear(usuario_id, nombre)
+    team_id = resumen.team.id
     if oculto:
-        teams.editar(usuario_id, resumen.team.id, oculto_para_amigos=True)
+        teams.editar(usuario_id, team_id, oculto_para_amigos=True)
     for slot, ficha in enumerate(fichas, start=1):
-        teams.guardar_ficha(usuario_id, resumen.team.id, slot, ficha)
+        teams.guardar_ficha(usuario_id, team_id, slot, ficha)
+    if portada_slot is not None:
+        teams.editar(usuario_id, team_id, portada_slot=portada_slot)
+    return team_id
+
+
+def _cargar_grupo(
+    teams: ServicioDeTeams, grupos: ServicioDeGrupos, usuario_id: UUID, grupo: _GrupoDeDemo
+) -> None:
+    nombre, equipos, nombre_de_portada = grupo
+    lista = grupos.crear(usuario_id, nombre)
+    grupo_id = next(g.grupo.id for g in lista.grupos if g.grupo.nombre == nombre)
+    ids = {equipo[0]: _cargar_team(teams, usuario_id, equipo) for equipo in equipos}
+    for team_id in ids.values():
+        grupos.agregar_team(usuario_id, grupo_id, team_id)
+    grupos.editar(usuario_id, grupo_id, portada_team_id=ids[nombre_de_portada])
+
+
+def _cargar_cuenta(
+    teams: ServicioDeTeams,
+    grupos: ServicioDeGrupos,
+    usuario_id: UUID,
+    con_grupos: Sequence[_GrupoDeDemo],
+    sueltos: Sequence[_TeamDeDemo],
+) -> None:
+    for grupo in con_grupos:
+        _cargar_grupo(teams, grupos, usuario_id, grupo)
+    for equipo in sueltos:
+        _cargar_team(teams, usuario_id, equipo)
+
+
+def _contar(con_grupos: Sequence[_GrupoDeDemo], sueltos: Sequence[_TeamDeDemo]) -> tuple[int, int]:
+    equipos = [e for _, miembros, _ in con_grupos for e in miembros] + list(sueltos)
+    return len(equipos), sum(len(e[1]) for e in equipos)
 
 
 def crear_datos_demo(
     auth: ServicioDeAuth,
     teams: ServicioDeTeams,
+    grupos: ServicioDeGrupos,
     amigos: ServicioDeAmigos,
     contrasena: str,
 ) -> ResumenDeDemo:
     ana, beto, caro = (auth.registrar(nombre, contrasena) for nombre in CUENTAS_DE_DEMO)
-    _cargar_team(teams, ana.id, "Demo Principal", _ANA_PRINCIPAL)
-    _cargar_team(teams, ana.id, "Demo Pruebas", _ANA_PRUEBAS, oculto=True)
-    _cargar_team(teams, beto.id, "Demo Beto", _BETO)
-    _cargar_team(teams, caro.id, "Demo Caro", _CARO)
+    for usuario, (con_grupos, sueltos) in zip((ana, beto, caro), _CUENTAS, strict=True):
+        _cargar_cuenta(teams, grupos, usuario.id, con_grupos, sueltos)
     amigos.enviar_solicitud(ana.id, beto.id)
     amigos.aceptar(beto.id, ana.id)
     amigos.enviar_solicitud(caro.id, ana.id)
-    cantidad_de_aniimos = len(_ANA_PRINCIPAL) + len(_ANA_PRUEBAS) + len(_BETO) + len(_CARO)
-    return ResumenDeDemo(teams=4, aniimos=cantidad_de_aniimos)
+    conteos = [_contar(con_grupos, sueltos) for con_grupos, sueltos in _CUENTAS]
+    return ResumenDeDemo(teams=sum(c[0] for c in conteos), aniimos=sum(c[1] for c in conteos))
 
 
 def borrar_datos_demo(session_factory: sessionmaker[Session]) -> tuple[str, ...]:
@@ -257,6 +360,7 @@ def _existe_alguna_cuenta_de_demo(session_factory: sessionmaker[Session]) -> boo
 def preparar_datos_demo(
     auth: ServicioDeAuth,
     teams: ServicioDeTeams,
+    grupos: ServicioDeGrupos,
     amigos: ServicioDeAmigos,
     session_factory: sessionmaker[Session],
     contrasena: str,
@@ -268,7 +372,7 @@ def preparar_datos_demo(
         borradas = borrar_datos_demo(session_factory)
     elif _existe_alguna_cuenta_de_demo(session_factory):
         return ResumenDeDemo(ya_existian=True)
-    creado = crear_datos_demo(auth, teams, amigos, contrasena)
+    creado = crear_datos_demo(auth, teams, grupos, amigos, contrasena)
     return ResumenDeDemo(teams=creado.teams, aniimos=creado.aniimos, borradas=borradas)
 
 
@@ -297,7 +401,7 @@ def main(
     args = parser.parse_args(argv)
 
     try:
-        config = configuracion or ConfiguracionDeDemo()  # type: ignore[call-arg]
+        config = configuracion or ConfiguracionDeDemo()
     except ValidationError:
         return _fallar("Falta DATABASE_URL: revisá backend/.env.")
 
@@ -329,6 +433,7 @@ def main(
         resumen = preparar_datos_demo(
             auth,
             ServicioDeTeams(session_factory),
+            ServicioDeGrupos(session_factory),
             ServicioDeAmigos(session_factory, reloj),
             session_factory,
             contrasena,

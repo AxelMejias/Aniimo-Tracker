@@ -14,7 +14,14 @@ from pydantic import (
 )
 
 from app.api.fecha_de_parche import FechaDeParche, a_fecha
-from app.application.teams import DatosDeFicha, FichaGuardada, ResumenDeSlot, ResumenDeTeam
+from app.application.teams import (
+    DatosDeFicha,
+    FichaGuardada,
+    ListaDeTeams,
+    ResumenDeGrupo,
+    ResumenDeSlot,
+    ResumenDeTeam,
+)
 from app.domain.catalogos import Elemento, PosicionObjeto, PotencialInnato, Rareza, Rol, Stat
 from app.domain.entidades import AniimoDelTeam, MaterialEstrella, ObjetoTransportado, ValoresDeStat
 
@@ -58,13 +65,14 @@ class EdicionDeTeamEntrada(BaseModel):
 
     nombre: Nombre | None = None
     oculto_para_amigos: bool | None = None
+    portada_slot: Annotated[int, Field(ge=1, le=4)] | None = None
 
     @model_validator(mode="after")
-    def _al_menos_uno_y_ninguno_nulo(self) -> Self:
+    def _al_menos_uno_y_solo_la_portada_admite_nulo(self) -> Self:
         enviados = self.model_fields_set
         if not enviados:
             raise ValueError("Se debe enviar al menos un campo")
-        if any(getattr(self, campo) is None for campo in enviados):
+        if any(getattr(self, campo) is None for campo in enviados - {"portada_slot"}):
             raise ValueError("Los campos enviados no pueden ser nulos")
         return self
 
@@ -282,6 +290,9 @@ class TeamSalida(BaseModel):
     nombre: str
     orden: int
     oculto_para_amigos: bool
+    grupo_id: UUID | None
+    portada_slot: int | None
+    portada_efectiva_slot: int | None
     slots: list[SlotSalida]
 
     @classmethod
@@ -292,9 +303,41 @@ class TeamSalida(BaseModel):
             nombre=team.nombre,
             orden=team.orden,
             oculto_para_amigos=team.oculto_para_amigos,
+            grupo_id=team.grupo_id,
+            portada_slot=team.portada_slot,
+            portada_efectiva_slot=resumen.portada_efectiva_slot,
             slots=[SlotSalida.desde(slot) for slot in resumen.slots],
+        )
+
+
+class GrupoSalida(BaseModel):
+    id: UUID
+    nombre: str
+    orden: int
+    team_ids: list[UUID]
+    portada_team_id: UUID | None
+    portada_efectiva_team_id: UUID | None
+
+    @classmethod
+    def desde(cls, resumen: ResumenDeGrupo) -> Self:
+        grupo = resumen.grupo
+        return cls(
+            id=grupo.id,
+            nombre=grupo.nombre,
+            orden=grupo.orden,
+            team_ids=list(resumen.team_ids),
+            portada_team_id=grupo.portada_team_id,
+            portada_efectiva_team_id=resumen.portada_efectiva_team_id,
         )
 
 
 class ListaDeTeamsSalida(BaseModel):
     teams: list[TeamSalida]
+    grupos: list[GrupoSalida]
+
+    @classmethod
+    def desde(cls, lista: ListaDeTeams) -> Self:
+        return cls(
+            teams=[TeamSalida.desde(resumen) for resumen in lista.teams],
+            grupos=[GrupoSalida.desde(resumen) for resumen in lista.grupos],
+        )

@@ -7,6 +7,7 @@ import {
   esPedidoCrear,
   esPedidoDeSlot,
   esPedidoDeTeam,
+  esPedidoElegirPortada,
   esPedidoGuardarFicha,
   esPedidoRenombrar,
   validarPedidoDeImagen
@@ -66,6 +67,29 @@ describe('esPedidoCambiarVisibilidad', () => {
     ['null', null]
   ])('rechaza %s', (_caso, valor) => {
     expect(esPedidoCambiarVisibilidad(valor)).toBe(false)
+  })
+})
+
+describe('esPedidoElegirPortada', () => {
+  it.each([1, 2, 3, 4, null])('acepta el slot %s', (slot) => {
+    expect(esPedidoElegirPortada({ teamId: TEAM_ID, slot })).toBe(true)
+  })
+
+  it.each([
+    ['slot 0', { teamId: TEAM_ID, slot: 0 }],
+    ['slot 5', { teamId: TEAM_ID, slot: 5 }],
+    ['slot negativo', { teamId: TEAM_ID, slot: -1 }],
+    ['slot decimal', { teamId: TEAM_ID, slot: 1.5 }],
+    ['slot texto', { teamId: TEAM_ID, slot: '3' }],
+    ['slot undefined', { teamId: TEAM_ID, slot: undefined }],
+    ['sin slot', { teamId: TEAM_ID }],
+    ['sin teamId', { slot: 3 }],
+    ['teamId invalido', { teamId: 'x', slot: 3 }],
+    ['clave extra', { teamId: TEAM_ID, slot: 3, extra: 1 }],
+    ['null', null],
+    ['texto', 'x']
+  ])('rechaza %s', (_caso, valor) => {
+    expect(esPedidoElegirPortada(valor)).toBe(false)
   })
 })
 

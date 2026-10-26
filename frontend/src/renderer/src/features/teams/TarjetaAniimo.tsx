@@ -10,6 +10,7 @@ interface TarjetaAniimoProps {
   readonly alAbrir: (slot: number) => void
   readonly cargarImagen?: CargarImagenDeTarjeta
   readonly soloLectura?: boolean
+  readonly esPortada?: boolean
 }
 
 export default function TarjetaAniimo({
@@ -19,7 +20,8 @@ export default function TarjetaAniimo({
   deshabilitado,
   alAbrir,
   cargarImagen,
-  soloLectura = false
+  soloLectura = false,
+  esPortada = false
 }: TarjetaAniimoProps): ReactElement {
   const imagen = useImagenDeTarjeta(teamId, slot, aniimo?.tieneImagen ?? false, cargarImagen)
 
@@ -52,6 +54,7 @@ export default function TarjetaAniimo({
       ) : (
         <img className="tarjeta-aniimo__imagen" src={imagen} alt="" />
       )}
+      {esPortada && <span className="tarjeta-aniimo__portada">Portada</span>}
       <span className="tarjeta-aniimo__nombre">{aniimo.nombre}</span>
       <span className="tarjeta-aniimo__dato">Nivel {aniimo.nivel}</span>
       <span className="tarjeta-aniimo__dato">CP {aniimo.cp}</span>

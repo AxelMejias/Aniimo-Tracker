@@ -295,9 +295,10 @@ def test_el_amigo_aceptado_lee_igual_que_el_duenio(
     servicio: ServicioDeAmigos, teams: ServicioDeTeams, a: Usuario, b: Usuario, team_de_b: Team
 ) -> None:
     _hacer_amigos(servicio, a, b)
-    usuario, resumenes = servicio.teams_de_amigo(a.id, b.id)
+    usuario, lista = servicio.teams_de_amigo(a.id, b.id)
     assert usuario.id == b.id
-    assert resumenes == teams.listar(b.id)
+    assert lista.teams == teams.listar(b.id)
+    assert lista.grupos == []
     assert servicio.ficha_de_amigo(a.id, b.id, team_de_b.id, 1) == teams.obtener_ficha(
         b.id, team_de_b.id, 1
     )
@@ -377,15 +378,15 @@ def test_team_oculto_no_se_lista_ni_se_lee_y_visible_vuelve_a_aparecer(
     _hacer_amigos(servicio, a, b)
     otro_visible = persistir_team(session_factory, b, orden=2)
     teams.editar(b.id, team_de_b.id, oculto_para_amigos=True)
-    _, resumenes = servicio.teams_de_amigo(a.id, b.id)
-    assert [r.team.id for r in resumenes] == [otro_visible.id]
+    _, lista = servicio.teams_de_amigo(a.id, b.id)
+    assert [r.team.id for r in lista.teams] == [otro_visible.id]
     with pytest.raises(TeamNoEncontrado):
         servicio.ficha_de_amigo(a.id, b.id, team_de_b.id, 1)
     with pytest.raises(TeamNoEncontrado):
         servicio.imagen_de_amigo(a.id, b.id, team_de_b.id, 1)
     teams.editar(b.id, team_de_b.id, oculto_para_amigos=False)
-    _, resumenes = servicio.teams_de_amigo(a.id, b.id)
-    assert [r.team.id for r in resumenes] == [team_de_b.id, otro_visible.id]
+    _, lista = servicio.teams_de_amigo(a.id, b.id)
+    assert [r.team.id for r in lista.teams] == [team_de_b.id, otro_visible.id]
     assert servicio.ficha_de_amigo(a.id, b.id, team_de_b.id, 1) is not None
 
 

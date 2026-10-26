@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  armarGrupo,
   instalarApi,
   RESUMEN_DE_IRISALIS,
   teamDePrueba
@@ -27,7 +28,7 @@ function conSeleccion(team = PRINCIPAL, extra: Parameters<typeof instalarApi>[0]
       ...extra.overlay
     },
     teams: {
-      listar: async () => ({ ok: true, teams: [PRINCIPAL, SECUNDARIO] }),
+      listar: async () => ({ ok: true, grupos: [], teams: [PRINCIPAL, SECUNDARIO] }),
       obtenerFicha: async () => ({ ok: true, ficha: FICHA }),
       ...extra.teams
     }
@@ -128,7 +129,7 @@ describe('estados sin team', () => {
       overlay: {
         obtenerSeleccion: async () => ({ ok: true, seleccion: { teamId: SECUNDARIO.id } })
       },
-      teams: { listar: async () => ({ ok: true, teams: [PRINCIPAL] }) }
+      teams: { listar: async () => ({ ok: true, grupos: [], teams: [PRINCIPAL] }) }
     })
     render(<OverlayApp />)
     expect(await screen.findByText('Ese team ya no existe')).toBeInTheDocument()
@@ -169,11 +170,13 @@ describe('acciones y estructura', () => {
     const { container } = render(<OverlayApp />)
     await screen.findByText('Irisalis')
     expect(container.querySelectorAll('[style]')).toHaveLength(0)
-    expect(container.querySelectorAll('input, select, textarea')).toHaveLength(0)
+    expect(container.querySelectorAll('input, textarea')).toHaveLength(0)
+    expect(container.querySelectorAll('select')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: /Irisalis/ }))
     await screen.findByText(/Ficha de solo lectura/)
     expect(container.querySelectorAll('[style]')).toHaveLength(0)
-    expect(container.querySelectorAll('input, select, textarea')).toHaveLength(0)
+    expect(container.querySelectorAll('input, textarea')).toHaveLength(0)
+    expect(container.querySelectorAll('select')).toHaveLength(1)
   })
 
   it('tiene la barra de arrastre con las acciones', async () => {
@@ -282,5 +285,149 @@ describe('estado de carga', () => {
     render(<OverlayApp />)
     await screen.findByRole('heading', { name: 'Principal' })
     expect(screen.queryByText('Cargando…')).toBeNull()
+  })
+})
+
+describe('selector de team', () => {
+  const RAID = teamDePrueba('Raid', 2, { 2: { ...RESUMEN_DE_IRISALIS, nombre: 'Orcus' } })
+  const CASA = teamDePrueba('Casa', 3, { 1: { ...RESUMEN_DE_IRISALIS, nombre: 'Hogar' } })
+  const FARMEO = teamDePrueba('Farmeo', 4)
+
+  function datosAgrupados() {
+    const buildeado = armarGrupo('Buildeado', 1, [PRINCIPAL, RAID])
+    const homeland = armarGrupo('Homeland', 2, [CASA])
+    return {
+      teams: [...buildeado.teams, ...homeland.teams, FARMEO],
+      grupos: [buildeado.grupo, homeland.grupo]
+    }
+  }
+
+  function agrupado(seleccionado = RAID, extra: Parameters<typeof instalarApi>[0] = {}) {
+    return instalarApi({
+      ...extra,
+      overlay: {
+        obtenerSeleccion: async () => ({ ok: true, seleccion: { teamId: seleccionado.id } }),
+        ...extra.overlay
+      },
+      teams: { listar: async () => ({ ok: true, ...datosAgrupados() }), ...extra.teams }
+    })
+  }
+
+  function selector(): HTMLSelectElement {
+    return screen.getByLabelText('Team') as HTMLSelectElement
+  }
+
+  function grupos(): { etiqueta: string; opciones: string[] }[] {
+    return Array.from(selector().querySelectorAll('optgroup')).map((grupo) => ({
+      etiqueta: grupo.label,
+      opciones: Array.from(grupo.querySelectorAll('option')).map((opcion) => opcion.text)
+    }))
+  }
+
+  it('agrupa por grupo en orden, deja Sin grupo al final y selecciona el team mostrado', async () => {
+    agrupado()
+    render(<OverlayApp />)
+    await screen.findByText('Orcus')
+    expect(grupos()).toEqual([
+      { etiqueta: 'Buildeado', opciones: ['Principal', 'Raid'] },
+      { etiqueta: 'Homeland', opciones: ['Casa'] },
+      { etiqueta: 'Sin grupo', opciones: ['Farmeo'] }
+    ])
+    expect(selector().value).toBe(RAID.id)
+  })
+
+  it('sin teams sueltos no ofrece el grupo Sin grupo', async () => {
+    const buildeado = armarGrupo('Buildeado', 1, [PRINCIPAL, RAID])
+    instalarApi({
+      overlay: { obtenerSeleccion: async () => ({ ok: true, seleccion: { teamId: PRINCIPAL.id } }) },
+      teams: {
+        listar: async () => ({ ok: true, teams: buildeado.teams, grupos: [buildeado.grupo] })
+      }
+    })
+    render(<OverlayApp />)
+    await screen.findByText('Irisalis')
+    expect(grupos().map((g) => g.etiqueta)).toEqual(['Buildeado'])
+  })
+
+  it('sin grupos muestra solo Sin grupo', async () => {
+    conSeleccion()
+    render(<OverlayApp />)
+    await screen.findByText('Irisalis')
+    expect(grupos()).toEqual([{ etiqueta: 'Sin grupo', opciones: ['Principal', 'Raid'] }])
+  })
+
+  it('elegir otro team llama a overlay.seleccionar y recarga con la nueva seleccion', async () => {
+    const api = agrupado()
+    render(<OverlayApp />)
+    await screen.findByText('Orcus')
+    api.overlay.obtenerSeleccion.mockResolvedValue({ ok: true, seleccion: { teamId: CASA.id } })
+    fireEvent.change(selector(), { target: { value: CASA.id } })
+    expect(api.overlay.seleccionar).toHaveBeenCalledWith({ teamId: CASA.id })
+    expect(await screen.findByRole('heading', { name: 'Casa' })).toBeInTheDocument()
+    expect(screen.getByText('Hogar')).toBeInTheDocument()
+    expect(selector().value).toBe(CASA.id)
+    expect(api.teams.listar).toHaveBeenCalledTimes(2)
+  })
+
+  it('cambiar de team con una ficha abierta vuelve a los slots del nuevo team', async () => {
+    const api = agrupado(PRINCIPAL, {
+      teams: { obtenerFicha: async () => ({ ok: true, ficha: FICHA }) }
+    })
+    render(<OverlayApp />)
+    fireEvent.click(await screen.findByRole('button', { name: /Irisalis/ }))
+    await screen.findByText(/Ficha de solo lectura/)
+    api.overlay.obtenerSeleccion.mockResolvedValue({ ok: true, seleccion: { teamId: CASA.id } })
+    fireEvent.change(selector(), { target: { value: CASA.id } })
+    expect(await screen.findByRole('heading', { name: 'Casa' })).toBeInTheDocument()
+    expect(screen.queryByText(/Ficha de solo lectura/)).toBeNull()
+  })
+
+  it('con sesion-vencida al seleccionar cierra el overlay', async () => {
+    const api = agrupado(RAID, {
+      overlay: { seleccionar: async () => ({ ok: false, error: 'sesion-vencida' }) }
+    })
+    render(<OverlayApp />)
+    await screen.findByText('Orcus')
+    fireEvent.change(selector(), { target: { value: CASA.id } })
+    await vi.waitFor(() => expect(api.overlay.cerrar).toHaveBeenCalledTimes(1))
+  })
+
+  it('con otro error muestra el aviso y conserva el team', async () => {
+    agrupado(RAID, {
+      overlay: { seleccionar: async () => ({ ok: false, error: 'error-inesperado' }) }
+    })
+    render(<OverlayApp />)
+    await screen.findByText('Orcus')
+    fireEvent.change(selector(), { target: { value: CASA.id } })
+    expect(await screen.findByText('No se pudieron cargar los datos')).toBeInTheDocument()
+    expect(screen.getByText('Orcus')).toBeInTheDocument()
+  })
+
+  it('un team que ya no existe deja elegir otro del listado', async () => {
+    const api = agrupado(teamDePrueba('Borrado', 9))
+    render(<OverlayApp />)
+    expect(await screen.findByText('Ese team ya no existe')).toBeInTheDocument()
+    expect(selector().value).toBe('')
+    expect(grupos().map((g) => g.etiqueta)).toEqual(['Buildeado', 'Homeland', 'Sin grupo'])
+    api.overlay.obtenerSeleccion.mockResolvedValue({ ok: true, seleccion: { teamId: CASA.id } })
+    fireEvent.change(selector(), { target: { value: CASA.id } })
+    expect(await screen.findByRole('heading', { name: 'Casa' })).toBeInTheDocument()
+    expect(screen.queryByText('Ese team ya no existe')).toBeNull()
+  })
+
+  it('sin seleccion no muestra el selector', async () => {
+    instalarApi()
+    render(<OverlayApp />)
+    await screen.findByText('Elegí un team desde «Mis teams» con «Abrir en overlay»')
+    expect(screen.queryByLabelText('Team')).toBeNull()
+  })
+
+  it('es el unico select, sin input ni textarea ni style', async () => {
+    agrupado()
+    const { container } = render(<OverlayApp />)
+    await screen.findByText('Orcus')
+    expect(container.querySelectorAll('select')).toHaveLength(1)
+    expect(container.querySelectorAll('input, textarea')).toHaveLength(0)
+    expect(container.querySelectorAll('[style]')).toHaveLength(0)
   })
 })

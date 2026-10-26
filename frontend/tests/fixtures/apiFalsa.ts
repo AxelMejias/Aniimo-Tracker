@@ -1,5 +1,12 @@
 import { vi, type Mock } from 'vitest'
-import type { AmigosApi, AuthApi, CalculoApi, OverlayApi, TeamsApi } from '../../src/preload/api'
+import type {
+  AmigosApi,
+  AuthApi,
+  CalculoApi,
+  GruposApi,
+  OverlayApi,
+  TeamsApi
+} from '../../src/preload/api'
 import type {
   Amigo,
   ResultadoBuscar,
@@ -17,9 +24,12 @@ import type {
   ResultadoCatalogo,
   ResultadoPotencial
 } from '../../src/shared/calculo'
+import type { ResultadoGrupos } from '../../src/shared/grupos'
 import type { ResultadoOverlay, ResultadoSeleccion } from '../../src/shared/overlay'
 import type {
   FichaDeAmigo,
+  GrupoDeAmigo,
+  GrupoResumen,
   ResultadoFicha,
   ResultadoImagen,
   ResultadoListar,
@@ -71,6 +81,9 @@ export function teamDePrueba(
     nombre,
     orden,
     ocultoParaAmigos,
+    grupoId: null,
+    portadaSlot: null,
+    portadaEfectivaSlot: null,
     slots: [1, 2, 3, 4].map((slot) => ({ slot, aniimo: aniimos[slot] ?? null }))
   }
 }
@@ -80,8 +93,54 @@ export function teamDeAmigoDePrueba(
   orden = 1,
   aniimos: Record<number, ResumenDeAniimo> = {}
 ): TeamDeAmigo {
-  const team = omitir(teamDePrueba(nombre, orden, aniimos), 'ocultoParaAmigos')
+  const team = omitir(
+    omitir(teamDePrueba(nombre, orden, aniimos), 'ocultoParaAmigos'),
+    'portadaEfectivaSlot'
+  )
   return { ...team, id: `00000000-0000-4000-9000-00000000000${orden}` }
+}
+
+export function idDeGrupoDePrueba(orden: number): string {
+  return `10000000-0000-4000-8000-${String(orden).padStart(12, '0')}`
+}
+
+export function armarGrupo(
+  nombre: string,
+  orden: number,
+  teams: readonly TeamResumen[],
+  portadaTeamId: string | null = null
+): { readonly grupo: GrupoResumen; readonly teams: readonly TeamResumen[] } {
+  const id = idDeGrupoDePrueba(orden)
+  return {
+    grupo: {
+      id,
+      nombre,
+      orden,
+      teamIds: teams.map((team) => team.id),
+      portadaTeamId,
+      portadaEfectivaTeamId: portadaTeamId ?? teams[0]?.id ?? null
+    },
+    teams: teams.map((team) => ({ ...team, grupoId: id }))
+  }
+}
+
+export function armarGrupoDeAmigo(
+  nombre: string,
+  orden: number,
+  teams: readonly TeamDeAmigo[],
+  portadaTeamId: string | null = null
+): { readonly grupo: GrupoDeAmigo; readonly teams: readonly TeamDeAmigo[] } {
+  const id = idDeGrupoDePrueba(orden)
+  return {
+    grupo: {
+      id,
+      nombre,
+      orden,
+      teamIds: teams.map((team) => team.id),
+      portadaTeamId: portadaTeamId ?? teams[0]?.id ?? null
+    },
+    teams: teams.map((team) => ({ ...team, grupoId: id }))
+  }
 }
 
 export function fichaDeAmigoDePrueba(cambios: Partial<FichaDeAmigo> = {}): FichaDeAmigo {
@@ -92,6 +151,7 @@ export function fichaDeAmigoDePrueba(cambios: Partial<FichaDeAmigo> = {}): Ficha
 export interface ApiFalsa {
   readonly auth: Record<keyof AuthApi, Mock>
   readonly teams: Record<keyof TeamsApi, Mock>
+  readonly grupos: Record<keyof GruposApi, Mock>
   readonly amigos: Record<keyof AmigosApi, Mock>
   readonly overlay: Record<keyof OverlayApi, Mock>
   readonly calculo: Record<keyof CalculoApi, Mock>
@@ -100,6 +160,7 @@ export interface ApiFalsa {
 interface Sobrescrituras {
   readonly auth?: Partial<AuthApi>
   readonly teams?: Partial<TeamsApi>
+  readonly grupos?: Partial<GruposApi>
   readonly amigos?: Partial<AmigosApi>
   readonly overlay?: Partial<OverlayApi>
   readonly calculo?: Partial<CalculoApi>
@@ -124,11 +185,15 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     ...sobrescribir.auth
   })
   const teams = comoMocks<TeamsApi>({
-    listar: async (): Promise<ResultadoListar> => ({ ok: true, teams: [] }),
+    listar: async (): Promise<ResultadoListar> => ({ ok: true, teams: [], grupos: [] }),
     crear: async (): Promise<ResultadoTeam> => ({ ok: true, team: teamDePrueba('Nuevo') }),
     renombrar: async (): Promise<ResultadoTeam> => ({
       ok: true,
       team: teamDePrueba('Renombrado')
+    }),
+    elegirPortada: async (): Promise<ResultadoTeam> => ({
+      ok: true,
+      team: teamDePrueba('Principal')
     }),
     cambiarVisibilidad: async (): Promise<ResultadoTeam> => ({
       ok: true,
@@ -142,6 +207,18 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     guardarImagen: async (): Promise<ResultadoVacio> => ({ ok: true }),
     borrarImagen: async (): Promise<ResultadoVacio> => ({ ok: true }),
     ...sobrescribir.teams
+  })
+  const grupos = comoMocks<GruposApi>({
+    crear: async (): Promise<ResultadoGrupos> => ({ ok: true, teams: [], grupos: [] }),
+    renombrar: async (): Promise<ResultadoGrupos> => ({ ok: true, teams: [], grupos: [] }),
+    elegirPortada: async (): Promise<ResultadoGrupos> => ({ ok: true, teams: [], grupos: [] }),
+    borrar: async (): Promise<ResultadoVacio> => ({ ok: true }),
+    agregarTeam: async (): Promise<ResultadoGrupos> => ({ ok: true, teams: [], grupos: [] }),
+    sacarTeam: async (): Promise<ResultadoVacio> => ({ ok: true }),
+    ordenar: async (): Promise<ResultadoGrupos> => ({ ok: true, teams: [], grupos: [] }),
+    ordenarTeams: async (): Promise<ResultadoGrupos> => ({ ok: true, teams: [], grupos: [] }),
+    ordenarSueltos: async (): Promise<ResultadoGrupos> => ({ ok: true, teams: [], grupos: [] }),
+    ...sobrescribir.grupos
   })
   const amigos = comoMocks<AmigosApi>({
     buscar: async (): Promise<ResultadoBuscar> => ({ ok: true, usuario: null }),
@@ -163,7 +240,8 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     listarTeams: async (): Promise<ResultadoTeamsDeAmigo> => ({
       ok: true,
       usuario: { id: ID_DE_BRUNO, nombreUsuario: 'bruno' },
-      teams: []
+      teams: [],
+      grupos: []
     }),
     obtenerFicha: async (): Promise<ResultadoFichaDeAmigo> => ({ ok: true, ficha: null }),
     obtenerImagen: async (): Promise<ResultadoImagenDeAmigo> => ({ ok: true, imagen: null }),
@@ -171,6 +249,7 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
   })
   const overlay = comoMocks<OverlayApi>({
     abrir: async (): Promise<ResultadoOverlay> => ({ ok: true }),
+    seleccionar: async (): Promise<ResultadoOverlay> => ({ ok: true }),
     cerrar: async (): Promise<ResultadoOverlay> => ({ ok: true }),
     obtenerSeleccion: async (): Promise<ResultadoSeleccion> => ({ ok: true, seleccion: null }),
     ...sobrescribir.overlay
@@ -191,9 +270,9 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     ...sobrescribir.calculo
   })
   Object.defineProperty(window, 'aniimo', {
-    value: { appName: 'Aniimo Team Tracker', auth, teams, amigos, overlay, calculo },
+    value: { appName: 'Aniimo Team Tracker', auth, teams, grupos, amigos, overlay, calculo },
     configurable: true,
     writable: true
   })
-  return { auth, teams, amigos, overlay, calculo }
+  return { auth, teams, grupos, amigos, overlay, calculo }
 }

@@ -38,7 +38,8 @@ function preparar(sobrescribir: Partial<ClienteAmigos> = {}) {
     listarTeams: vi.fn(async () => ({
       ok: true as const,
       usuario: { id: USUARIO_ID, nombreUsuario: 'bruno' },
-      teams: []
+      teams: [],
+      grupos: []
     })),
     obtenerFicha: vi.fn(async () => ({ ok: true as const, ficha: null })),
     obtenerImagen: vi.fn(async () => ({ ok: true as const, imagen: null })),

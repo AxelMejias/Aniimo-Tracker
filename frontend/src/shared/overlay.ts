@@ -1,5 +1,6 @@
 export const CANALES_OVERLAY = {
   abrir: 'overlay:abrir',
+  seleccionar: 'overlay:seleccionar',
   cerrar: 'overlay:cerrar',
   obtenerSeleccion: 'overlay:obtener-seleccion'
 } as const
@@ -14,6 +15,8 @@ export interface ErrorDeOverlay {
 export interface PedidoAbrirOverlay {
   readonly teamId: string
 }
+
+export type PedidoSeleccionarOverlay = PedidoAbrirOverlay
 
 export interface SeleccionDeOverlay {
   readonly teamId: string

@@ -1,19 +1,43 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ErrorDeTeams, TeamResumen } from '../../../../shared/teams'
+import type { ErrorDeTeams, GrupoResumen, TeamResumen } from '../../../../shared/teams'
 
 export type EstadoDeTeams =
   | { readonly tipo: 'cargando' }
   | { readonly tipo: 'error'; readonly error: ErrorDeTeams }
-  | { readonly tipo: 'listo'; readonly teams: readonly TeamResumen[] }
+  | {
+      readonly tipo: 'listo'
+      readonly teams: readonly TeamResumen[]
+      readonly grupos: readonly GrupoResumen[]
+    }
+
+type Respuesta =
+  | {
+      readonly ok: true
+      readonly teams?: readonly TeamResumen[]
+      readonly grupos?: readonly GrupoResumen[]
+    }
+  | ErrorDeTeams
+
+type Resultado = Promise<ErrorDeTeams | null>
 
 export interface UseTeams {
   readonly estado: EstadoDeTeams
   readonly pendiente: boolean
   recargar(): Promise<void>
-  crear(nombre: string): Promise<ErrorDeTeams | null>
-  renombrar(teamId: string, nombre: string): Promise<ErrorDeTeams | null>
-  cambiarVisibilidad(teamId: string, ocultoParaAmigos: boolean): Promise<ErrorDeTeams | null>
-  borrar(teamId: string): Promise<ErrorDeTeams | null>
+  crear(nombre: string): Resultado
+  renombrar(teamId: string, nombre: string): Resultado
+  cambiarVisibilidad(teamId: string, ocultoParaAmigos: boolean): Resultado
+  elegirPortadaDeTeam(teamId: string, slot: number | null): Resultado
+  borrar(teamId: string): Resultado
+  crearGrupo(nombre: string): Resultado
+  renombrarGrupo(grupoId: string, nombre: string): Resultado
+  elegirPortadaDeGrupo(grupoId: string, teamId: string | null): Resultado
+  borrarGrupo(grupoId: string): Resultado
+  agregarTeam(grupoId: string, teamId: string): Resultado
+  sacarTeam(grupoId: string, teamId: string): Resultado
+  ordenarGrupos(grupoIds: readonly string[]): Resultado
+  ordenarTeamsDelGrupo(grupoId: string, teamIds: readonly string[]): Resultado
+  ordenarSueltos(teamIds: readonly string[]): Resultado
 }
 
 export function useTeams(alSesionVencida: () => void): UseTeams {
@@ -25,7 +49,7 @@ export function useTeams(alSesionVencida: () => void): UseTeams {
   const recargar = useCallback(async () => {
     const resultado = await window.aniimo.teams.listar()
     if (resultado.ok) {
-      setEstado({ tipo: 'listo', teams: resultado.teams })
+      setEstado({ tipo: 'listo', teams: resultado.teams, grupos: resultado.grupos })
     } else if (resultado.error === 'sesion-vencida') {
       sesionVencida.current()
     } else {
@@ -37,9 +61,10 @@ export function useTeams(alSesionVencida: () => void): UseTeams {
     void recargar()
   }, [recargar])
 
-  // La vista solo cambia con la respuesta del backend: se ejecuta la accion y se vuelve a pedir la lista.
+  // La vista solo cambia con la respuesta del backend: si la accion devuelve la foto
+  // completa se usa esa, y si no se vuelve a pedir la lista.
   const ejecutar = useCallback(
-    async (accion: () => Promise<{ readonly ok: true } | ErrorDeTeams>) => {
+    async (accion: () => Promise<Respuesta>): Resultado => {
       setPendiente(true)
       try {
         const resultado = await accion()
@@ -49,7 +74,11 @@ export function useTeams(alSesionVencida: () => void): UseTeams {
           }
           return resultado
         }
-        await recargar()
+        if (resultado.teams !== undefined && resultado.grupos !== undefined) {
+          setEstado({ tipo: 'listo', teams: resultado.teams, grupos: resultado.grupos })
+        } else {
+          await recargar()
+        }
         return null
       } finally {
         setPendiente(false)
@@ -72,10 +101,74 @@ export function useTeams(alSesionVencida: () => void): UseTeams {
       ejecutar(() => window.aniimo.teams.cambiarVisibilidad({ teamId, ocultoParaAmigos })),
     [ejecutar]
   )
+  const elegirPortadaDeTeam = useCallback(
+    (teamId: string, slot: number | null) =>
+      ejecutar(() => window.aniimo.teams.elegirPortada({ teamId, slot })),
+    [ejecutar]
+  )
   const borrar = useCallback(
     (teamId: string) => ejecutar(() => window.aniimo.teams.borrar({ teamId })),
     [ejecutar]
   )
+  const crearGrupo = useCallback(
+    (nombre: string) => ejecutar(() => window.aniimo.grupos.crear({ nombre })),
+    [ejecutar]
+  )
+  const renombrarGrupo = useCallback(
+    (grupoId: string, nombre: string) =>
+      ejecutar(() => window.aniimo.grupos.renombrar({ grupoId, nombre })),
+    [ejecutar]
+  )
+  const elegirPortadaDeGrupo = useCallback(
+    (grupoId: string, teamId: string | null) =>
+      ejecutar(() => window.aniimo.grupos.elegirPortada({ grupoId, teamId })),
+    [ejecutar]
+  )
+  const borrarGrupo = useCallback(
+    (grupoId: string) => ejecutar(() => window.aniimo.grupos.borrar({ grupoId })),
+    [ejecutar]
+  )
+  const agregarTeam = useCallback(
+    (grupoId: string, teamId: string) =>
+      ejecutar(() => window.aniimo.grupos.agregarTeam({ grupoId, teamId })),
+    [ejecutar]
+  )
+  const sacarTeam = useCallback(
+    (grupoId: string, teamId: string) =>
+      ejecutar(() => window.aniimo.grupos.sacarTeam({ grupoId, teamId })),
+    [ejecutar]
+  )
+  const ordenarGrupos = useCallback(
+    (grupoIds: readonly string[]) => ejecutar(() => window.aniimo.grupos.ordenar({ grupoIds })),
+    [ejecutar]
+  )
+  const ordenarTeamsDelGrupo = useCallback(
+    (grupoId: string, teamIds: readonly string[]) =>
+      ejecutar(() => window.aniimo.grupos.ordenarTeams({ grupoId, teamIds })),
+    [ejecutar]
+  )
+  const ordenarSueltos = useCallback(
+    (teamIds: readonly string[]) => ejecutar(() => window.aniimo.grupos.ordenarSueltos({ teamIds })),
+    [ejecutar]
+  )
 
-  return { estado, pendiente, recargar, crear, renombrar, cambiarVisibilidad, borrar }
+  return {
+    estado,
+    pendiente,
+    recargar,
+    crear,
+    renombrar,
+    cambiarVisibilidad,
+    elegirPortadaDeTeam,
+    borrar,
+    crearGrupo,
+    renombrarGrupo,
+    elegirPortadaDeGrupo,
+    borrarGrupo,
+    agregarTeam,
+    sacarTeam,
+    ordenarGrupos,
+    ordenarTeamsDelGrupo,
+    ordenarSueltos
+  }
 }

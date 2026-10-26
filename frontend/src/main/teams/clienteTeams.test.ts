@@ -11,7 +11,8 @@ import { crearClienteTeams } from './clienteTeams'
 type Respuesta = Response | Error
 
 const TEAM_ID = '3f2b1c4e-8a7d-4e21-9c55-0d9f6a1b2c3d'
-const MENSAJE_MAXIMO = 'Ya tenés el máximo de 4 teams'
+const GRUPO_ID = '8b0e5d6a-3c21-4f7e-a1d4-9e2c7b6f0a13'
+const MENSAJE_MAXIMO = 'Ya tenés el máximo de 20 teams'
 
 function json(estado: number, cuerpo?: unknown): Response {
   return new Response(cuerpo === undefined ? null : JSON.stringify(cuerpo), {
@@ -56,12 +57,15 @@ const resumenApi = {
   nombre: 'Principal',
   orden: 1,
   oculto_para_amigos: false,
+  grupo_id: null,
+  portada_slot: null,
+  portada_efectiva_slot: null,
   slots: [1, 2, 3, 4].map((slot) => ({ slot, aniimo: null }))
 }
 
 describe('rutas, metodos y autorizacion', () => {
   const casos: [string, string, string, (c: ReturnType<typeof preparar>['cliente']) => Promise<unknown>, Response][] = [
-    ['listar', 'GET', '/teams', (c) => c.listar(), json(200, { teams: [] })],
+    ['listar', 'GET', '/teams', (c) => c.listar(), json(200, { teams: [], grupos: [] })],
     ['crear', 'POST', '/teams', (c) => c.crear({ nombre: 'Raid' }), json(201, resumenApi)],
     [
       'renombrar',
@@ -76,6 +80,13 @@ describe('rutas, metodos y autorizacion', () => {
       `/teams/${TEAM_ID}`,
       (c) => c.cambiarVisibilidad({ teamId: TEAM_ID, ocultoParaAmigos: true }),
       json(200, { ...resumenApi, oculto_para_amigos: true })
+    ],
+    [
+      'elegirPortada',
+      'PATCH',
+      `/teams/${TEAM_ID}`,
+      (c) => c.elegirPortada({ teamId: TEAM_ID, slot: 3 }),
+      json(200, { ...resumenApi, portada_slot: 3, portada_efectiva_slot: 3 })
     ],
     ['borrar', 'DELETE', `/teams/${TEAM_ID}`, (c) => c.borrar({ teamId: TEAM_ID }), json(204)],
     [
@@ -156,6 +167,15 @@ describe('cuerpos', () => {
     expect(resultado).toMatchObject({ ok: true, team: { ocultoParaAmigos: true } })
   })
 
+  it.each([3, null])('elegirPortada envia solo portada_slot %s', async (slot) => {
+    const { cliente, fetchFalso } = preparar(
+      json(200, { ...resumenApi, portada_slot: slot, portada_efectiva_slot: 1 })
+    )
+    const resultado = await cliente.elegirPortada({ teamId: TEAM_ID, slot })
+    expect(JSON.parse(String(llamada(fetchFalso).cuerpo))).toEqual({ portada_slot: slot })
+    expect(resultado).toMatchObject({ ok: true, team: { portadaSlot: slot } })
+  })
+
   it('renombrar sigue enviando solo el nombre', async () => {
     const { cliente, fetchFalso } = preparar(json(200, resumenApi))
     await cliente.renombrar({ teamId: TEAM_ID, nombre: 'Raid' })
@@ -191,7 +211,15 @@ describe('resultados traducidos', () => {
       tiene_imagen: false
     }
     const team = { ...resumenApi, slots: [{ slot: 1, aniimo }, ...resumenApi.slots.slice(1)] }
-    const { cliente } = preparar(json(200, { teams: [team] }))
+    const grupo = {
+      id: GRUPO_ID,
+      nombre: 'Buildeado',
+      orden: 1,
+      team_ids: [TEAM_ID],
+      portada_team_id: null,
+      portada_efectiva_team_id: TEAM_ID
+    }
+    const { cliente } = preparar(json(200, { teams: [{ ...team, grupo_id: GRUPO_ID }], grupos: [grupo] }))
     const resultado = await cliente.listar()
     expect(resultado).toMatchObject({ ok: true })
     if (resultado.ok) {
@@ -199,7 +227,23 @@ describe('resultados traducidos', () => {
         estrellaActual: 2,
         despertaresUsados: 28
       })
+      expect(resultado.teams[0]).toMatchObject({ grupoId: GRUPO_ID })
+      expect(resultado.grupos).toEqual([
+        {
+          id: GRUPO_ID,
+          nombre: 'Buildeado',
+          orden: 1,
+          teamIds: [TEAM_ID],
+          portadaTeamId: null,
+          portadaEfectivaTeamId: TEAM_ID
+        }
+      ])
     }
+  })
+
+  it('un listado sin grupos es error-inesperado', async () => {
+    const { cliente } = preparar(json(200, { teams: [] }))
+    expect(await cliente.listar()).toEqual({ ok: false, error: 'error-inesperado' })
   })
 
   it('guardarFicha devuelve la ficha traducida', async () => {
@@ -281,6 +325,14 @@ describe('errores traducidos', () => {
       ok: false,
       error: 'limite-de-teams'
     })
+  })
+
+  it.each([
+    ['Ya tenés el máximo de 4 grupos', 'limite-de-grupos'],
+    ['Ese grupo ya tiene el máximo de 5 teams', 'grupo-lleno']
+  ])('el 409 "%s" devuelve %s', async (detail, codigo) => {
+    const { cliente } = preparar(json(409, { detail }))
+    expect(await cliente.crear({ nombre: 'Otro' })).toEqual({ ok: false, error: codigo })
   })
 
   it('cualquier otro 409 devuelve conflicto', async () => {

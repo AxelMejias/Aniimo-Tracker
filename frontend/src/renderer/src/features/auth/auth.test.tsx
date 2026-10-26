@@ -20,7 +20,7 @@ function instalarApi(sobrescribir: Partial<AuthApi> = {}) {
     value: {
       appName: 'Aniimo Team Tracker',
       auth,
-      teams: { listar: async () => ({ ok: true, teams: [] }) },
+      teams: { listar: async () => ({ ok: true, grupos: [], teams: [] }) },
       amigos: { listar: async () => ({ ok: true, amigos: [], recibidas: [], enviadas: [] }) }
     },
     configurable: true,

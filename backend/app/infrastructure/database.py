@@ -1,6 +1,6 @@
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 # Los nombres de constraint son deterministas: la traducción de errores de integridad
 # se apoya en ellos en lugar de parsear los mensajes del driver.
@@ -21,5 +21,5 @@ def make_engine(database_url: str) -> Engine:
     return create_engine(database_url)
 
 
-def make_session_factory(engine: Engine) -> sessionmaker:
+def make_session_factory(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

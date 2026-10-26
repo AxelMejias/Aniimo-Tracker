@@ -131,7 +131,8 @@ describe('teams de un amigo: reintentar', () => {
     api.amigos.listarTeams.mockResolvedValue({
       ok: true,
       usuario: { id: ID_DE_BRUNO, nombreUsuario: 'bruno' },
-      teams: []
+      teams: [],
+      grupos: []
     })
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(await screen.findByText('bruno todavía no tiene teams para mostrar')).toBeInTheDocument()

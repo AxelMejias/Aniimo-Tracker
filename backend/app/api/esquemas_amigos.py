@@ -17,7 +17,7 @@ from app.application.amigos import (
     Solicitud,
     UsuarioConRelacion,
 )
-from app.application.teams import FichaGuardada, ResumenDeTeam
+from app.application.teams import FichaGuardada, ListaDeTeams, ResumenDeGrupo, ResumenDeTeam
 from app.domain.entidades import AniimoDelTeam, Usuario
 
 NOMBRE_USUARIO = r"^[A-Za-z0-9_]{3,32}$"
@@ -96,6 +96,8 @@ class TeamDeAmigoSalida(BaseModel):
     id: UUID
     nombre: str
     orden: int
+    grupo_id: UUID | None
+    portada_slot: int | None
     slots: list[SlotSalida]
 
     @classmethod
@@ -105,19 +107,42 @@ class TeamDeAmigoSalida(BaseModel):
             id=team.id,
             nombre=team.nombre,
             orden=team.orden,
+            grupo_id=team.grupo_id,
+            portada_slot=resumen.portada_efectiva_slot,
             slots=[SlotSalida.desde(slot) for slot in resumen.slots],
+        )
+
+
+class GrupoDeAmigoSalida(BaseModel):
+    id: UUID
+    nombre: str
+    orden: int
+    team_ids: list[UUID]
+    portada_team_id: UUID | None
+
+    @classmethod
+    def desde(cls, resumen: ResumenDeGrupo) -> Self:
+        grupo = resumen.grupo
+        return cls(
+            id=grupo.id,
+            nombre=grupo.nombre,
+            orden=grupo.orden,
+            team_ids=list(resumen.team_ids),
+            portada_team_id=resumen.portada_efectiva_team_id,
         )
 
 
 class TeamsDeAmigoSalida(BaseModel):
     usuario: DuenioSalida
     teams: list[TeamDeAmigoSalida]
+    grupos: list[GrupoDeAmigoSalida]
 
     @classmethod
-    def desde(cls, amigo: Usuario, resumenes: list[ResumenDeTeam]) -> Self:
+    def desde(cls, amigo: Usuario, lista: ListaDeTeams) -> Self:
         return cls(
             usuario=DuenioSalida(id=amigo.id, nombre_usuario=amigo.nombre_usuario),
-            teams=[TeamDeAmigoSalida.desde(r) for r in resumenes],
+            teams=[TeamDeAmigoSalida.desde(r) for r in lista.teams],
+            grupos=[GrupoDeAmigoSalida.desde(g) for g in lista.grupos],
         )
 
 

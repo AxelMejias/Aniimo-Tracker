@@ -1,4 +1,5 @@
 import json
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -59,7 +60,7 @@ def test_teams_del_amigo(red: Red, team_de_b: str) -> None:
     [team] = cuerpo["teams"]
     assert team["nombre"] == "Principal"
     assert "oculto_para_amigos" not in team
-    assert set(team) == {"id", "nombre", "orden", "slots"}
+    assert set(team) == {"id", "nombre", "orden", "grupo_id", "portada_slot", "slots"}
     assert team["slots"][0]["aniimo"] == {
         "nombre": "Irisalis",
         "nivel": 60,
@@ -74,14 +75,15 @@ def test_teams_del_amigo(red: Red, team_de_b: str) -> None:
     assert team == {
         k: v
         for k, v in red.b.api.get("/api/teams").json()["teams"][0].items()
-        if k != "oculto_para_amigos"
-    }
+        if k in {"id", "nombre", "orden", "grupo_id", "slots"}
+    } | {"portada_slot": 1}
 
 
 def test_amigo_sin_teams(red: Red) -> None:
     respuesta = _teams(red.a, red.b)
     assert respuesta.status_code == 200
     assert respuesta.json()["teams"] == []
+    assert respuesta.json()["grupos"] == []
 
 
 def test_ficha_completa_igual_a_la_del_duenio_sin_notas_privadas(red: Red, team_de_b: str) -> None:
@@ -341,3 +343,221 @@ def test_las_notas_privadas_no_ocultan_la_fecha_ni_la_etapa(red: Red) -> None:
     ficha = _ficha(red.a, red.b.id, team_id).json()["aniimo"]
 
     assert (ficha["fecha_parche"], ficha["etapa_estrella"]) == ("2026-10-26", 3)
+
+
+# --- grupos de teams ---
+
+
+def _crear_grupo(duenio: Persona, nombre: str) -> str:
+    cuerpo = duenio.api.post("/api/grupos", json={"nombre": nombre}).json()
+    return str(next(g["id"] for g in cuerpo["grupos"] if g["nombre"] == nombre))
+
+
+def _meter(duenio: Persona, grupo_id: str, team_id: str) -> None:
+    assert duenio.api.put(f"/api/grupos/{grupo_id}/teams/{team_id}").status_code == 200
+
+
+def _ocultar(duenio: Persona, team_id: str) -> None:
+    respuesta = duenio.api.patch(f"/api/teams/{team_id}", json={"oculto_para_amigos": True})
+    assert respuesta.status_code == 200
+
+
+def _elegir_portada_de_grupo(duenio: Persona, grupo_id: str, team_id: str) -> None:
+    respuesta = duenio.api.patch(f"/api/grupos/{grupo_id}", json={"portada_team_id": team_id})
+    assert respuesta.status_code == 200
+
+
+def _grupos_vistos(lector: Persona, de: Persona) -> list[dict[str, Any]]:
+    return _teams(lector, de).json()["grupos"]  # type: ignore[no-any-return]
+
+
+def test_un_team_suelto_llega_sin_grupo_y_con_la_portada_efectiva(red: Red) -> None:
+    team = _crear_team(red.b)
+    _guardar(red.b, team, 2, nombre="Segundo")
+    _guardar(red.b, team, 4, nombre="Cuarto")
+    cuerpo = _teams(red.a, red.b).json()
+    [visto] = cuerpo["teams"]
+    assert (visto["grupo_id"], visto["portada_slot"]) == (None, 2)
+    assert cuerpo["grupos"] == []
+
+
+def test_la_portada_elegida_del_team_llega_como_portada_efectiva(red: Red) -> None:
+    team = _crear_team(red.b)
+    _guardar(red.b, team, 1)
+    _guardar(red.b, team, 3, nombre="Tercero")
+    red.b.api.patch(f"/api/teams/{team}", json={"portada_slot": 3})
+    assert _teams(red.a, red.b).json()["teams"][0]["portada_slot"] == 3
+
+
+def test_un_grupo_llega_con_sus_teams_visibles_y_sin_campos_del_duenio(red: Red) -> None:
+    grupo = _crear_grupo(red.b, "Buildeado")
+    principal, torre = _crear_team(red.b, "Principal"), _crear_team(red.b, "Torre")
+    _meter(red.b, grupo, principal)
+    _meter(red.b, grupo, torre)
+    [visto] = _grupos_vistos(red.a, red.b)
+    assert visto == {
+        "id": grupo,
+        "nombre": "Buildeado",
+        "orden": 1,
+        "team_ids": [principal, torre],
+        "portada_team_id": principal,
+    }
+
+
+def test_un_team_oculto_no_aparece_en_el_grupo(red: Red) -> None:
+    grupo = _crear_grupo(red.b, "Buildeado")
+    principal, jefes, torre = (_crear_team(red.b, n) for n in ("Principal", "Jefes", "Torre"))
+    for team in (principal, jefes, torre):
+        _meter(red.b, grupo, team)
+    _ocultar(red.b, jefes)
+    cuerpo = _teams(red.a, red.b).json()
+    assert [g["team_ids"] for g in cuerpo["grupos"]] == [[principal, torre]]
+    assert {t["id"] for t in cuerpo["teams"]} == {principal, torre}
+
+
+def test_la_portada_elegida_visible_es_la_que_ve_el_amigo(red: Red) -> None:
+    grupo = _crear_grupo(red.b, "Buildeado")
+    principal, torre = _crear_team(red.b, "Principal"), _crear_team(red.b, "Torre")
+    _meter(red.b, grupo, principal)
+    _meter(red.b, grupo, torre)
+    _elegir_portada_de_grupo(red.b, grupo, torre)
+    [visto] = _grupos_vistos(red.a, red.b)
+    assert visto["portada_team_id"] == torre
+
+
+def test_si_la_portada_elegida_esta_oculta_se_usa_el_primero_de_los_visibles(red: Red) -> None:
+    grupo = _crear_grupo(red.b, "Buildeado")
+    principal, jefes, torre = (_crear_team(red.b, n) for n in ("Principal", "Jefes", "Torre"))
+    for team in (principal, jefes, torre):
+        _meter(red.b, grupo, team)
+    _elegir_portada_de_grupo(red.b, grupo, jefes)
+    _ocultar(red.b, jefes)
+    [visto] = _grupos_vistos(red.a, red.b)
+    assert visto["portada_team_id"] == principal
+
+
+def test_los_grupos_vacios_o_solo_con_ocultos_no_se_listan(red: Red) -> None:
+    solo_ocultos = _crear_grupo(red.b, "Pruebas")
+    _crear_grupo(red.b, "Nuevo")
+    oculto = _crear_team(red.b, "Oculto")
+    _meter(red.b, solo_ocultos, oculto)
+    _ocultar(red.b, oculto)
+    assert _grupos_vistos(red.a, red.b) == []
+
+
+def test_el_orden_de_los_grupos_es_el_del_duenio(red: Red) -> None:
+    uno, dos = _crear_grupo(red.b, "Uno"), _crear_grupo(red.b, "Dos")
+    _meter(red.b, uno, _crear_team(red.b, "A"))
+    _meter(red.b, dos, _crear_team(red.b, "B"))
+    red.b.api.put("/api/grupos/orden", json={"grupo_ids": [dos, uno]})
+    assert [(g["nombre"], g["orden"]) for g in _grupos_vistos(red.a, red.b)] == [
+        ("Dos", 1),
+        ("Uno", 2),
+    ]
+
+
+def _vista_normalizada(lector: Persona, de: Persona, nombres: dict[str, str]) -> dict[str, Any]:
+    cuerpo = _teams(lector, de).json()
+    return {
+        "teams": [
+            {**t, "id": nombres[t["id"]], "grupo_id": nombres.get(t["grupo_id"])}
+            for t in cuerpo["teams"]
+        ],
+        "grupos": [
+            {
+                **g,
+                "id": nombres[g["id"]],
+                "team_ids": [nombres[t] for t in g["team_ids"]],
+                "portada_team_id": nombres[g["portada_team_id"]],
+            }
+            for g in cuerpo["grupos"]
+        ],
+    }
+
+
+def test_la_vista_del_amigo_es_igual_a_la_que_tendria_si_los_ocultos_no_existieran(
+    red: Red,
+) -> None:
+    buildeado, pruebas, vacio = (_crear_grupo(red.b, n) for n in ("Buildeado", "Pruebas", "Vacio"))
+    visibles = {n: _crear_team(red.b, n) for n in ("Principal", "Torre")}
+    ocultos = {n: _crear_team(red.b, n) for n in ("Jefes", "Secreto")}
+    _guardar(red.b, visibles["Principal"], 1)
+    for team in (visibles["Principal"], ocultos["Jefes"], visibles["Torre"]):
+        _meter(red.b, buildeado, team)
+    _meter(red.b, pruebas, ocultos["Secreto"])
+    _elegir_portada_de_grupo(red.b, buildeado, ocultos["Jefes"])
+    for team in ocultos.values():
+        _ocultar(red.b, team)
+    nombres = {v: k for k, v in {**visibles, **ocultos}.items()} | {
+        buildeado: "Buildeado",
+        pruebas: "Pruebas",
+        vacio: "Vacio",
+    }
+    con_ocultos = _vista_normalizada(red.a, red.b, nombres)
+    for team in ocultos.values():
+        assert red.b.api.delete(f"/api/teams/{team}").status_code == 204
+    sin_ocultos = _vista_normalizada(red.a, red.b, nombres)
+    assert con_ocultos == sin_ocultos
+    assert [g["team_ids"] for g in con_ocultos["grupos"]] == [["Principal", "Torre"]]
+
+
+def test_la_respuesta_no_revela_campos_exclusivos_del_duenio(red: Red) -> None:
+    grupo = _crear_grupo(red.b, "Buildeado")
+    team = _crear_team(red.b)
+    _meter(red.b, grupo, team)
+    texto = json.dumps(_teams(red.a, red.b).json())
+    for prohibido in ("oculto_para_amigos", "portada_efectiva_slot", "portada_efectiva_team_id"):
+        assert prohibido not in texto
+
+
+# --- el orden que ve el amigo no tiene huecos ---
+
+
+def test_los_grupos_visibles_se_renumeran_sin_huecos(red: Red) -> None:
+    primero, oculto, tercero = (_crear_grupo(red.b, n) for n in ("Uno", "Oculto", "Tres"))
+    _meter(red.b, primero, _crear_team(red.b, "A"))
+    solo_oculto = _crear_team(red.b, "B")
+    _meter(red.b, oculto, solo_oculto)
+    _ocultar(red.b, solo_oculto)
+    _meter(red.b, tercero, _crear_team(red.b, "C"))
+    assert [(g["nombre"], g["orden"]) for g in _grupos_vistos(red.a, red.b)] == [
+        ("Uno", 1),
+        ("Tres", 2),
+    ]
+
+
+def test_los_teams_visibles_se_renumeran_sin_huecos(red: Red) -> None:
+    uno = _crear_team(red.b, "Uno")
+    oculto = _crear_team(red.b, "Oculto")
+    tres = _crear_team(red.b, "Tres")
+    _ocultar(red.b, oculto)
+    cuerpo = _teams(red.a, red.b).json()
+    assert [(t["id"], t["orden"]) for t in cuerpo["teams"]] == [(uno, 1), (tres, 2)]
+
+
+def test_la_renumeracion_conserva_el_orden_relativo_de_grupos_y_sueltos(red: Red) -> None:
+    grupo = _crear_grupo(red.b, "Buildeado")
+    a, oculto, b, suelto = (_crear_team(red.b, n) for n in ("A", "Oculto", "B", "Suelto"))
+    _meter(red.b, grupo, a)
+    _meter(red.b, grupo, b)
+    red.b.api.put(f"/api/grupos/{grupo}/orden", json={"team_ids": [b, a]})
+    _ocultar(red.b, oculto)
+    cuerpo = _teams(red.a, red.b).json()
+    assert [t["orden"] for t in cuerpo["teams"]] == [1, 2, 3]
+    assert [g["team_ids"] for g in cuerpo["grupos"]] == [[b, a]]
+    por_id = {t["id"]: t["orden"] for t in cuerpo["teams"]}
+    assert por_id[b] < por_id[a]
+    assert suelto in por_id
+
+
+def test_el_duenio_sigue_viendo_los_ordenes_originales(red: Red) -> None:
+    primero, oculto = _crear_grupo(red.b, "Uno"), _crear_grupo(red.b, "Oculto")
+    tercero = _crear_grupo(red.b, "Tres")
+    for grupo in (primero, tercero):
+        _meter(red.b, grupo, _crear_team(red.b))
+    team_oculto = _crear_team(red.b, "Oculto")
+    _meter(red.b, oculto, team_oculto)
+    _ocultar(red.b, team_oculto)
+    propio = red.b.api.get("/api/teams").json()
+    assert [g["orden"] for g in propio["grupos"]] == [1, 2, 3]
+    assert [t["orden"] for t in propio["teams"]] == [1, 2, 3]

@@ -72,7 +72,7 @@ describe('encabezado compartido y navegacion', () => {
 
   it('al volver a Mis teams se recargan los teams', async () => {
     const api = instalarApi({
-      teams: { listar: async () => ({ ok: true, teams: [teamDePrueba('Principal')] }) }
+      teams: { listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Principal')] }) }
     })
     render(<App />)
     await verMisTeams()
@@ -98,6 +98,7 @@ describe('estado de amigos centralizado', () => {
       teams: {
         listar: async () => ({
           ok: true,
+          grupos: [],
           teams: [teamDePrueba('Principal', 1, { 1: RESUMEN_DE_IRISALIS })]
         })
       }
@@ -218,6 +219,7 @@ describe('cambio de cuenta', () => {
       teams: {
         listar: async () => ({
           ok: true,
+          grupos: [],
           teams: cuenta === 'axel' ? [equipoDeAxel] : [equipoDeCarla]
         })
       },

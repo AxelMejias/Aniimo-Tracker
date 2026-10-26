@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import FichaDeSoloLectura from '../aniimo/FichaDeSoloLectura'
+import SelectorDeTeam from './SelectorDeTeam'
 import TeamCompacto from './TeamCompacto'
 import { useOverlay } from './useOverlay'
 import '../../shared/styles/tokens.css'
@@ -11,12 +12,20 @@ const MENSAJE_NO_EXISTE = 'Ese team ya no existe'
 const MENSAJE_FALLO = 'No se pudieron cargar los datos'
 
 export default function OverlayApp(): ReactElement {
-  const { datos, ficha, fallo, actualizar, abrirSlot, volverAlTeam, cerrar } = useOverlay()
+  const { datos, opciones, ficha, fallo, actualizar, seleccionar, abrirSlot, volverAlTeam, cerrar } =
+    useOverlay()
 
   return (
     <main className="overlay">
       <header className="overlay__barra">
         <h1 className="overlay__titulo">{datos.tipo === 'team' ? datos.team.nombre : 'Overlay'}</h1>
+        {opciones !== null && (
+          <SelectorDeTeam
+            opciones={opciones}
+            teamId={datos.tipo === 'team' ? datos.team.id : null}
+            alElegir={(teamId) => void seleccionar(teamId)}
+          />
+        )}
         <div className="overlay__acciones">
           <button type="button" onClick={() => void actualizar()}>
             Actualizar

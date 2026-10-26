@@ -30,7 +30,7 @@ function apiBase(
 ): Parameters<typeof instalarApi>[0] {
   return {
     teams: {
-      listar: async () => ({ ok: true, teams: [MIO, MIO_OCULTO] }),
+      listar: async () => ({ ok: true, grupos: [], teams: [MIO, MIO_OCULTO] }),
       obtenerFicha: async () => ({ ok: true, ficha: fichaGuardadaDeReferencia() }),
       ...teams
     },
@@ -39,7 +39,8 @@ function apiBase(
       listarTeams: async () => ({
         ok: true,
         usuario: { id: ID_DE_BRUNO, nombreUsuario: 'bruno' },
-        teams: [DE_BRUNO]
+        teams: [DE_BRUNO],
+        grupos: []
       }),
       obtenerFicha: async () => ({
         ok: true,
@@ -264,7 +265,8 @@ describe('Comparar: estado de amigos, acceso y sesion', () => {
     api.amigos.listarTeams.mockResolvedValue({
       ok: true,
       usuario: { id: ID_DE_BRUNO, nombreUsuario: 'bruno' },
-      teams: []
+      teams: [],
+      grupos: []
     })
     elegirTexto(within(lado('izquierdo')).getByLabelText('Team'), 'Reservado')
     elegirTexto(within(lado('izquierdo')).getByLabelText('Team'), 'Principal')

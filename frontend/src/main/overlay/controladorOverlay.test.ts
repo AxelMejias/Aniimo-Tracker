@@ -146,4 +146,59 @@ describe('crearControladorOverlay', () => {
     ventanas[0].emitir('closed')
     expect(controlador.seleccion()).toEqual({ teamId: T2 })
   })
+
+  describe('seleccionar', () => {
+    it('con el overlay abierto cambia la seleccion sin show, focus ni ventana nueva', async () => {
+      const { controlador, crearVentana, ventanas } = preparar()
+      await controlador.abrir(T1)
+      expect(controlador.seleccionar(T2)).toEqual({ ok: true })
+      expect(controlador.seleccion()).toEqual({ teamId: T2 })
+      expect(crearVentana).toHaveBeenCalledTimes(1)
+      expect(ventanas[0].ventana.show).not.toHaveBeenCalled()
+      expect(ventanas[0].ventana.focus).not.toHaveBeenCalled()
+    })
+
+    it('se puede seleccionar varias veces seguidas', async () => {
+      const { controlador } = preparar()
+      await controlador.abrir(T1)
+      controlador.seleccionar(T2)
+      controlador.seleccionar(T1)
+      expect(controlador.seleccion()).toEqual({ teamId: T1 })
+    })
+
+    it('sin overlay abierto responde ok y la seleccion sigue en null', () => {
+      const { controlador, crearVentana } = preparar()
+      expect(controlador.seleccionar(T1)).toEqual({ ok: true })
+      expect(controlador.seleccion()).toBeNull()
+      expect(crearVentana).not.toHaveBeenCalled()
+    })
+
+    it('despues de cerrar el overlay ya no cambia la seleccion', async () => {
+      const { controlador } = preparar()
+      await controlador.abrir(T1)
+      controlador.cerrar()
+      expect(controlador.seleccionar(T2)).toEqual({ ok: true })
+      expect(controlador.seleccion()).toBeNull()
+    })
+
+    it('sin sesion responde sesion-vencida y no cambia la seleccion', async () => {
+      let sesion = true
+      const ventanas: VentanaOverlay[] = []
+      const controlador = crearControladorOverlay({
+        crearVentana: () => {
+          const nueva = ventanaFalsa().ventana
+          ventanas.push(nueva)
+          return nueva
+        },
+        leerLimites: async () => null,
+        guardarLimites: async () => undefined,
+        areasDePantalla: () => ({ areas: [PRINCIPAL], principal: PRINCIPAL }),
+        haySesion: () => sesion
+      })
+      await controlador.abrir(T1)
+      sesion = false
+      expect(controlador.seleccionar(T2)).toEqual({ ok: false, error: 'sesion-vencida' })
+      expect(controlador.seleccion()).toEqual({ teamId: T1 })
+    })
+  })
 })

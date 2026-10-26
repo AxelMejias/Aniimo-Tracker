@@ -11,6 +11,8 @@ import { crearClienteBackend } from './auth/clienteBackend'
 import { registrarManejadoresDeAuth } from './auth/ipcAuth'
 import { crearSesionEnMemoria } from './auth/sesionEnMemoria'
 import { guardarLimites, leerLimites } from './overlay/almacenDeLimites'
+import { crearClienteGrupos } from './grupos/clienteGrupos'
+import { registrarManejadoresDeGrupos } from './grupos/ipcGrupos'
 import { crearControladorOverlay, type ControladorOverlay } from './overlay/controladorOverlay'
 import { registrarManejadoresDeOverlay } from './overlay/ipcOverlay'
 import { getOverlayWindowOptions } from './overlay/opcionesDeVentana'
@@ -78,6 +80,7 @@ app.whenReady().then(() => {
   const sesion = crearSesionEnMemoria()
   registrarManejadoresDeAuth(ipcMain, crearClienteBackend(fetch, sesion), allowedAppUrl)
   registrarManejadoresDeTeams(ipcMain, crearClienteTeams(fetch, sesion), allowedAppUrl)
+  registrarManejadoresDeGrupos(ipcMain, crearClienteGrupos(fetch, sesion), allowedAppUrl)
   registrarManejadoresDeAmigos(ipcMain, crearClienteAmigos(fetch, sesion), allowedAppUrl)
   registrarManejadoresDeCalculo(ipcMain, crearClienteCalculo(fetch, sesion), allowedAppUrl)
 

@@ -1,5 +1,5 @@
 import type { CodigoDeError } from './auth'
-import type { FichaDeAmigo, TeamDeAmigo } from './teams'
+import type { FichaDeAmigo, GrupoDeAmigo, TeamDeAmigo } from './teams'
 
 export const CANALES_AMIGOS = {
   buscar: 'amigos:buscar',
@@ -84,6 +84,7 @@ export type ResultadoTeamsDeAmigo =
       readonly ok: true
       readonly usuario: DuenioDeTeams
       readonly teams: readonly TeamDeAmigo[]
+      readonly grupos: readonly GrupoDeAmigo[]
     }
   | ErrorDeAmigos
 

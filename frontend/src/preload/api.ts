@@ -26,8 +26,21 @@ import {
   type ResultadoPotencial
 } from '../shared/calculo'
 import {
+  CANALES_GRUPOS,
+  type PedidoCrearGrupo,
+  type PedidoDeGrupo,
+  type PedidoDeTeamEnGrupo,
+  type PedidoElegirPortadaDeGrupo,
+  type PedidoOrdenarGrupos,
+  type PedidoOrdenarSueltos,
+  type PedidoOrdenarTeams,
+  type PedidoRenombrarGrupo,
+  type ResultadoGrupos
+} from '../shared/grupos'
+import {
   CANALES_OVERLAY,
   type PedidoAbrirOverlay,
+  type PedidoSeleccionarOverlay,
   type ResultadoOverlay,
   type ResultadoSeleccion
 } from '../shared/overlay'
@@ -37,6 +50,7 @@ import {
   type PedidoCrear,
   type PedidoDeSlot,
   type PedidoDeTeam,
+  type PedidoElegirPortada,
   type PedidoGuardarFicha,
   type PedidoGuardarImagen,
   type PedidoRenombrar,
@@ -61,6 +75,7 @@ export interface TeamsApi {
   crear(pedido: PedidoCrear): Promise<ResultadoTeam>
   renombrar(pedido: PedidoRenombrar): Promise<ResultadoTeam>
   cambiarVisibilidad(pedido: PedidoCambiarVisibilidad): Promise<ResultadoTeam>
+  elegirPortada(pedido: PedidoElegirPortada): Promise<ResultadoTeam>
   borrar(pedido: PedidoDeTeam): Promise<ResultadoVacio>
   obtenerFicha(pedido: PedidoDeSlot): Promise<ResultadoFicha>
   guardarFicha(pedido: PedidoGuardarFicha): Promise<ResultadoFicha>
@@ -68,6 +83,18 @@ export interface TeamsApi {
   obtenerImagen(pedido: PedidoDeSlot): Promise<ResultadoImagen>
   guardarImagen(pedido: PedidoGuardarImagen): Promise<ResultadoVacio>
   borrarImagen(pedido: PedidoDeSlot): Promise<ResultadoVacio>
+}
+
+export interface GruposApi {
+  crear(pedido: PedidoCrearGrupo): Promise<ResultadoGrupos>
+  renombrar(pedido: PedidoRenombrarGrupo): Promise<ResultadoGrupos>
+  elegirPortada(pedido: PedidoElegirPortadaDeGrupo): Promise<ResultadoGrupos>
+  borrar(pedido: PedidoDeGrupo): Promise<ResultadoVacio>
+  agregarTeam(pedido: PedidoDeTeamEnGrupo): Promise<ResultadoGrupos>
+  sacarTeam(pedido: PedidoDeTeamEnGrupo): Promise<ResultadoVacio>
+  ordenar(pedido: PedidoOrdenarGrupos): Promise<ResultadoGrupos>
+  ordenarTeams(pedido: PedidoOrdenarTeams): Promise<ResultadoGrupos>
+  ordenarSueltos(pedido: PedidoOrdenarSueltos): Promise<ResultadoGrupos>
 }
 
 export interface AmigosApi {
@@ -83,6 +110,7 @@ export interface AmigosApi {
 
 export interface OverlayApi {
   abrir(pedido: PedidoAbrirOverlay): Promise<ResultadoOverlay>
+  seleccionar(pedido: PedidoSeleccionarOverlay): Promise<ResultadoOverlay>
   cerrar(): Promise<ResultadoOverlay>
   obtenerSeleccion(): Promise<ResultadoSeleccion>
 }
@@ -97,6 +125,7 @@ export interface AniimoApi {
   readonly appName: string
   readonly auth: Readonly<AuthApi>
   readonly teams: Readonly<TeamsApi>
+  readonly grupos: Readonly<GruposApi>
   readonly amigos: Readonly<AmigosApi>
   readonly overlay: Readonly<OverlayApi>
   readonly calculo: Readonly<CalculoApi>
@@ -121,6 +150,7 @@ export function buildExposedApi(invocar: Invocar): Readonly<AniimoApi> {
     crear: (pedido) => tipado(invocar(CANALES_TEAMS.crear, pedido)),
     renombrar: (pedido) => tipado(invocar(CANALES_TEAMS.renombrar, pedido)),
     cambiarVisibilidad: (pedido) => tipado(invocar(CANALES_TEAMS.cambiarVisibilidad, pedido)),
+    elegirPortada: (pedido) => tipado(invocar(CANALES_TEAMS.elegirPortada, pedido)),
     borrar: (pedido) => tipado(invocar(CANALES_TEAMS.borrar, pedido)),
     obtenerFicha: (pedido) => tipado(invocar(CANALES_TEAMS.obtenerFicha, pedido)),
     guardarFicha: (pedido) => tipado(invocar(CANALES_TEAMS.guardarFicha, pedido)),
@@ -128,6 +158,17 @@ export function buildExposedApi(invocar: Invocar): Readonly<AniimoApi> {
     obtenerImagen: (pedido) => tipado(invocar(CANALES_TEAMS.obtenerImagen, pedido)),
     guardarImagen: (pedido) => tipado(invocar(CANALES_TEAMS.guardarImagen, pedido)),
     borrarImagen: (pedido) => tipado(invocar(CANALES_TEAMS.borrarImagen, pedido))
+  }
+  const grupos: GruposApi = {
+    crear: (pedido) => tipado(invocar(CANALES_GRUPOS.crear, pedido)),
+    renombrar: (pedido) => tipado(invocar(CANALES_GRUPOS.renombrar, pedido)),
+    elegirPortada: (pedido) => tipado(invocar(CANALES_GRUPOS.elegirPortada, pedido)),
+    borrar: (pedido) => tipado(invocar(CANALES_GRUPOS.borrar, pedido)),
+    agregarTeam: (pedido) => tipado(invocar(CANALES_GRUPOS.agregarTeam, pedido)),
+    sacarTeam: (pedido) => tipado(invocar(CANALES_GRUPOS.sacarTeam, pedido)),
+    ordenar: (pedido) => tipado(invocar(CANALES_GRUPOS.ordenar, pedido)),
+    ordenarTeams: (pedido) => tipado(invocar(CANALES_GRUPOS.ordenarTeams, pedido)),
+    ordenarSueltos: (pedido) => tipado(invocar(CANALES_GRUPOS.ordenarSueltos, pedido))
   }
   const amigos: AmigosApi = {
     buscar: (pedido) => tipado(invocar(CANALES_AMIGOS.buscar, pedido)),
@@ -141,6 +182,7 @@ export function buildExposedApi(invocar: Invocar): Readonly<AniimoApi> {
   }
   const overlay: OverlayApi = {
     abrir: (pedido) => tipado(invocar(CANALES_OVERLAY.abrir, pedido)),
+    seleccionar: (pedido) => tipado(invocar(CANALES_OVERLAY.seleccionar, pedido)),
     cerrar: () => tipado(invocar(CANALES_OVERLAY.cerrar)),
     obtenerSeleccion: () => tipado(invocar(CANALES_OVERLAY.obtenerSeleccion))
   }
@@ -153,6 +195,7 @@ export function buildExposedApi(invocar: Invocar): Readonly<AniimoApi> {
     appName: 'Aniimo Team Tracker',
     auth: Object.freeze(auth),
     teams: Object.freeze(teams),
+    grupos: Object.freeze(grupos),
     amigos: Object.freeze(amigos),
     overlay: Object.freeze(overlay),
     calculo: Object.freeze(calculo)

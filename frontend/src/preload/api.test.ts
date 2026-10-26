@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { CANALES_AMIGOS } from '../shared/amigos'
 import { CANALES_AUTH } from '../shared/auth'
 import { CANALES_CALCULO } from '../shared/calculo'
+import { CANALES_GRUPOS } from '../shared/grupos'
 import { CANALES_OVERLAY } from '../shared/overlay'
 import { CANALES_TEAMS } from '../shared/teams'
 import { pedidoDePotencialDeReferencia, pedidoDeReferencia } from '../../tests/fixtures/calculo'
@@ -25,7 +26,7 @@ function valoresRecorridos(raiz: unknown, vistos = new Set<unknown>()): unknown[
 }
 
 describe('buildExposedApi', () => {
-  it('devuelve un objeto congelado con solo appName, auth, teams, amigos, overlay y calculo', () => {
+  it('devuelve un objeto congelado con solo appName, auth, teams, grupos, amigos, overlay y calculo', () => {
     const { api } = construir()
     expect(Object.isFrozen(api)).toBe(true)
     expect(Object.keys(api).sort()).toEqual([
@@ -33,6 +34,7 @@ describe('buildExposedApi', () => {
       'appName',
       'auth',
       'calculo',
+      'grupos',
       'overlay',
       'teams'
     ])
@@ -53,7 +55,7 @@ describe('buildExposedApi', () => {
     }
   })
 
-  it('teams esta congelado y tiene solo las once funciones', () => {
+  it('teams esta congelado y tiene solo las doce funciones', () => {
     const { api } = construir()
     expect(Object.isFrozen(api.teams)).toBe(true)
     expect(Object.keys(api.teams).sort()).toEqual([
@@ -61,6 +63,7 @@ describe('buildExposedApi', () => {
       'borrarImagen',
       'cambiarVisibilidad',
       'crear',
+      'elegirPortada',
       'guardarFicha',
       'guardarImagen',
       'listar',
@@ -81,6 +84,8 @@ describe('buildExposedApi', () => {
     await api.teams.crear({ nombre: 'Raid' })
     await api.teams.renombrar({ teamId: 'x', nombre: 'Raid' })
     await api.teams.cambiarVisibilidad({ teamId: 'x', ocultoParaAmigos: true })
+    await api.teams.elegirPortada({ teamId: 'x', slot: 3 })
+    await api.teams.elegirPortada({ teamId: 'x', slot: null })
     await api.teams.borrar({ teamId: 'x' })
     await api.teams.obtenerFicha(pedido)
     await api.teams.vaciarSlot(pedido)
@@ -95,6 +100,8 @@ describe('buildExposedApi', () => {
       [CANALES_TEAMS.crear, { nombre: 'Raid' }],
       [CANALES_TEAMS.renombrar, { teamId: 'x', nombre: 'Raid' }],
       [CANALES_TEAMS.cambiarVisibilidad, { teamId: 'x', ocultoParaAmigos: true }],
+      [CANALES_TEAMS.elegirPortada, { teamId: 'x', slot: 3 }],
+      [CANALES_TEAMS.elegirPortada, { teamId: 'x', slot: null }],
       [CANALES_TEAMS.borrar, { teamId: 'x' }],
       [CANALES_TEAMS.obtenerFicha, pedido],
       [CANALES_TEAMS.vaciarSlot, pedido],
@@ -103,6 +110,58 @@ describe('buildExposedApi', () => {
       [CANALES_TEAMS.guardarFicha, ficha],
       [CANALES_TEAMS.guardarImagen, imagen]
     ])
+  })
+
+  it('grupos esta congelado y tiene solo las nueve funciones', () => {
+    const { api } = construir()
+    expect(Object.isFrozen(api.grupos)).toBe(true)
+    expect(Object.keys(api.grupos).sort()).toEqual([
+      'agregarTeam',
+      'borrar',
+      'crear',
+      'elegirPortada',
+      'ordenar',
+      'ordenarSueltos',
+      'ordenarTeams',
+      'renombrar',
+      'sacarTeam'
+    ])
+    for (const funcion of Object.values(api.grupos)) {
+      expect(typeof funcion).toBe('function')
+    }
+  })
+
+  it('cada funcion de grupos invoca su canal fijo con el payload', async () => {
+    const { api, invoke } = construir()
+    const enGrupo = { grupoId: 'g', teamId: 't' }
+    await api.grupos.crear({ nombre: 'Buildeado' })
+    await api.grupos.renombrar({ grupoId: 'g', nombre: 'Homeland' })
+    await api.grupos.elegirPortada({ grupoId: 'g', teamId: null })
+    await api.grupos.borrar({ grupoId: 'g' })
+    await api.grupos.agregarTeam(enGrupo)
+    await api.grupos.sacarTeam(enGrupo)
+    await api.grupos.ordenar({ grupoIds: ['g'] })
+    await api.grupos.ordenarTeams({ grupoId: 'g', teamIds: ['t'] })
+    await api.grupos.ordenarSueltos({ teamIds: ['t'] })
+    expect(invoke.mock.calls).toEqual([
+      [CANALES_GRUPOS.crear, { nombre: 'Buildeado' }],
+      [CANALES_GRUPOS.renombrar, { grupoId: 'g', nombre: 'Homeland' }],
+      [CANALES_GRUPOS.elegirPortada, { grupoId: 'g', teamId: null }],
+      [CANALES_GRUPOS.borrar, { grupoId: 'g' }],
+      [CANALES_GRUPOS.agregarTeam, enGrupo],
+      [CANALES_GRUPOS.sacarTeam, enGrupo],
+      [CANALES_GRUPOS.ordenar, { grupoIds: ['g'] }],
+      [CANALES_GRUPOS.ordenarTeams, { grupoId: 'g', teamIds: ['t'] }],
+      [CANALES_GRUPOS.ordenarSueltos, { teamIds: ['t'] }]
+    ])
+  })
+
+  it('las funciones de grupos devuelven el resultado del main sin transformarlo', async () => {
+    const { api } = construir({ ok: false, error: 'grupo-lleno' })
+    expect(await api.grupos.agregarTeam({ grupoId: 'g', teamId: 't' })).toEqual({
+      ok: false,
+      error: 'grupo-lleno'
+    })
   })
 
   it('amigos esta congelado y tiene solo las ocho funciones', () => {
@@ -147,10 +206,15 @@ describe('buildExposedApi', () => {
     ])
   })
 
-  it('overlay esta congelado y tiene solo abrir, cerrar y obtenerSeleccion', () => {
+  it('overlay esta congelado y tiene solo abrir, seleccionar, cerrar y obtenerSeleccion', () => {
     const { api } = construir()
     expect(Object.isFrozen(api.overlay)).toBe(true)
-    expect(Object.keys(api.overlay).sort()).toEqual(['abrir', 'cerrar', 'obtenerSeleccion'])
+    expect(Object.keys(api.overlay).sort()).toEqual([
+      'abrir',
+      'cerrar',
+      'obtenerSeleccion',
+      'seleccionar'
+    ])
     for (const funcion of Object.values(api.overlay)) {
       expect(typeof funcion).toBe('function')
     }
@@ -159,10 +223,12 @@ describe('buildExposedApi', () => {
   it('cada funcion del overlay invoca su canal fijo con el payload', async () => {
     const { api, invoke } = construir()
     await api.overlay.abrir({ teamId: 't' })
+    await api.overlay.seleccionar({ teamId: 'u' })
     await api.overlay.cerrar()
     await api.overlay.obtenerSeleccion()
     expect(invoke.mock.calls).toEqual([
       [CANALES_OVERLAY.abrir, { teamId: 't' }],
+      [CANALES_OVERLAY.seleccionar, { teamId: 'u' }],
       [CANALES_OVERLAY.cerrar],
       [CANALES_OVERLAY.obtenerSeleccion]
     ])
@@ -205,6 +271,10 @@ describe('buildExposedApi', () => {
   it('las funciones del overlay devuelven el resultado del main sin transformarlo', async () => {
     const { api } = construir({ ok: false, error: 'sesion-vencida' })
     expect(await api.overlay.abrir({ teamId: 't' })).toEqual({ ok: false, error: 'sesion-vencida' })
+    expect(await api.overlay.seleccionar({ teamId: 't' })).toEqual({
+      ok: false,
+      error: 'sesion-vencida'
+    })
   })
 
   it('las funciones de amigos devuelven el resultado del main sin transformarlo', async () => {

@@ -19,7 +19,17 @@ class SlotInvalido(ErrorDeValidacion):
 
 class LimiteDeTeamsAlcanzado(ErrorDeValidacion):
     def __init__(self) -> None:
-        super().__init__("El orden del team debe estar entre 1 y 4")
+        super().__init__("El orden del team debe estar entre 1 y 20")
+
+
+class LimiteDeGruposAlcanzado(ErrorDeValidacion):
+    def __init__(self) -> None:
+        super().__init__("El orden del grupo debe estar entre 1 y 4")
+
+
+class PortadaInvalida(ErrorDeValidacion):
+    def __init__(self) -> None:
+        super().__init__("La portada elegida no está disponible")
 
 
 class PotencialFueraDeRango(ErrorDeValidacion):
@@ -54,6 +64,11 @@ class PosicionDeTeamOcupada(ErrorDeIntegridad):
         super().__init__("La posición del team ya está ocupada")
 
 
+class PosicionDeGrupoOcupada(ErrorDeIntegridad):
+    def __init__(self) -> None:
+        super().__init__("La posición del grupo ya está ocupada")
+
+
 class SlotOcupado(ErrorDeIntegridad):
     def __init__(self) -> None:
         super().__init__("El slot ya está ocupado")
@@ -77,6 +92,21 @@ class EntidadNoEncontrada(ErrorDeDominio):
 class TeamNoEncontrado(EntidadNoEncontrada):
     def __init__(self) -> None:
         super(EntidadNoEncontrada, self).__init__("No encontrado")
+
+
+class GrupoNoEncontrado(EntidadNoEncontrada):
+    def __init__(self) -> None:
+        super(EntidadNoEncontrada, self).__init__("No encontrado")
+
+
+class GrupoLleno(ErrorDeDominio):
+    def __init__(self) -> None:
+        super().__init__("El grupo ya tiene el máximo de teams")
+
+
+class OrdenDesactualizado(ErrorDeDominio):
+    def __init__(self) -> None:
+        super().__init__("El orden pedido no coincide con el estado actual")
 
 
 class AniimoNoEncontrado(EntidadNoEncontrada):

@@ -2,6 +2,7 @@ from app.domain.catalogos import Stat
 from app.domain.entidades import (
     Amistad,
     AniimoDelTeam,
+    GrupoDeTeams,
     ImagenAniimo,
     MaterialEstrella,
     ObjetoTransportado,
@@ -13,6 +14,7 @@ from app.domain.entidades import (
 from app.infrastructure.modelos import (
     AmistadModelo,
     AniimoDelTeamModelo,
+    GrupoDeTeamsModelo,
     ImagenAniimoModelo,
     MaterialEstrellaModelo,
     ObjetoTransportadoModelo,
@@ -96,6 +98,8 @@ def team_a_dominio(fila: TeamModelo) -> Team:
         orden=fila.orden,
         id=fila.id,
         oculto_para_amigos=fila.oculto_para_amigos,
+        grupo_id=fila.grupo_id,
+        portada_slot=fila.portada_slot,
     )
 
 
@@ -105,6 +109,26 @@ def volcar_team(team: Team, fila: TeamModelo) -> None:
     fila.nombre = team.nombre
     fila.orden = team.orden
     fila.oculto_para_amigos = team.oculto_para_amigos
+    fila.grupo_id = team.grupo_id
+    fila.portada_slot = team.portada_slot
+
+
+def grupo_a_dominio(fila: GrupoDeTeamsModelo) -> GrupoDeTeams:
+    return GrupoDeTeams(
+        usuario_id=fila.usuario_id,
+        nombre=fila.nombre,
+        orden=fila.orden,
+        portada_team_id=fila.portada_team_id,
+        id=fila.id,
+    )
+
+
+def volcar_grupo(grupo: GrupoDeTeams, fila: GrupoDeTeamsModelo) -> None:
+    fila.id = grupo.id
+    fila.usuario_id = grupo.usuario_id
+    fila.nombre = grupo.nombre
+    fila.orden = grupo.orden
+    fila.portada_team_id = grupo.portada_team_id
 
 
 def _stat_a_dominio(fila: AniimoDelTeamModelo, stat: Stat) -> ValoresDeStat:

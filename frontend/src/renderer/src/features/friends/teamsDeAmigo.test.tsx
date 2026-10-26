@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  armarGrupoDeAmigo,
   BRUNO,
   fichaDeAmigoDePrueba,
   ID_DE_BRUNO,
@@ -11,7 +12,7 @@ import {
   type ApiFalsa
 } from '../../../../../tests/fixtures/apiFalsa'
 import type { AmigosApi } from '../../../../preload/api'
-import type { FichaDeAmigo } from '../../../../shared/teams'
+import type { FichaDeAmigo, GrupoDeAmigo, TeamDeAmigo } from '../../../../shared/teams'
 import App from '../../App'
 
 afterEach(cleanup)
@@ -19,8 +20,9 @@ afterEach(cleanup)
 const TEAM = teamDeAmigoDePrueba('Principal', 1, { 1: RESUMEN_DE_IRISALIS })
 
 function amigosConTeams(
-  teams = [TEAM],
-  ficha: FichaDeAmigo | null = fichaDeAmigoDePrueba()
+  teams: readonly TeamDeAmigo[] = [TEAM],
+  ficha: FichaDeAmigo | null = fichaDeAmigoDePrueba(),
+  grupos: readonly GrupoDeAmigo[] = []
 ): { amigos: Partial<AmigosApi> } {
   return {
     amigos: {
@@ -28,7 +30,8 @@ function amigosConTeams(
       listarTeams: async () => ({
         ok: true,
         usuario: { id: ID_DE_BRUNO, nombreUsuario: 'bruno' },
-        teams
+        teams,
+        grupos
       }),
       obtenerFicha: async () => ({ ok: true, ficha })
     }
@@ -57,6 +60,74 @@ async function abrirIrisalis(sobrescribir?: Parameters<typeof instalarApi>[0]): 
   await screen.findByRole('heading', { name: /Ficha de solo lectura/ })
   return api
 }
+
+describe('teams de un amigo agrupados', () => {
+  const A = teamDeAmigoDePrueba('A', 1)
+  const B = teamDeAmigoDePrueba('B', 2)
+  const C = teamDeAmigoDePrueba('C', 3)
+  const D = teamDeAmigoDePrueba('D', 4)
+
+  function conGrupoCompetitivo(portada: string | null = B.id) {
+    const competitivo = armarGrupoDeAmigo('Competitivo', 1, [A, B, C], portada)
+    return amigosConTeams([...competitivo.teams, D], fichaDeAmigoDePrueba(), [competitivo.grupo])
+  }
+
+  function nombresDeTeams(region: HTMLElement): string[] {
+    return within(region)
+      .getAllByRole('heading', { level: 4 })
+      .map((encabezado) => encabezado.textContent ?? '')
+  }
+
+  it('muestra una seccion por grupo con la cantidad de teams y Sin grupo al final', async () => {
+    await verTeamsDeBruno(conGrupoCompetitivo())
+    const competitivo = await screen.findByRole('region', { name: 'Competitivo' })
+    expect(within(competitivo).getByText('3 teams')).toBeInTheDocument()
+    const titulos = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+    expect(titulos).toEqual(['Competitivo', 'Sin grupo'])
+    expect(nombresDeTeams(screen.getByRole('region', { name: 'Sin grupo' }))).toEqual(['D'])
+  })
+
+  it('pone primero el team de portada y luego el resto en orden', async () => {
+    await verTeamsDeBruno(conGrupoCompetitivo())
+    const competitivo = await screen.findByRole('region', { name: 'Competitivo' })
+    expect(nombresDeTeams(competitivo)).toEqual(['B', 'A', 'C'])
+  })
+
+  it('con otra portada la pone primera', async () => {
+    await verTeamsDeBruno(conGrupoCompetitivo(C.id))
+    const competitivo = await screen.findByRole('region', { name: 'Competitivo' })
+    expect(nombresDeTeams(competitivo)).toEqual(['C', 'A', 'B'])
+  })
+
+  it('no ofrece selectores, subir, bajar ni arrastre', async () => {
+    await verTeamsDeBruno(conGrupoCompetitivo())
+    await screen.findByRole('region', { name: 'Competitivo' })
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Subir|Bajar|Borrar grupo|Nuevo grupo/ })).toBeNull()
+    expect(document.querySelectorAll('[draggable="true"]')).toHaveLength(0)
+  })
+
+  it('marca como Portada la tarjeta del slot recibido', async () => {
+    const conPortada = { ...TEAM, portadaSlot: 1 }
+    await verTeamsDeBruno(amigosConTeams([conPortada]))
+    const tarjeta = await screen.findByRole('button', { name: /Irisalis/ })
+    expect(within(tarjeta).getByText('Portada')).toBeInTheDocument()
+  })
+
+  it('sin portada no hay marca', async () => {
+    await verTeamsDeBruno()
+    const tarjeta = await screen.findByRole('button', { name: /Irisalis/ })
+    expect(within(tarjeta).queryByText('Portada')).toBeNull()
+  })
+
+  it('sin grupos muestra solo la seccion Sin grupo', async () => {
+    await verTeamsDeBruno()
+    await screen.findByRole('heading', { name: 'Principal' })
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'Sin grupo'
+    ])
+  })
+})
 
 describe('teams de un amigo', () => {
   it('muestra el nombre del amigo, el team y la tarjeta de Irisalis con tres slots vacios', async () => {

@@ -21,7 +21,15 @@ import {
   type Metodo,
   type Peticion
 } from '../backend/peticion'
-import { fichaDeAmigoDeApi, lista, registro, RespuestaInvalida, teamDeAmigoDeApi, texto } from '../teams/mapeo'
+import {
+  fichaDeAmigoDeApi,
+  grupoDeAmigoDeApi,
+  lista,
+  registro,
+  RespuestaInvalida,
+  teamDeAmigoDeApi,
+  texto
+} from '../teams/mapeo'
 import { busquedaDeApi, listaDeAmigosDeApi, usuarioDeApi } from './mapeo'
 
 export interface ClienteAmigos {
@@ -121,7 +129,8 @@ export function crearClienteAmigos(fetchFn: FetchFn, sesion: SesionEnMemoria): C
         return {
           ok: true as const,
           usuario: { id: texto(duenio.id), nombreUsuario: texto(duenio.nombre_usuario) },
-          teams: lista(cuerpo.teams).map(teamDeAmigoDeApi)
+          teams: lista(cuerpo.teams).map(teamDeAmigoDeApi),
+          grupos: lista(cuerpo.grupos).map(grupoDeAmigoDeApi)
         }
       }),
     obtenerFicha: (pedido) =>

@@ -1,11 +1,10 @@
 import {
   TIPOS_DE_IMAGEN,
-  type CodigoDeErrorDeTeams,
-  type ErrorDeTeams,
   type PedidoCambiarVisibilidad,
   type PedidoCrear,
   type PedidoDeSlot,
   type PedidoDeTeam,
+  type PedidoElegirPortada,
   type PedidoGuardarFicha,
   type PedidoGuardarImagen,
   type PedidoRenombrar,
@@ -16,30 +15,16 @@ import {
   type ResultadoVacio
 } from '../../shared/teams'
 import type { SesionEnMemoria } from '../auth/sesionEnMemoria'
-import { esObjetoPlano } from '../auth/validacion'
-import {
-  crearPeticion,
-  type Cuerpo,
-  type FetchFn,
-  type Metodo,
-  type Peticion
-} from '../backend/peticion'
-import {
-  camposDeValidacion,
-  fichaAApi,
-  fichaDeApi,
-  listaDeTeamsDeApi,
-  RespuestaInvalida,
-  teamDeApi
-} from './mapeo'
-
-const MENSAJE_MAXIMO_DE_TEAMS = 'Ya tenés el máximo de 4 teams'
+import { crearPeticion, type FetchFn, type Peticion } from '../backend/peticion'
+import { crearEjecutor, errorDeRespuesta, fallo } from './errores'
+import { fichaAApi, fichaDeApi, listaDeTeamsDeApi, teamDeApi } from './mapeo'
 
 export interface ClienteTeams {
   listar(): Promise<ResultadoListar>
   crear(pedido: PedidoCrear): Promise<ResultadoTeam>
   renombrar(pedido: PedidoRenombrar): Promise<ResultadoTeam>
   cambiarVisibilidad(pedido: PedidoCambiarVisibilidad): Promise<ResultadoTeam>
+  elegirPortada(pedido: PedidoElegirPortada): Promise<ResultadoTeam>
   borrar(pedido: PedidoDeTeam): Promise<ResultadoVacio>
   obtenerFicha(pedido: PedidoDeSlot): Promise<ResultadoFicha>
   guardarFicha(pedido: PedidoGuardarFicha): Promise<ResultadoFicha>
@@ -49,48 +34,6 @@ export interface ClienteTeams {
   borrarImagen(pedido: PedidoDeSlot): Promise<ResultadoVacio>
 }
 
-type Contexto = 'general' | 'imagen'
-
-function fallo(error: CodigoDeErrorDeTeams, campos?: readonly string[]): ErrorDeTeams {
-  return campos === undefined ? { ok: false, error } : { ok: false, error, campos }
-}
-
-async function leerJson(respuesta: Response): Promise<unknown> {
-  try {
-    return await respuesta.json()
-  } catch {
-    return undefined
-  }
-}
-
-async function errorDeRespuesta(
-  respuesta: Response,
-  contexto: Contexto,
-  sesion: SesionEnMemoria
-): Promise<ErrorDeTeams> {
-  switch (respuesta.status) {
-    case 401:
-      sesion.borrar()
-      return fallo('sesion-vencida')
-    case 404:
-      return fallo('no-encontrado')
-    case 409: {
-      const cuerpo = await leerJson(respuesta)
-      const esMaximo = esObjetoPlano(cuerpo) && cuerpo.detail === MENSAJE_MAXIMO_DE_TEAMS
-      return fallo(esMaximo ? 'limite-de-teams' : 'conflicto')
-    }
-    case 413:
-    case 415:
-      return contexto === 'imagen' ? fallo('imagen-invalida') : fallo('error-inesperado')
-    case 422:
-      return contexto === 'imagen'
-        ? fallo('imagen-invalida')
-        : fallo('datos-invalidos', camposDeValidacion(await leerJson(respuesta)))
-    default:
-      return fallo('error-inesperado')
-  }
-}
-
 function aBase64(bytes: ArrayBuffer): string {
   return Buffer.from(bytes).toString('base64')
 }
@@ -98,28 +41,7 @@ function aBase64(bytes: ArrayBuffer): string {
 export function crearClienteTeams(fetchFn: FetchFn, sesion: SesionEnMemoria): ClienteTeams {
   const pedir: Peticion = crearPeticion(fetchFn, sesion)
 
-  async function ejecutar<T>(
-    metodo: Metodo,
-    ruta: string,
-    exito: (respuesta: Response) => Promise<T>,
-    opciones: { cuerpo?: Cuerpo; contexto?: Contexto } = {}
-  ): Promise<T | ErrorDeTeams> {
-    const respuesta = await pedir(metodo, ruta, opciones.cuerpo)
-    if (respuesta === null) {
-      return fallo('sin-conexion')
-    }
-    if (!respuesta.ok) {
-      return errorDeRespuesta(respuesta, opciones.contexto ?? 'general', sesion)
-    }
-    try {
-      return await exito(respuesta)
-    } catch (error) {
-      if (error instanceof RespuestaInvalida || error instanceof SyntaxError) {
-        return fallo('error-inesperado')
-      }
-      throw error
-    }
-  }
+  const ejecutar = crearEjecutor(pedir, sesion)
 
   const rutaDeSlot = ({ teamId, slot }: PedidoDeSlot): string => `/teams/${teamId}/aniimo/${slot}`
 
@@ -139,7 +61,7 @@ export function crearClienteTeams(fetchFn: FetchFn, sesion: SesionEnMemoria): Cl
     listar: () =>
       ejecutar('GET', '/teams', async (respuesta) => ({
         ok: true as const,
-        teams: listaDeTeamsDeApi(await respuesta.json())
+        ...listaDeTeamsDeApi(await respuesta.json())
       })),
     crear: (pedido) =>
       ejecutar('POST', '/teams', conTeam, { cuerpo: { json: { nombre: pedido.nombre } } }),
@@ -150,6 +72,10 @@ export function crearClienteTeams(fetchFn: FetchFn, sesion: SesionEnMemoria): Cl
     cambiarVisibilidad: (pedido) =>
       ejecutar('PATCH', `/teams/${pedido.teamId}`, conTeam, {
         cuerpo: { json: { oculto_para_amigos: pedido.ocultoParaAmigos } }
+      }),
+    elegirPortada: (pedido) =>
+      ejecutar('PATCH', `/teams/${pedido.teamId}`, conTeam, {
+        cuerpo: { json: { portada_slot: pedido.slot } }
       }),
     borrar: (pedido) => ejecutar('DELETE', `/teams/${pedido.teamId}`, vacio),
     obtenerFicha: (pedido) => ejecutar('GET', rutaDeSlot(pedido), conFicha),

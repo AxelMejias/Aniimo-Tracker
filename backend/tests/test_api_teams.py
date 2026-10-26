@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from tests.fabricas import ClienteAutenticado, RelojFalso, ficha_de_referencia
 from tests.imagenes_de_prueba import WEBP
 
-MAXIMO = {"detail": "Ya tenés el máximo de 4 teams"}
+MAXIMO = {"detail": "Ya tenés el máximo de 20 teams"}
 
 
 def _crear(cliente: ClienteAutenticado, nombre: str = "Team") -> dict[str, Any]:
@@ -33,7 +33,7 @@ def _guardar_ficha(
 def test_listado_vacio(usuario_a: ClienteAutenticado) -> None:
     respuesta = usuario_a.get("/api/teams")
     assert respuesta.status_code == 200
-    assert respuesta.json() == {"teams": []}
+    assert respuesta.json() == {"teams": [], "grupos": []}
 
 
 def test_listado_con_slots_ocupados_y_vacios(usuario_a: ClienteAutenticado) -> None:
@@ -75,7 +75,16 @@ def test_el_resumen_de_la_tarjeta_es_exacto(usuario_a: ClienteAutenticado) -> No
 def test_el_listado_no_incluye_ids_de_usuario(usuario_a: ClienteAutenticado) -> None:
     _crear(usuario_a)
     [listado] = _listar(usuario_a)
-    assert set(listado) == {"id", "nombre", "orden", "oculto_para_amigos", "slots"}
+    assert set(listado) == {
+        "id",
+        "nombre",
+        "orden",
+        "oculto_para_amigos",
+        "grupo_id",
+        "portada_slot",
+        "portada_efectiva_slot",
+        "slots",
+    }
 
 
 def test_el_listado_solo_trae_los_teams_propios(
@@ -116,19 +125,33 @@ def test_crear_reutiliza_la_posicion_libre(usuario_a: ClienteAutenticado) -> Non
     assert _crear(usuario_a, "Nuevo")["orden"] == 2
 
 
-def test_quinto_team_responde_409_con_el_mensaje(usuario_a: ClienteAutenticado) -> None:
+def test_el_quinto_team_se_crea_con_orden_5(usuario_a: ClienteAutenticado) -> None:
     for n in range(4):
+        _crear(usuario_a, f"T{n}")
+    respuesta = usuario_a.post("/api/teams", json={"nombre": "Quinto"})
+    assert respuesta.status_code == 201
+    assert respuesta.json()["orden"] == 5
+
+
+def test_el_team_21_responde_409_con_el_mensaje(usuario_a: ClienteAutenticado) -> None:
+    for n in range(20):
         _crear(usuario_a, f"T{n}")
     respuesta = usuario_a.post("/api/teams", json={"nombre": "Otro"})
     assert respuesta.status_code == 409
     assert respuesta.json() == MAXIMO
-    assert len(_listar(usuario_a)) == 4
+    assert len(_listar(usuario_a)) == 20
+
+
+def test_crear_reutiliza_un_hueco_lejano(usuario_a: ClienteAutenticado) -> None:
+    teams = [_crear(usuario_a, f"T{n}") for n in range(1, 21)]
+    assert usuario_a.delete(f"/api/teams/{teams[12]['id']}").status_code == 204
+    assert _crear(usuario_a, "Nuevo")["orden"] == 13
 
 
 def test_el_limite_de_teams_es_por_usuario(
     usuario_a: ClienteAutenticado, usuario_b: ClienteAutenticado
 ) -> None:
-    for n in range(4):
+    for n in range(20):
         _crear(usuario_a, f"T{n}")
     assert usuario_b.post("/api/teams", json={"nombre": "Mio"}).status_code == 201
 
@@ -294,3 +317,182 @@ def test_el_duenio_no_se_ve_afectado_por_ocultar(usuario_a: ClienteAutenticado) 
     guardada = _guardar_ficha(usuario_a, team["id"], 1, nombre="Editada")
     assert guardada["nombre"] == "Editada"
     assert usuario_a.patch(f"/api/teams/{team['id']}", json={"nombre": "Nuevo"}).status_code == 200
+
+
+def _con_aniimo_en(cliente: ClienteAutenticado, slots: list[int]) -> dict[str, Any]:
+    team = _crear(cliente, "Principal")
+    for slot in slots:
+        _guardar_ficha(cliente, team["id"], slot, nombre=f"A{slot}")
+    return team
+
+
+def _portadas(cliente: ClienteAutenticado) -> tuple[int | None, int | None]:
+    [team] = _listar(cliente)
+    return team["portada_slot"], team["portada_efectiva_slot"]
+
+
+def test_el_listado_trae_grupo_y_portada_de_cada_team(usuario_a: ClienteAutenticado) -> None:
+    _con_aniimo_en(usuario_a, [2, 4])
+    [team] = _listar(usuario_a)
+    assert (team["grupo_id"], team["portada_slot"], team["portada_efectiva_slot"]) == (
+        None,
+        None,
+        2,
+    )
+
+
+def test_un_team_vacio_no_tiene_portada_efectiva(usuario_a: ClienteAutenticado) -> None:
+    _crear(usuario_a)
+    assert _portadas(usuario_a) == (None, None)
+
+
+def test_el_listado_trae_los_grupos_con_team_ids_en_orden_de_team(
+    usuario_a: ClienteAutenticado,
+) -> None:
+    suelto = _crear(usuario_a, "Suelto")
+    segundo = _crear(usuario_a, "Segundo")
+    tercero = _crear(usuario_a, "Tercero")
+    cuarto = _crear(usuario_a, "Cuarto")
+    grupo = usuario_a.post("/api/grupos", json={"nombre": "Buildeado"}).json()["grupos"][0]
+    for team in (cuarto, segundo):
+        usuario_a.put(f"/api/grupos/{grupo['id']}/teams/{team['id']}")
+    cuerpo = usuario_a.get("/api/teams").json()
+    assert cuerpo["grupos"] == [
+        {
+            "id": grupo["id"],
+            "nombre": "Buildeado",
+            "orden": 1,
+            "team_ids": [segundo["id"], cuarto["id"]],
+            "portada_team_id": None,
+            "portada_efectiva_team_id": segundo["id"],
+        }
+    ]
+    grupos_de_cada_team = {t["nombre"]: t["grupo_id"] for t in cuerpo["teams"]}
+    assert grupos_de_cada_team == {
+        suelto["nombre"]: None,
+        segundo["nombre"]: grupo["id"],
+        tercero["nombre"]: None,
+        cuarto["nombre"]: grupo["id"],
+    }
+
+
+def test_el_listado_solo_trae_los_grupos_propios(
+    usuario_a: ClienteAutenticado, usuario_b: ClienteAutenticado
+) -> None:
+    for cliente in (usuario_a, usuario_b):
+        _crear(cliente, "T1")
+        _crear(cliente, "T2")
+    propio = usuario_a.post("/api/grupos", json={"nombre": "De A"}).json()["grupos"][0]
+    usuario_b.post("/api/grupos", json={"nombre": "De B"})
+    cuerpo = usuario_a.get("/api/teams").json()
+    assert [g["id"] for g in cuerpo["grupos"]] == [propio["id"]]
+    assert len(cuerpo["teams"]) == 2
+
+
+def test_elegir_la_portada_del_team(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    respuesta = usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    assert respuesta.status_code == 200
+    assert (respuesta.json()["portada_slot"], respuesta.json()["portada_efectiva_slot"]) == (3, 3)
+    assert _portadas(usuario_a) == (3, 3)
+
+
+def test_elegir_otra_portada_reemplaza_a_la_anterior(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3, 4])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 4})
+    assert _portadas(usuario_a) == (4, 4)
+
+
+def test_elegir_un_slot_vacio_responde_422_y_no_cambia(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    assert usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 2}).status_code == 422
+    assert _portadas(usuario_a) == (3, 3)
+
+
+def test_volver_a_la_portada_automatica(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    respuesta = usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": None})
+    assert respuesta.status_code == 200
+    assert (respuesta.json()["portada_slot"], respuesta.json()["portada_efectiva_slot"]) == (
+        None,
+        1,
+    )
+
+
+def test_la_portada_se_puede_editar_junto_con_el_nombre(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [2])
+    respuesta = usuario_a.patch(
+        f"/api/teams/{team['id']}", json={"nombre": "Otro", "portada_slot": 2}
+    )
+    assert (respuesta.json()["nombre"], respuesta.json()["portada_slot"]) == ("Otro", 2)
+
+
+def test_editar_el_nombre_no_toca_la_portada_elegida(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"nombre": "Nuevo"})
+    assert _portadas(usuario_a) == (3, 3)
+
+
+@pytest.mark.parametrize(
+    "cuerpo",
+    [
+        {"portada_slot": 5},
+        {"portada_slot": 0},
+        {"portada_slot": "1"},
+        {"portada_slot": True},
+        {"portada_slot": 1.5},
+        {"grupo_id": None},
+        {"oculto_para_amigos": None, "portada_slot": 1},
+        {"nombre": None, "portada_slot": 1},
+    ],
+)
+def test_portada_invalida_responde_422_y_no_cambia(
+    usuario_a: ClienteAutenticado, cuerpo: dict[str, Any]
+) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    assert usuario_a.patch(f"/api/teams/{team['id']}", json=cuerpo).status_code == 422
+    assert _portadas(usuario_a) == (3, 3)
+
+
+def test_la_portada_de_un_team_ajeno_responde_404(
+    usuario_a: ClienteAutenticado, usuario_b: ClienteAutenticado
+) -> None:
+    team = _con_aniimo_en(usuario_a, [1])
+    assert usuario_b.patch(f"/api/teams/{team['id']}", json={"portada_slot": 1}).status_code == 404
+    assert _portadas(usuario_a) == (None, 1)
+
+
+def test_vaciar_el_slot_de_portada_la_deja_en_automatica(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    assert usuario_a.delete(f"/api/teams/{team['id']}/aniimo/3").status_code == 204
+    assert _portadas(usuario_a) == (None, 1)
+
+
+def test_un_aniimo_nuevo_en_el_slot_de_la_portada_vaciada_no_se_vuelve_portada(
+    usuario_a: ClienteAutenticado,
+) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    usuario_a.delete(f"/api/teams/{team['id']}/aniimo/3")
+    _guardar_ficha(usuario_a, team["id"], 3, nombre="Nuevo")
+    assert _portadas(usuario_a) == (None, 1)
+
+
+def test_vaciar_otro_slot_no_cambia_la_portada(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    usuario_a.delete(f"/api/teams/{team['id']}/aniimo/1")
+    assert _portadas(usuario_a) == (3, 3)
+
+
+def test_vaciar_un_slot_ya_vacio_no_cambia_la_portada(usuario_a: ClienteAutenticado) -> None:
+    team = _con_aniimo_en(usuario_a, [1, 3])
+    usuario_a.patch(f"/api/teams/{team['id']}", json={"portada_slot": 3})
+    usuario_a.delete(f"/api/teams/{team['id']}/aniimo/2")
+    assert _portadas(usuario_a) == (3, 3)

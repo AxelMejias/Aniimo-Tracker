@@ -9,3 +9,9 @@ select = ["E", "F", "I", "B", "ANN", "S"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["app"]
+plugins = ["pydantic.mypy"]

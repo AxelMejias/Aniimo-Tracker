@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Ficha, TeamResumen } from '../../../../shared/teams'
+import type { Ficha, GrupoResumen, TeamResumen } from '../../../../shared/teams'
 
 export type DatosDelOverlay =
   | { readonly tipo: 'cargando' }
@@ -13,11 +13,18 @@ export interface FichaAbierta {
   readonly imagen: string | null
 }
 
+export interface OpcionesDelOverlay {
+  readonly teams: readonly TeamResumen[]
+  readonly grupos: readonly GrupoResumen[]
+}
+
 export interface UseOverlay {
   readonly datos: DatosDelOverlay
+  readonly opciones: OpcionesDelOverlay | null
   readonly ficha: FichaAbierta | null
   readonly fallo: boolean
   actualizar(): Promise<void>
+  seleccionar(teamId: string): Promise<void>
   abrirSlot(slot: number): Promise<void>
   volverAlTeam(): void
   cerrar(): void
@@ -26,6 +33,7 @@ export interface UseOverlay {
 export function useOverlay(): UseOverlay {
   const [datos, setDatos] = useState<DatosDelOverlay>({ tipo: 'cargando' })
   const [ficha, setFicha] = useState<FichaAbierta | null>(null)
+  const [opciones, setOpciones] = useState<OpcionesDelOverlay | null>(null)
   const [fallo, setFallo] = useState(false)
   const enVuelo = useRef<Promise<void> | null>(null)
   const slotAbierto = useRef<number | null>(null)
@@ -89,6 +97,7 @@ export function useOverlay(): UseOverlay {
       teamActual.current = null
       cerrarFicha()
       setFallo(false)
+      setOpciones(null)
       setDatos({ tipo: 'sin-seleccion' })
       return
     }
@@ -105,6 +114,7 @@ export function useOverlay(): UseOverlay {
       }
       return
     }
+    setOpciones({ teams: listado.teams, grupos: listado.grupos })
     const team = listado.teams.find((candidato) => candidato.id === teamId)
     if (team === undefined) {
       teamActual.current = null
@@ -131,6 +141,25 @@ export function useOverlay(): UseOverlay {
     return enVuelo.current
   }, [leer])
 
+  const seleccionar = useCallback(
+    async (teamId: string): Promise<void> => {
+      const resultado = await window.aniimo.overlay.seleccionar({ teamId })
+      if (!activo.current) {
+        return
+      }
+      if (!resultado.ok) {
+        if (resultado.error === 'sesion-vencida') {
+          cerrar()
+        } else {
+          setFallo(true)
+        }
+        return
+      }
+      await actualizar()
+    },
+    [actualizar, cerrar]
+  )
+
   const abrirSlot = useCallback(
     async (slot: number): Promise<void> => {
       if (teamActual.current === null) {
@@ -155,5 +184,15 @@ export function useOverlay(): UseOverlay {
     }
   }, [actualizar])
 
-  return { datos, ficha, fallo, actualizar, abrirSlot, volverAlTeam: cerrarFicha, cerrar }
+  return {
+    datos,
+    opciones,
+    ficha,
+    fallo,
+    actualizar,
+    seleccionar,
+    abrirSlot,
+    volverAlTeam: cerrarFicha,
+    cerrar
+  }
 }

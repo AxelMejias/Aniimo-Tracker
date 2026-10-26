@@ -1,4 +1,9 @@
-import type { ErrorDeTeams } from '../../../../shared/teams'
+import {
+  MENSAJE_GRUPO_LLENO,
+  MENSAJE_MAXIMO_DE_GRUPOS,
+  MENSAJE_MAXIMO_DE_TEAMS,
+  type ErrorDeTeams
+} from '../../../../shared/teams'
 import {
   MENSAJE_ERROR_INESPERADO,
   MENSAJE_SESION_VENCIDA,
@@ -8,6 +13,9 @@ import {
 export const MENSAJE_NOMBRE_DE_TEAM_INVALIDO =
   'El nombre del team debe tener entre 1 y 50 caracteres'
 
+export const MENSAJE_NOMBRE_DE_GRUPO_INVALIDO =
+  'El nombre del grupo debe tener entre 1 y 50 caracteres'
+
 export const MENSAJE_OVERLAY_NO_ABIERTO = 'No se pudo abrir el overlay'
 
 export function mensajeDeErrorDeNombreDeTeam(resultado: ErrorDeTeams): string {
@@ -16,10 +24,20 @@ export function mensajeDeErrorDeNombreDeTeam(resultado: ErrorDeTeams): string {
     : mensajeDeErrorDeTeams(resultado)
 }
 
+export function mensajeDeErrorDeNombreDeGrupo(resultado: ErrorDeTeams): string {
+  return resultado.error === 'datos-invalidos'
+    ? MENSAJE_NOMBRE_DE_GRUPO_INVALIDO
+    : mensajeDeErrorDeTeams(resultado)
+}
+
 export function mensajeDeErrorDeTeams(resultado: ErrorDeTeams): string {
   switch (resultado.error) {
     case 'limite-de-teams':
-      return 'Ya tenés el máximo de 4 teams'
+      return MENSAJE_MAXIMO_DE_TEAMS
+    case 'limite-de-grupos':
+      return MENSAJE_MAXIMO_DE_GRUPOS
+    case 'grupo-lleno':
+      return MENSAJE_GRUPO_LLENO
     case 'datos-invalidos':
       return 'Revisá los datos ingresados'
     case 'no-encontrado':

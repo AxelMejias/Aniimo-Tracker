@@ -150,7 +150,7 @@ CASOS_INVALIDOS: list[tuple[str, Callable[[Padres], Any], str]] = [
         lambda p: _usuario(nombre_usuario=""),
         "ck_usuario_nombre_usuario_no_vacio",
     ),
-    ("team_orden_5", lambda p: _team(p, orden=5), "ck_team_orden_rango"),
+    ("team_orden_21", lambda p: _team(p, orden=21), "ck_team_orden_rango"),
     ("team_orden_0", lambda p: _team(p, orden=0), "ck_team_orden_rango"),
     ("team_nombre_vacio", lambda p: _team(p, nombre=""), "ck_team_nombre_no_vacio"),
     ("slot_0", lambda p: _aniimo(p, slot=0), "ck_aniimo_del_team_slot_rango"),

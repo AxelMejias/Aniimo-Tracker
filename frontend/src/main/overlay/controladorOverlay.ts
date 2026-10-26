@@ -19,6 +19,7 @@ export interface DependenciasDelControlador {
 
 export interface ControladorOverlay {
   abrir(teamId: string): Promise<ResultadoOverlay>
+  seleccionar(teamId: string): ResultadoOverlay
   cerrar(): void
   seleccion(): SeleccionDeOverlay | null
 }
@@ -65,6 +66,15 @@ export function crearControladorOverlay(deps: DependenciasDelControlador): Contr
       }
       ventana?.show()
       ventana?.focus()
+      return { ok: true }
+    },
+    seleccionar(teamId) {
+      if (!deps.haySesion()) {
+        return { ok: false, error: 'sesion-vencida' }
+      }
+      if (ventana !== null || creando !== null) {
+        seleccion = { teamId }
+      }
       return { ok: true }
     },
     cerrar() {

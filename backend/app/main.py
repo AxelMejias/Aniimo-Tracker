@@ -10,12 +10,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.api.amigos import router_amigos, router_usuarios
 from app.api.auth import router as auth_router
 from app.api.calculo import router as calculo_router
+from app.api.grupos import router as grupos_router
 from app.api.health import router as health_router
 from app.api.limite_de_intentos import crear_limitadores
 from app.api.teams import router as teams_router
 from app.application.amigos import ServicioDeAmigos
 from app.application.auth import HasherDeContrasenas, ServicioDeAuth
 from app.application.calculo import ServicioDeCalculo
+from app.application.grupos import ServicioDeGrupos
 from app.application.teams import ServicioDeTeams
 from app.core.config import Settings
 from app.core.errors import register_error_handlers
@@ -65,6 +67,7 @@ def create_app(
         reloj=reloj,
     )
     app.state.servicio_de_teams = ServicioDeTeams(app.state.session_factory)
+    app.state.servicio_de_grupos = ServicioDeGrupos(app.state.session_factory)
     app.state.servicio_de_amigos = ServicioDeAmigos(app.state.session_factory, reloj)
     app.state.servicio_de_calculo = ServicioDeCalculo(_cargar_catalogo(ruta_catalogo))
     app.state.limitadores = crear_limitadores(reloj)
@@ -79,6 +82,7 @@ def create_app(
     app.include_router(health_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
     app.include_router(teams_router, prefix="/api")
+    app.include_router(grupos_router, prefix="/api")
     app.include_router(router_usuarios, prefix="/api")
     app.include_router(router_amigos, prefix="/api")
     app.include_router(calculo_router, prefix="/api")

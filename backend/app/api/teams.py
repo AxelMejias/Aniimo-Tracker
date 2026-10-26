@@ -4,7 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response, status
 from starlette.concurrency import run_in_threadpool
 
-from app.api.dependencias import servicio_de_teams, usuario_actual
+from app.api.dependencias import servicio_de_grupos, servicio_de_teams, usuario_actual
+from app.api.esquemas_grupos import OrdenDeSueltosEntrada
 from app.api.esquemas_teams import (
     EdicionDeTeamEntrada,
     FichaEntrada,
@@ -14,7 +15,8 @@ from app.api.esquemas_teams import (
     NombreEntrada,
     TeamSalida,
 )
-from app.application.teams import ServicioDeTeams
+from app.application.grupos import ServicioDeGrupos
+from app.application.teams import NO_ENVIADO, ServicioDeTeams
 from app.domain.entidades import Usuario
 from app.domain.errores import AniimoNoEncontrado
 from app.domain.imagenes import TAMANO_MAXIMO, TipoDeImagen
@@ -28,15 +30,14 @@ router = APIRouter(prefix="/teams", dependencies=[Depends(_sin_cache)])
 
 Autenticado = Annotated[Usuario, Depends(usuario_actual)]
 Servicio = Annotated[ServicioDeTeams, Depends(servicio_de_teams)]
+ServicioGrupos = Annotated[ServicioDeGrupos, Depends(servicio_de_grupos)]
 IdDeTeam = Annotated[UUID, Path()]
 Slot = Annotated[int, Path(ge=1, le=4)]
 
 
 @router.get("")
 def listar(usuario: Autenticado, servicio: Servicio) -> ListaDeTeamsSalida:
-    return ListaDeTeamsSalida(
-        teams=[TeamSalida.desde(resumen) for resumen in servicio.listar(usuario.id)]
-    )
+    return ListaDeTeamsSalida.desde(servicio.listar_con_grupos(usuario.id))
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -44,16 +45,25 @@ def crear(entrada: NombreEntrada, usuario: Autenticado, servicio: Servicio) -> T
     return TeamSalida.desde(servicio.crear(usuario.id, entrada.nombre))
 
 
+@router.put("/sueltos/orden")
+def ordenar_sueltos(
+    entrada: OrdenDeSueltosEntrada, usuario: Autenticado, servicio: ServicioGrupos
+) -> ListaDeTeamsSalida:
+    return ListaDeTeamsSalida.desde(servicio.ordenar_sueltos(usuario.id, entrada.team_ids))
+
+
 @router.patch("/{team_id}")
 def editar(
     team_id: IdDeTeam, entrada: EdicionDeTeamEntrada, usuario: Autenticado, servicio: Servicio
 ) -> TeamSalida:
+    portada = entrada.portada_slot if "portada_slot" in entrada.model_fields_set else NO_ENVIADO
     return TeamSalida.desde(
         servicio.editar(
             usuario.id,
             team_id,
             nombre=entrada.nombre,
             oculto_para_amigos=entrada.oculto_para_amigos,
+            portada_slot=portada,
         )
     )
 

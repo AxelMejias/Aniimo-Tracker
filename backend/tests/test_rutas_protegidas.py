@@ -24,6 +24,14 @@ PROTEGIDAS = {
     ("GET", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
     ("PUT", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
     ("DELETE", "/api/teams/{team_id}/aniimo/{slot}/imagen"),
+    ("PUT", "/api/teams/sueltos/orden"),
+    ("POST", "/api/grupos"),
+    ("PUT", "/api/grupos/orden"),
+    ("PATCH", "/api/grupos/{grupo_id}"),
+    ("DELETE", "/api/grupos/{grupo_id}"),
+    ("PUT", "/api/grupos/{grupo_id}/orden"),
+    ("PUT", "/api/grupos/{grupo_id}/teams/{team_id}"),
+    ("DELETE", "/api/grupos/{grupo_id}/teams/{team_id}"),
     ("GET", "/api/usuarios"),
     ("GET", "/api/amigos"),
     ("POST", "/api/amigos/solicitudes"),
@@ -85,7 +93,7 @@ def test_todas_las_rutas_de_teams_declaran_usuario_actual(app_api: FastAPI) -> N
         if path.startswith("/api/teams")
         for metodo in metodos
     }
-    assert len(de_teams) == 10
+    assert len(de_teams) == 11
     assert de_teams <= _con_usuario_actual(app_api, protegidas=True)
 
 
@@ -108,3 +116,21 @@ def test_las_rutas_de_lectura_de_amigos_son_todas_get(app_api: FastAPI) -> None:
     ]
     assert len(de_lectura) == 3
     assert all(metodos == {"GET"} for _, metodos in de_lectura)
+
+
+def _declara_sin_cache(dependant: Dependant) -> bool:
+    return any(d.call.__name__ == "_sin_cache" for d in dependant.dependencies if d.call)
+
+
+def test_las_rutas_de_grupos_y_el_orden_de_sueltos_declaran_usuario_actual_y_no_store(
+    app_api: FastAPI,
+) -> None:
+    rutas = [
+        (metodo, path, dependant)
+        for path, metodos, dependant in _rutas(app_api)
+        if path.startswith("/api/grupos") or path == "/api/teams/sueltos/orden"
+        for metodo in metodos
+    ]
+    assert len(rutas) == 8
+    assert all(_usa(dependant, usuario_actual) for _, _, dependant in rutas)
+    assert all(_declara_sin_cache(dependant) for _, _, dependant in rutas)

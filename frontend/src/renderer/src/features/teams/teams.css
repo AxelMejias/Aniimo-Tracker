@@ -155,3 +155,108 @@
   align-items: center;
   gap: var(--space-xs);
 }
+
+.lista-de-teams__barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-md);
+}
+
+.lista-de-teams__contador {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body);
+}
+
+.seccion-de-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.seccion-de-grupo--destino,
+.tarjeta-team--destino {
+  border-color: var(--color-accent);
+  outline: 2px solid var(--color-accent);
+}
+
+.seccion-de-grupo__encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+}
+
+.seccion-de-grupo__nombre {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-title);
+}
+
+.seccion-de-grupo__cantidad {
+  color: var(--color-text-muted);
+}
+
+.seccion-de-grupo__mensaje {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+}
+
+.seccion-de-grupo__teams {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.controles-de-grupo,
+.controles-de-orden {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.controles-de-grupo__renombrar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  flex-basis: 100%;
+}
+
+.controles-de-grupo__renombrar label,
+.controles-de-grupo__portada,
+.tarjeta-team__selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.controles-de-grupo__renombrar input {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  padding: var(--space-sm);
+}
+
+.tarjeta-team__encabezado[draggable='true'],
+.seccion-de-grupo__encabezado[draggable='true'] {
+  cursor: grab;
+}
+
+.tarjeta-aniimo__portada {
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  font-size: var(--font-size-small);
+}

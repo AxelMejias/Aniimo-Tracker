@@ -10,6 +10,7 @@ from sqlalchemy.orm.interfaces import ORMOption
 from app.domain.entidades import (
     Amistad,
     AniimoDelTeam,
+    GrupoDeTeams,
     ImagenAniimo,
     Sesion,
     Team,
@@ -20,12 +21,14 @@ from app.domain.errores import EntidadNoEncontrada
 from app.infrastructure.mapeo import (
     amistad_a_dominio,
     aniimo_a_dominio,
+    grupo_a_dominio,
     imagen_a_dominio,
     sesion_a_dominio,
     team_a_dominio,
     usuario_a_dominio,
     volcar_amistad,
     volcar_aniimo,
+    volcar_grupo,
     volcar_imagen,
     volcar_sesion,
     volcar_team,
@@ -34,6 +37,7 @@ from app.infrastructure.mapeo import (
 from app.infrastructure.modelos import (
     AmistadModelo,
     AniimoDelTeamModelo,
+    GrupoDeTeamsModelo,
     ImagenAniimoModelo,
     SesionModelo,
     TeamModelo,
@@ -88,7 +92,7 @@ class BaseRepository(Generic[E, M]):
         if fila is not None:
             self._session.delete(fila)
 
-    def _convertir(self, consulta: Select[tuple[M]]) -> list[E]:
+    def _convertir(self, consulta: Select[M]) -> list[E]:
         filas = self._session.scalars(consulta.options(*self._opciones)).all()
         return [self._a_dominio(fila) for fila in filas]
 
@@ -148,6 +152,70 @@ class TeamRepository(BaseRepository[Team, TeamModelo]):
         )
         teams = self._convertir(consulta)
         return teams[0] if teams else None
+
+    def listar_por_grupo(self, grupo_id: UUID) -> list[Team]:
+        consulta = (
+            select(TeamModelo).where(TeamModelo.grupo_id == grupo_id).order_by(TeamModelo.orden)
+        )
+        return self._convertir(consulta)
+
+    def listar_por_grupo_con_bloqueo(self, grupo_id: UUID) -> list[Team]:
+        return self._convertir(
+            select(TeamModelo)
+            .where(TeamModelo.grupo_id == grupo_id)
+            .order_by(TeamModelo.orden)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def listar_sueltos_con_bloqueo(self, usuario_id: UUID) -> list[Team]:
+        return self._convertir(
+            select(TeamModelo)
+            .where(TeamModelo.usuario_id == usuario_id, TeamModelo.grupo_id.is_(None))
+            .order_by(TeamModelo.orden)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+
+class GrupoDeTeamsRepository(BaseRepository[GrupoDeTeams, GrupoDeTeamsModelo]):
+    def __init__(self, session: Session) -> None:
+        super().__init__(session, GrupoDeTeamsModelo, grupo_a_dominio, volcar_grupo)
+
+    def listar_por_usuario(self, usuario_id: UUID) -> list[GrupoDeTeams]:
+        consulta = (
+            select(GrupoDeTeamsModelo)
+            .where(GrupoDeTeamsModelo.usuario_id == usuario_id)
+            .order_by(GrupoDeTeamsModelo.orden)
+        )
+        return self._convertir(consulta)
+
+    def listar_por_usuario_con_bloqueo(self, usuario_id: UUID) -> list[GrupoDeTeams]:
+        return self._convertir(
+            select(GrupoDeTeamsModelo)
+            .where(GrupoDeTeamsModelo.usuario_id == usuario_id)
+            .order_by(GrupoDeTeamsModelo.orden)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def obtener_de_usuario(self, grupo_id: UUID, usuario_id: UUID) -> GrupoDeTeams | None:
+        consulta = select(GrupoDeTeamsModelo).where(
+            GrupoDeTeamsModelo.id == grupo_id, GrupoDeTeamsModelo.usuario_id == usuario_id
+        )
+        grupos = self._convertir(consulta)
+        return grupos[0] if grupos else None
+
+    def obtener_de_usuario_con_bloqueo(
+        self, grupo_id: UUID, usuario_id: UUID
+    ) -> GrupoDeTeams | None:
+        grupos = self._convertir(
+            select(GrupoDeTeamsModelo)
+            .where(GrupoDeTeamsModelo.id == grupo_id, GrupoDeTeamsModelo.usuario_id == usuario_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return grupos[0] if grupos else None
 
 
 class AniimoDelTeamRepository(BaseRepository[AniimoDelTeam, AniimoDelTeamModelo]):

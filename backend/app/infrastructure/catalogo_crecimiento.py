@@ -510,7 +510,10 @@ def _leer_json(ruta: Path) -> object | ErrorDeCatalogo:
     except UnicodeDecodeError:
         return ErrorDeCatalogo(("archivo: no es UTF-8 válido",))
     try:
-        return json.loads(texto, parse_float=Decimal, parse_constant=_rechazar_constante)
+        documento: object = json.loads(
+            texto, parse_float=Decimal, parse_constant=_rechazar_constante
+        )
+        return documento
     except json.JSONDecodeError as error:
         return ErrorDeCatalogo(
             (f"archivo: no es JSON válido (línea {error.lineno}, columna {error.colno})",)

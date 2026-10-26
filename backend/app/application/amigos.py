@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
@@ -9,15 +9,17 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.teams import (
     FichaGuardada,
-    ResumenDeTeam,
+    ListaDeTeams,
     ficha_del_team,
     imagen_del_team,
     resumir,
+    resumir_grupos,
 )
 from app.application.unit_of_work import UnitOfWork
 from app.domain.entidades import (
     Amistad,
     EstadoDeAmistad,
+    GrupoDeTeams,
     ImagenAniimo,
     Team,
     Usuario,
@@ -86,6 +88,12 @@ def _amigo_aceptado(uow: UnitOfWork, usuario_id: UUID, otro_id: UUID) -> Usuario
     if amigo is None:
         raise AmistadNoEncontrada
     return amigo
+
+
+def _sin_huecos[T: (Team, GrupoDeTeams)](elementos: list[T]) -> list[T]:
+    """Numera 1..n respetando el orden relativo para no delatar a los ocultos."""
+    ordenados = sorted(elementos, key=lambda e: e.orden)
+    return [replace(e, orden=posicion) for posicion, e in enumerate(ordenados, start=1)]
 
 
 def _team_visible(uow: UnitOfWork, amigo: Usuario, team_id: UUID) -> Team:
@@ -180,12 +188,18 @@ class ServicioDeAmigos:
             uow.commit()
         logger.info("solicitud de amistad o amistad eliminada")
 
-    def teams_de_amigo(
-        self, usuario_id: UUID, amigo_id: UUID
-    ) -> tuple[Usuario, list[ResumenDeTeam]]:
+    def teams_de_amigo(self, usuario_id: UUID, amigo_id: UUID) -> tuple[Usuario, ListaDeTeams]:
         with UnitOfWork(self._session_factory) as uow:
             amigo = _amigo_aceptado(uow, usuario_id, amigo_id)
-            return amigo, resumir(uow, uow.teams.listar_visibles_de_usuario(amigo.id))
+            visibles = _sin_huecos(uow.teams.listar_visibles_de_usuario(amigo.id))
+            # Los grupos se calculan solo sobre los visibles y no se listan si quedan sin teams.
+            grupos = resumir_grupos(uow.grupos.listar_por_usuario(amigo.id), visibles)
+            con_teams = _sin_huecos([g.grupo for g in grupos if g.team_ids])
+            nuevos = {g.id: g for g in con_teams}
+            resumenes = [
+                replace(g, grupo=nuevos[g.grupo.id]) for g in grupos if g.grupo.id in nuevos
+            ]
+            return amigo, ListaDeTeams(resumir(uow, visibles), resumenes)
 
     def ficha_de_amigo(
         self, usuario_id: UUID, amigo_id: UUID, team_id: UUID, slot: int

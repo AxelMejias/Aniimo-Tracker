@@ -33,6 +33,19 @@
   -webkit-app-region: no-drag;
 }
 
+.overlay__selector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-small);
+  -webkit-app-region: no-drag;
+}
+
+.overlay__selector select {
+  max-width: 10rem;
+  font-size: var(--font-size-small);
+}
+
 .overlay__acciones button {
   font-size: var(--font-size-small);
 }

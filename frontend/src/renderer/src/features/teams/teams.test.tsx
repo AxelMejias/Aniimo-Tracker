@@ -10,7 +10,7 @@ import App from '../../App'
 
 afterEach(cleanup)
 
-const CUATRO_TEAMS = [1, 2, 3, 4].map((orden) => teamDePrueba(`Team ${orden}`, orden))
+const VEINTE_TEAMS = Array.from({ length: 20 }, (_, i) => teamDePrueba(`Team ${i + 1}`, i + 1))
 
 async function verMisTeams(): Promise<void> {
   await screen.findByRole('heading', { name: 'Mis teams' })
@@ -41,6 +41,7 @@ describe('listado de teams', () => {
       teams: {
         listar: async () => ({
           ok: true,
+          grupos: [],
           teams: [teamDePrueba('Principal', 1, { 1: RESUMEN_DE_IRISALIS })]
         })
       }
@@ -48,7 +49,7 @@ describe('listado de teams', () => {
     render(<App />)
     await verMisTeams()
     const team = within(tarjetaDeTeam('Principal'))
-    expect(team.getByText('Irisalis')).toBeInTheDocument()
+    expect(team.getByText('Irisalis', { selector: '.tarjeta-aniimo__nombre' })).toBeInTheDocument()
     expect(team.getByText('Nivel 60')).toBeInTheDocument()
     expect(team.getByText('CP 3475')).toBeInTheDocument()
     expect(team.getByText('ENFJ')).toBeInTheDocument()
@@ -65,11 +66,11 @@ describe('listado de teams', () => {
     expect(screen.queryByRole('button', { name: 'Agregar Aniimo' })).toBeNull()
   })
 
-  it('con cuatro teams no ofrece Crear team', async () => {
-    instalarApi({ teams: { listar: async () => ({ ok: true, teams: CUATRO_TEAMS }) } })
+  it('con veinte teams no ofrece Crear team', async () => {
+    instalarApi({ teams: { listar: async () => ({ ok: true, grupos: [], teams: VEINTE_TEAMS }) } })
     render(<App />)
     await verMisTeams()
-    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(4)
+    expect(screen.getAllByRole('heading', { level: 4 })).toHaveLength(20)
     expect(screen.queryByRole('button', { name: 'Crear team' })).toBeNull()
   })
 
@@ -79,7 +80,7 @@ describe('listado de teams', () => {
     })
     render(<App />)
     expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
-    api.teams.listar.mockResolvedValueOnce({ ok: true, teams: [teamDePrueba('Recargado')] })
+    api.teams.listar.mockResolvedValueOnce({ ok: true, grupos: [], teams: [teamDePrueba('Recargado')] })
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(await screen.findByRole('heading', { name: 'Recargado' })).toBeInTheDocument()
   })
@@ -89,6 +90,7 @@ describe('listado de teams', () => {
       teams: {
         listar: async () => ({
           ok: true,
+          grupos: [],
           teams: [teamDePrueba('Principal', 1, { 1: RESUMEN_DE_IRISALIS })]
         })
       }
@@ -102,7 +104,7 @@ describe('listado de teams', () => {
 describe('crear team', () => {
   it('propone Team N, envia el nombre elegido y recarga la lista', async () => {
     const api = instalarApi({
-      teams: { listar: async () => ({ ok: true, teams: [teamDePrueba('Principal', 1)] }) }
+      teams: { listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Principal', 1)] }) }
     })
     render(<App />)
     await verMisTeams()
@@ -111,6 +113,7 @@ describe('crear team', () => {
     expect(campo.value).toBe('Team 2')
     api.teams.listar.mockResolvedValueOnce({
       ok: true,
+      grupos: [],
       teams: [teamDePrueba('Principal', 1), teamDePrueba('Raid', 2)]
     })
     fireEvent.change(campo, { target: { value: 'Raid' } })
@@ -131,7 +134,7 @@ describe('crear team', () => {
   it('con el maximo de teams alcanzado muestra el mensaje del limite', async () => {
     instalarApi({
       teams: {
-        listar: async () => ({ ok: true, teams: [teamDePrueba('Principal', 1)] }),
+        listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Principal', 1)] }),
         crear: async () => ({ ok: false, error: 'limite-de-teams' })
       }
     })
@@ -139,7 +142,7 @@ describe('crear team', () => {
     await verMisTeams()
     fireEvent.click(screen.getByRole('button', { name: 'Crear team' }))
     fireEvent.click(screen.getByRole('button', { name: 'Crear' }))
-    expect(await screen.findByText('Ya tenés el máximo de 4 teams')).toBeInTheDocument()
+    expect(await screen.findByText('Ya tenés el máximo de 20 teams')).toBeInTheDocument()
   })
 
   it('cancelar cierra el formulario sin llamar a la API', async () => {
@@ -156,12 +159,12 @@ describe('crear team', () => {
 describe('renombrar team', () => {
   it('envia el nuevo nombre y muestra el que devuelve la recarga', async () => {
     const api = instalarApi({
-      teams: { listar: async () => ({ ok: true, teams: [teamDePrueba('Viejo', 1)] }) }
+      teams: { listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Viejo', 1)] }) }
     })
     render(<App />)
     await verMisTeams()
     fireEvent.click(screen.getByRole('button', { name: 'Renombrar' }))
-    api.teams.listar.mockResolvedValueOnce({ ok: true, teams: [teamDePrueba('Nuevo', 1)] })
+    api.teams.listar.mockResolvedValueOnce({ ok: true, grupos: [], teams: [teamDePrueba('Nuevo', 1)] })
     fireEvent.change(screen.getByLabelText('Nuevo nombre'), { target: { value: 'Nuevo' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar nombre' }))
     expect(await screen.findByRole('heading', { name: 'Nuevo' })).toBeInTheDocument()
@@ -174,7 +177,7 @@ describe('renombrar team', () => {
   it('con datos-invalidos muestra el mensaje y conserva el nombre anterior', async () => {
     instalarApi({
       teams: {
-        listar: async () => ({ ok: true, teams: [teamDePrueba('Viejo', 1)] }),
+        listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Viejo', 1)] }),
         renombrar: async () => ({ ok: false, error: 'datos-invalidos' })
       }
     })
@@ -192,7 +195,7 @@ describe('renombrar team', () => {
 
 describe('borrar team', () => {
   async function abrirBorrado(api = instalarApi({
-    teams: { listar: async () => ({ ok: true, teams: [teamDePrueba('Raid', 1)] }) }
+    teams: { listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Raid', 1)] }) }
   })) {
     render(<App />)
     await verMisTeams()
@@ -210,7 +213,7 @@ describe('borrar team', () => {
 
   it('confirmar borra y recarga la lista sin el team', async () => {
     const api = await abrirBorrado()
-    api.teams.listar.mockResolvedValueOnce({ ok: true, teams: [] })
+    api.teams.listar.mockResolvedValueOnce({ ok: true, grupos: [], teams: [] })
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar borrado' }))
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Raid' })).toBeNull())
     expect(api.teams.borrar).toHaveBeenCalledWith({ teamId: teamDePrueba('Raid', 1).id })
@@ -222,7 +225,7 @@ describe('estado pendiente y sesion', () => {
     let resolver: (valor: { ok: true }) => void = () => undefined
     const api = instalarApi({
       teams: {
-        listar: async () => ({ ok: true, teams: [teamDePrueba('Raid', 1)] }),
+        listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Raid', 1)] }),
         borrar: () => new Promise((resolve) => (resolver = resolve))
       }
     })
@@ -269,7 +272,7 @@ describe('estado pendiente y sesion', () => {
 describe('navegacion a la ficha', () => {
   it('abrir una tarjeta vacia muestra la ficha y Cancelar vuelve recargando la lista', async () => {
     const api = instalarApi({
-      teams: { listar: async () => ({ ok: true, teams: [teamDePrueba('Principal', 1)] }) }
+      teams: { listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Principal', 1)] }) }
     })
     render(<App />)
     await verMisTeams()
@@ -287,7 +290,7 @@ describe('navegacion a la ficha', () => {
 
   it('guardar un Aniimo nuevo vuelve a Mis teams con la tarjeta actualizada', async () => {
     const api = instalarApi({
-      teams: { listar: async () => ({ ok: true, teams: [teamDePrueba('Principal', 1)] }) }
+      teams: { listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Principal', 1)] }) }
     })
     render(<App />)
     await verMisTeams()
@@ -296,6 +299,7 @@ describe('navegacion a la ficha', () => {
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Irisalis' } })
     api.teams.listar.mockResolvedValueOnce({
       ok: true,
+      grupos: [],
       teams: [teamDePrueba('Principal', 1, { 1: RESUMEN_DE_IRISALIS })]
     })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
@@ -306,7 +310,7 @@ describe('navegacion a la ficha', () => {
   it('sesion vencida desde la ficha vuelve al login con el aviso', async () => {
     instalarApi({
       teams: {
-        listar: async () => ({ ok: true, teams: [teamDePrueba('Principal', 1)] }),
+        listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Principal', 1)] }),
         obtenerFicha: async () => ({ ok: false, error: 'sesion-vencida' })
       }
     })
@@ -324,7 +328,7 @@ describe('ocultar un team a los amigos', () => {
   async function abrirRaid(oculto = false) {
     const api = instalarApi({
       teams: {
-        listar: async () => ({ ok: true, teams: [teamDePrueba('Raid', 1, {}, oculto)] })
+        listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Raid', 1, {}, oculto)] })
       }
     })
     render(<App />)
@@ -352,6 +356,7 @@ describe('ocultar un team a los amigos', () => {
     const api = await abrirRaid(false)
     api.teams.listar.mockResolvedValueOnce({
       ok: true,
+      grupos: [],
       teams: [teamDePrueba('Raid', 1, {}, true)]
     })
     fireEvent.click(casilla())
@@ -365,7 +370,7 @@ describe('ocultar un team a los amigos', () => {
 
   it('desmarcarla envia ocultoParaAmigos en false', async () => {
     const api = await abrirRaid(true)
-    api.teams.listar.mockResolvedValueOnce({ ok: true, teams: [teamDePrueba('Raid', 1)] })
+    api.teams.listar.mockResolvedValueOnce({ ok: true, grupos: [], teams: [teamDePrueba('Raid', 1)] })
     fireEvent.click(casilla())
     await waitFor(() => expect(casilla().checked).toBe(false))
     expect(api.teams.cambiarVisibilidad).toHaveBeenCalledWith({
@@ -378,7 +383,7 @@ describe('ocultar un team a los amigos', () => {
     let resolver: (valor: { ok: true; team: typeof RAID }) => void = () => undefined
     const api = instalarApi({
       teams: {
-        listar: async () => ({ ok: true, teams: [teamDePrueba('Raid', 1)] }),
+        listar: async () => ({ ok: true, grupos: [], teams: [teamDePrueba('Raid', 1)] }),
         cambiarVisibilidad: () => new Promise((resolve) => (resolver = resolve))
       }
     })
@@ -389,6 +394,7 @@ describe('ocultar un team a los amigos', () => {
     expect(casilla().checked).toBe(false)
     api.teams.listar.mockResolvedValueOnce({
       ok: true,
+      grupos: [],
       teams: [teamDePrueba('Raid', 1, {}, true)]
     })
     resolver({ ok: true, team: RAID })
@@ -431,7 +437,7 @@ describe('abrir un team en el overlay', () => {
   async function verRaid(sobrescribir: Parameters<typeof instalarApi>[0] = {}) {
     const api = instalarApi({
       ...sobrescribir,
-      teams: { listar: async () => ({ ok: true, teams: [RAID, PVP] }), ...sobrescribir.teams }
+      teams: { listar: async () => ({ ok: true, grupos: [], teams: [RAID, PVP] }), ...sobrescribir.teams }
     })
     render(<App />)
     await verMisTeams()
@@ -474,7 +480,7 @@ describe('abrir un team en el overlay', () => {
     fireEvent.click(botonDe('Raid'))
     expect(await within(tarjetaDeTeam('Raid')).findByText('No se pudo abrir el overlay')).toBeInTheDocument()
     expect(within(tarjetaDeTeam('PvP')).queryByText('No se pudo abrir el overlay')).toBeNull()
-    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(2)
+    expect(screen.getAllByRole('heading', { level: 4 })).toHaveLength(2)
     expect(botonDe('Raid')).toBeEnabled()
   })
 

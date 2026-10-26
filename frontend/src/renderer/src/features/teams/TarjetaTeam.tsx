@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactElement } from 'react'
+import { useState, type FormEvent, type HTMLAttributes, type ReactElement } from 'react'
 import type { ErrorDeOverlay } from '../../../../shared/overlay'
 import type { ErrorDeTeams, TeamResumen } from '../../../../shared/teams'
 import Confirmacion from '../../shared/components/Confirmacion'
@@ -7,7 +7,14 @@ import {
   mensajeDeErrorDeNombreDeTeam,
   mensajeDeErrorDeTeams
 } from './mensajes'
+import ControlesDeOrden from './ControlesDeOrden'
+import type { Direccion } from './destinoDeArrastre'
 import TarjetaAniimo from './TarjetaAniimo'
+
+export interface OpcionDeGrupo {
+  readonly id: string
+  readonly nombre: string
+}
 
 interface TarjetaTeamProps {
   readonly team: TeamResumen
@@ -17,6 +24,15 @@ interface TarjetaTeamProps {
   readonly alBorrar: () => Promise<ErrorDeTeams | null>
   readonly alAbrirSlot: (teamId: string, slot: number) => void
   readonly alAbrirEnOverlay: () => Promise<ErrorDeOverlay | null>
+  readonly opcionesDeGrupo: readonly OpcionDeGrupo[]
+  readonly alCambiarGrupo: (grupoId: string | null) => Promise<ErrorDeTeams | null>
+  readonly alElegirPortada: (slot: number | null) => Promise<ErrorDeTeams | null>
+  readonly puedeSubir: boolean
+  readonly puedeBajar: boolean
+  readonly alMover: (direccion: Direccion) => void
+  readonly esDestino: boolean
+  readonly propsDeLaTarjeta: HTMLAttributes<HTMLElement>
+  readonly propsDelEncabezado: HTMLAttributes<HTMLElement>
 }
 
 export default function TarjetaTeam({
@@ -26,7 +42,16 @@ export default function TarjetaTeam({
   alCambiarVisibilidad,
   alBorrar,
   alAbrirSlot,
-  alAbrirEnOverlay
+  alAbrirEnOverlay,
+  opcionesDeGrupo,
+  alCambiarGrupo,
+  alElegirPortada,
+  puedeSubir,
+  puedeBajar,
+  alMover,
+  esDestino,
+  propsDeLaTarjeta,
+  propsDelEncabezado
 }: TarjetaTeamProps): ReactElement {
   const [editando, setEditando] = useState(false)
   const [nombre, setNombre] = useState(team.nombre)
@@ -59,6 +84,22 @@ export default function TarjetaTeam({
     }
   }
 
+  async function cambiarGrupo(valor: string): Promise<void> {
+    setMensaje(null)
+    const error = await alCambiarGrupo(valor === '' ? null : valor)
+    if (error !== null) {
+      setMensaje(mensajeDeErrorDeTeams(error))
+    }
+  }
+
+  async function elegirPortada(valor: string): Promise<void> {
+    setMensaje(null)
+    const error = await alElegirPortada(valor === '' ? null : Number(valor))
+    if (error !== null) {
+      setMensaje(mensajeDeErrorDeTeams(error))
+    }
+  }
+
   async function abrirEnOverlay(): Promise<void> {
     setMensaje(null)
     setAbriendo(true)
@@ -72,6 +113,8 @@ export default function TarjetaTeam({
     }
   }
 
+  const slotsOcupados = team.slots.filter((slot) => slot.aniimo !== null)
+
   async function borrar(): Promise<void> {
     const error = await alBorrar()
     if (error !== null) {
@@ -81,11 +124,15 @@ export default function TarjetaTeam({
   }
 
   return (
-    <section className="tarjeta-team" aria-labelledby={`team-${team.id}`}>
-      <header className="tarjeta-team__encabezado">
-        <h3 className="tarjeta-team__nombre" id={`team-${team.id}`}>
+    <section
+      className={esDestino ? 'tarjeta-team tarjeta-team--destino' : 'tarjeta-team'}
+      aria-labelledby={`team-${team.id}`}
+      {...propsDeLaTarjeta}
+    >
+      <header className="tarjeta-team__encabezado" {...propsDelEncabezado}>
+        <h4 className="tarjeta-team__nombre" id={`team-${team.id}`}>
           {team.nombre}
-        </h3>
+        </h4>
         {team.ocultoParaAmigos && (
           <span className="tarjeta-team__marca">Oculto para amigos</span>
         )}
@@ -99,6 +146,47 @@ export default function TarjetaTeam({
             />
             Oculto para amigos
           </label>
+          <label className="tarjeta-team__selector">
+            Grupo
+            <select
+              value={team.grupoId ?? ''}
+              disabled={deshabilitado}
+              onChange={(e) => void cambiarGrupo(e.target.value)}
+            >
+              <option value="">Sin grupo</option>
+              {opcionesDeGrupo.map((grupo) => (
+                <option key={grupo.id} value={grupo.id}>
+                  {grupo.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+          {slotsOcupados.length > 0 && (
+            <label className="tarjeta-team__selector">
+              Portada
+              <select
+                value={team.portadaSlot === null ? '' : String(team.portadaSlot)}
+                disabled={deshabilitado}
+                onChange={(e) => void elegirPortada(e.target.value)}
+              >
+                <option value="">Automática</option>
+                {slotsOcupados.map((slot) => (
+                  <option key={slot.slot} value={String(slot.slot)}>
+                    {slot.aniimo?.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <ControlesDeOrden
+            tipo="team"
+            id={team.id}
+            nombre={team.nombre}
+            puedeSubir={puedeSubir}
+            puedeBajar={puedeBajar}
+            deshabilitado={deshabilitado}
+            alMover={alMover}
+          />
           <button
             type="button"
             disabled={deshabilitado || abriendo}
@@ -162,6 +250,7 @@ export default function TarjetaTeam({
             aniimo={slot.aniimo}
             deshabilitado={deshabilitado}
             alAbrir={(numero) => alAbrirSlot(team.id, numero)}
+            esPortada={slot.slot === team.portadaEfectivaSlot}
           />
         ))}
       </div>

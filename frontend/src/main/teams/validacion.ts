@@ -21,6 +21,7 @@ import {
   type PedidoCrear,
   type PedidoDeSlot,
   type PedidoDeTeam,
+  type PedidoElegirPortada,
   type PedidoGuardarFicha,
   type PedidoRenombrar
 } from '../../shared/teams'
@@ -87,6 +88,14 @@ export function esPedidoCambiarVisibilidad(valor: unknown): valor is PedidoCambi
     tieneClaves(valor, ['teamId', 'ocultoParaAmigos']) &&
     esIdDeTeam(valor.teamId) &&
     typeof valor.ocultoParaAmigos === 'boolean'
+  )
+}
+
+export function esPedidoElegirPortada(valor: unknown): valor is PedidoElegirPortada {
+  return (
+    tieneClaves(valor, ['teamId', 'slot']) &&
+    esIdDeTeam(valor.teamId) &&
+    (valor.slot === null || esSlot(valor.slot))
   )
 }
 

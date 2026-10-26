@@ -15,6 +15,8 @@ import type {
   FichaBase,
   FichaDeAmigo,
   FichaEntrada,
+  GrupoDeAmigo,
+  GrupoResumen,
   Material,
   Objeto,
   ResumenDeAniimo,
@@ -271,17 +273,46 @@ export function teamDeAmigoDeApi(valor: unknown): TeamDeAmigo {
     id: texto(t.id),
     nombre: texto(t.nombre),
     orden: entero(t.orden),
+    grupoId: textoONulo(t.grupo_id),
+    portadaSlot: enteroONulo(t.portada_slot),
     slots: lista(t.slots).map(slotDeApi)
   }
 }
 
 export function teamDeApi(valor: unknown): TeamResumen {
   const t = registro(valor)
-  return { ...teamDeAmigoDeApi(t), ocultoParaAmigos: booleano(t.oculto_para_amigos) }
+  return {
+    ...teamDeAmigoDeApi(t),
+    ocultoParaAmigos: booleano(t.oculto_para_amigos),
+    portadaEfectivaSlot: enteroONulo(t.portada_efectiva_slot)
+  }
 }
 
-export function listaDeTeamsDeApi(valor: unknown): TeamResumen[] {
-  return lista(registro(valor).teams).map(teamDeApi)
+export function grupoDeAmigoDeApi(valor: unknown): GrupoDeAmigo {
+  const g = registro(valor)
+  return {
+    id: texto(g.id),
+    nombre: texto(g.nombre),
+    orden: entero(g.orden),
+    teamIds: lista(g.team_ids).map(texto),
+    portadaTeamId: textoONulo(g.portada_team_id)
+  }
+}
+
+export function grupoDeApi(valor: unknown): GrupoResumen {
+  const g = registro(valor)
+  return {
+    ...grupoDeAmigoDeApi(g),
+    portadaEfectivaTeamId: textoONulo(g.portada_efectiva_team_id)
+  }
+}
+
+export function listaDeTeamsDeApi(valor: unknown): {
+  teams: TeamResumen[]
+  grupos: GrupoResumen[]
+} {
+  const cuerpo = registro(valor)
+  return { teams: lista(cuerpo.teams).map(teamDeApi), grupos: lista(cuerpo.grupos).map(grupoDeApi) }
 }
 
 export function camposDeValidacion(cuerpo: unknown): string[] {

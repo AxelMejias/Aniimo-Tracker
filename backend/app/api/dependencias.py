@@ -7,6 +7,7 @@ from app.api.limite_de_intentos import LimitadoresDeAuth
 from app.application.amigos import ServicioDeAmigos
 from app.application.auth import ServicioDeAuth
 from app.application.calculo import ServicioDeCalculo
+from app.application.grupos import ServicioDeGrupos
 from app.application.teams import ServicioDeTeams
 from app.domain.entidades import Sesion, Usuario
 from app.domain.errores import SesionInvalida
@@ -21,6 +22,11 @@ def servicio_de_auth(request: Request) -> ServicioDeAuth:
 
 def servicio_de_teams(request: Request) -> ServicioDeTeams:
     servicio: ServicioDeTeams = request.app.state.servicio_de_teams
+    return servicio
+
+
+def servicio_de_grupos(request: Request) -> ServicioDeGrupos:
+    servicio: ServicioDeGrupos = request.app.state.servicio_de_grupos
     return servicio
 
 

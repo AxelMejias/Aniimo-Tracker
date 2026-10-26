@@ -19,6 +19,7 @@ function preparar(sobrescribir: Partial<ControladorOverlay> = {}) {
   }
   const controlador = {
     abrir: vi.fn(async () => ({ ok: true as const })),
+    seleccionar: vi.fn(() => ({ ok: true as const })),
     cerrar: vi.fn(),
     seleccion: vi.fn(() => null),
     ...sobrescribir
@@ -35,10 +36,10 @@ function preparar(sobrescribir: Partial<ControladorOverlay> = {}) {
 }
 
 describe('registrarManejadoresDeOverlay', () => {
-  it('registra exactamente los tres canales', () => {
+  it('registra exactamente los cuatro canales', () => {
     const { manejadores } = preparar()
     expect([...manejadores.keys()].sort()).toEqual(Object.values(CANALES_OVERLAY).sort())
-    expect(manejadores.size).toBe(3)
+    expect(manejadores.size).toBe(4)
   })
 
   it('abrir con payload valido llama al controlador', async () => {
@@ -59,7 +60,12 @@ describe('registrarManejadoresDeOverlay', () => {
     }
   )
 
-  it.each([CANALES_OVERLAY.abrir, CANALES_OVERLAY.cerrar, CANALES_OVERLAY.obtenerSeleccion])(
+  it.each([
+    CANALES_OVERLAY.abrir,
+    CANALES_OVERLAY.seleccionar,
+    CANALES_OVERLAY.cerrar,
+    CANALES_OVERLAY.obtenerSeleccion
+  ])(
     '%s con remitente ajeno responde datos-invalidos sin tocar el overlay',
     async (canal) => {
       const { controlador, invocar } = preparar()
@@ -70,10 +76,40 @@ describe('registrarManejadoresDeOverlay', () => {
         })
       }
       expect(controlador.abrir).not.toHaveBeenCalled()
+      expect(controlador.seleccionar).not.toHaveBeenCalled()
       expect(controlador.cerrar).not.toHaveBeenCalled()
       expect(controlador.seleccion).not.toHaveBeenCalled()
     }
   )
+
+  it('seleccionar con payload valido llama al controlador con el teamId', async () => {
+    const { controlador, invocar } = preparar()
+    expect(await invocar(CANALES_OVERLAY.seleccionar, PROPIO, { teamId: T1 })).toEqual({ ok: true })
+    expect(controlador.seleccionar).toHaveBeenCalledWith(T1)
+    expect(controlador.abrir).not.toHaveBeenCalled()
+  })
+
+  it.each([{ teamId: 'abc' }, { teamId: T1, extra: 1 }, {}, null, 'texto'])(
+    'seleccionar con payload invalido %j responde datos-invalidos',
+    async (payload) => {
+      const { controlador, invocar } = preparar()
+      expect(await invocar(CANALES_OVERLAY.seleccionar, PROPIO, payload)).toEqual({
+        ok: false,
+        error: 'datos-invalidos'
+      })
+      expect(controlador.seleccionar).not.toHaveBeenCalled()
+    }
+  )
+
+  it('seleccionar sin sesion responde sesion-vencida', async () => {
+    const { invocar } = preparar({
+      seleccionar: vi.fn(() => ({ ok: false as const, error: 'sesion-vencida' as const }))
+    })
+    expect(await invocar(CANALES_OVERLAY.seleccionar, PROPIO, { teamId: T1 })).toEqual({
+      ok: false,
+      error: 'sesion-vencida'
+    })
+  })
 
   it('abrir sin sesion responde sesion-vencida', async () => {
     const { invocar } = preparar({

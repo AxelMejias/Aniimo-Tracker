@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.teams import DatosDeFicha
 from app.application.unit_of_work import UnitOfWork
-from app.domain.entidades import AniimoDelTeam, Sesion, Team, Usuario
+from app.domain.entidades import AniimoDelTeam, GrupoDeTeams, Sesion, Team, Usuario
 from app.infrastructure.contrasenas import HasherArgon2
 
 
@@ -255,3 +255,13 @@ def solicitud_pendiente(solicitante: Persona, destinatario: Persona) -> None:
         "/api/amigos/solicitudes", json={"usuario_id": str(destinatario.id)}
     )
     assert respuesta.status_code == 201
+
+
+def persistir_grupo(
+    session_factory: sessionmaker[Session], usuario: Usuario, orden: int = 1, nombre: str = ""
+) -> GrupoDeTeams:
+    grupo = GrupoDeTeams(usuario_id=usuario.id, nombre=nombre or f"Grupo {orden}", orden=orden)
+    with UnitOfWork(session_factory) as uow:
+        uow.grupos.agregar(grupo)
+        uow.commit()
+    return grupo

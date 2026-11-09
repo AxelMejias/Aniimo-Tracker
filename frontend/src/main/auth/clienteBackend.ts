@@ -76,8 +76,8 @@ async function errorDeRespuesta(respuesta: Response): Promise<ErrorDeAuth> {
   }
 }
 
-export function crearClienteBackend(fetchFn: FetchFn, sesion: SesionEnMemoria): ClienteBackend {
-  const peticion = crearPeticion(fetchFn, sesion)
+export function crearClienteBackend(fetchFn: FetchFn, sesion: SesionEnMemoria, urlBase?: string): ClienteBackend {
+  const peticion = crearPeticion(fetchFn, sesion, urlBase)
 
   async function pedir(
     metodo: 'GET' | 'POST',

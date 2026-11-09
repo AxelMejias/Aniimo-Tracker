@@ -8,17 +8,21 @@ import {
 } from 'react'
 import type { ErrorDeTeams, Ficha } from '../../../../shared/teams'
 import Confirmacion from '../../shared/components/Confirmacion'
+import { STATS } from '../../../../shared/catalogos'
 import { useCatalogoCompartido } from '../calculo/useCatalogo'
 import { mensajeDeErrorDeTeams } from '../teams/mensajes'
 import {
   BloqueDeEntrenamiento,
   BloqueDeNotas,
   BloqueDeObjetos,
+  BloqueDePotencial,
   BloqueDeStats,
   DatosGenerales
 } from './bloques'
+import CartaDeFicha from './CartaDeFicha'
 import { formularioDeFicha, formularioVacio, type FormularioDeFicha } from './formulario'
 import ImagenDelAniimo from './ImagenDelAniimo'
+import PestanasDeFicha from './PestanasDeFicha'
 import {
   aDataUrl,
   esTipoDeImagenPermitido,
@@ -31,6 +35,7 @@ import {
   type ErroresDeFicha,
   type FilasUsadas
 } from './validacionFicha'
+import { MigasDeFicha, useUbicacionDeFicha, type NavegacionDeFicha } from './UbicacionDeFicha'
 import './ficha.css'
 
 const MENSAJE_IMAGEN_NO_PERMITIDA = 'Imagen no permitida: solo PNG, JPEG o WebP'
@@ -51,6 +56,20 @@ interface EditorDeFichaProps {
   readonly alVolver: (guardada: boolean) => void
   readonly alSesionVencida: () => void
   readonly alCambiarSinGuardar?: (hayCambios: boolean) => void
+  readonly migas?: NavegacionDeFicha
+}
+
+const PESTANAS = [
+  { id: 'generales', etiqueta: 'Generales' },
+  { id: 'stats', etiqueta: 'Stats' },
+  { id: 'entrenamiento', etiqueta: 'Entrenamiento' },
+  { id: 'objetos', etiqueta: 'Objetos' },
+  { id: 'notas', etiqueta: 'Notas' },
+  { id: 'potencial', etiqueta: 'Potencial' }
+] as const
+
+function potencialComoNumero(texto: string): number | null {
+  return /^\d+$/.test(texto.trim()) ? Number(texto.trim()) : null
 }
 
 export default function EditorDeFicha({
@@ -60,7 +79,8 @@ export default function EditorDeFicha({
   recodificar,
   alVolver,
   alSesionVencida,
-  alCambiarSinGuardar
+  alCambiarSinGuardar,
+  migas
 }: EditorDeFichaProps): ReactElement {
   const [formularioInicial] = useState<FormularioDeFicha>(() =>
     inicial === null ? formularioVacio() : formularioDeFicha(inicial)
@@ -79,6 +99,9 @@ export default function EditorDeFicha({
   const [pendiente, setPendiente] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
   const [descartando, setDescartando] = useState(false)
+  const [activa, setActiva] = useState<string>(PESTANAS[0].id)
+  const [enfocarError, setEnfocarError] = useState(false)
+  const ubicacion = useUbicacionDeFicha(teamId, slot)
 
   const catalogo = useCatalogoCompartido(alSesionVencida)
   const tieneImagenGuardada = inicial?.tieneImagen ?? false
@@ -93,10 +116,23 @@ export default function EditorDeFicha({
   }, [hayCambios, alCambiarSinGuardar])
 
   useEffect(() => {
-    if (Object.keys(errores).length > 0) {
-      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+    if (Object.keys(errores).length === 0) {
+      return
     }
+    const invalido = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')
+    const pestana = invalido?.closest<HTMLElement>('[data-pestana]')?.dataset['pestana']
+    if (pestana !== undefined) {
+      setActiva(pestana)
+    }
+    setEnfocarError(true)
   }, [errores])
+
+  useEffect(() => {
+    if (enfocarError) {
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+      setEnfocarError(false)
+    }
+  }, [enfocarError, activa])
 
   useEffect(() => {
     if (!tieneImagenGuardada) {
@@ -240,15 +276,44 @@ export default function EditorDeFicha({
   }
 
   const propiedades = { formulario, errores, deshabilitado: pendiente, alCambiar: setFormulario }
+  const contenidos: Readonly<Record<(typeof PESTANAS)[number]['id'], ReactElement>> = {
+    generales: <DatosGenerales {...propiedades} />,
+    stats: (
+      <BloqueDeStats {...propiedades} catalogo={catalogo} alSesionVencida={alSesionVencida} />
+    ),
+    entrenamiento: <BloqueDeEntrenamiento {...propiedades} />,
+    objetos: <BloqueDeObjetos {...propiedades} />,
+    notas: <BloqueDeNotas {...propiedades} />,
+    potencial: (
+      <BloqueDePotencial {...propiedades} catalogo={catalogo} alSesionVencida={alSesionVencida} />
+    )
+  }
 
   return (
     <form ref={formRef} className="ficha" onSubmit={(e) => void guardar(e)} onPaste={alPegar} noValidate>
+      {migas !== undefined && (
+        <MigasDeFicha slot={slot} ubicacion={ubicacion} navegacion={migas} />
+      )}
       <h2 className="ficha__titulo" tabIndex={-1}>
         Ficha del Aniimo (slot {slot})
       </h2>
-      <DatosGenerales
-        {...propiedades}
-        imagen={
+      <div className="ficha__cuerpo">
+        <CartaDeFicha
+          nombre={formulario.nombre}
+          nivel={formulario.nivel}
+          cp={formulario.cp}
+          elemento={formulario.elemento === '' ? null : formulario.elemento}
+          rol={formulario.rol === '' ? null : formulario.rol}
+          personalidad={formulario.personalidad.join('')}
+          esPortada={ubicacion?.esPortada ?? false}
+          imagen={vistaPrevia}
+          altDeImagen="Vista previa del Aniimo"
+          potenciales={STATS.map(({ codigo, etiqueta }) => ({
+            codigo,
+            etiqueta,
+            valor: potencialComoNumero(formulario.stats[codigo].potencial)
+          }))}
+        >
           <ImagenDelAniimo
             src={vistaPrevia}
             mensaje={mensajeDeImagen}
@@ -256,12 +321,17 @@ export default function EditorDeFicha({
             alElegir={(archivo) => void procesarArchivo(archivo)}
             alQuitar={quitarImagen}
           />
-        }
-      />
-      <BloqueDeStats {...propiedades} catalogo={catalogo} alSesionVencida={alSesionVencida} />
-      <BloqueDeEntrenamiento {...propiedades} />
-      <BloqueDeObjetos {...propiedades} />
-      <BloqueDeNotas {...propiedades} />
+        </CartaDeFicha>
+        <PestanasDeFicha
+          activa={activa}
+          alCambiar={setActiva}
+          paneles={PESTANAS.map(({ id, etiqueta }) => ({
+            id,
+            etiqueta,
+            contenido: contenidos[id]
+          }))}
+        />
+      </div>
       {mensaje !== null && (
         <p className="campo__error" role="alert">
           {mensaje}

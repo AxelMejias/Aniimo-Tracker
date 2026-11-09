@@ -23,3 +23,6 @@ htmlcov/
 frontend/out/
 frontend/release/
 .vite/
+
+backend/dist/
+backend/build/

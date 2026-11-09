@@ -46,7 +46,11 @@ function datosBase(): Datos {
   }
 }
 
-async function montar(datos: Datos = datosBase(), extra: Parameters<typeof instalarApi>[0] = {}) {
+async function montar(
+  datos: Datos = datosBase(),
+  extra: Parameters<typeof instalarApi>[0] = {},
+  conOrganizar = false
+) {
   const api = instalarApi({
     ...extra,
     teams: { listar: async () => ({ ok: true, ...datos }), ...extra.teams }
@@ -54,11 +58,30 @@ async function montar(datos: Datos = datosBase(), extra: Parameters<typeof insta
   render(<App />)
   await screen.findByRole('heading', { name: 'Mis teams' })
   await waitFor(() => expect(screen.queryByText('Cargando teams…')).toBeNull())
+  if (conOrganizar) {
+    fireEvent.click(screen.getByRole('button', { name: 'Organizar' }))
+  }
   return api
+}
+
+function organizar(datos: Datos = datosBase(), extra: Parameters<typeof instalarApi>[0] = {}) {
+  return montar(datos, extra, true)
 }
 
 function region(nombre: string): HTMLElement {
   return screen.getByRole('region', { name: nombre })
+}
+
+function grupoEnMazo(nombre: string): HTMLElement {
+  return region(`Grupo ${nombre}`)
+}
+
+function botonDelGrupo(nombre: string): HTMLElement {
+  return within(grupoEnMazo(nombre)).getByRole('button', { name: new RegExp(`^${nombre} `) })
+}
+
+function sueltoEnMazo(nombre: string): HTMLElement {
+  return screen.getByRole('group', { name: nombre })
 }
 
 function encabezadoDe(nombre: string): HTMLElement {
@@ -75,30 +98,35 @@ function nombresDeTeams(contenedor: HTMLElement): string[] {
     .map((encabezado) => encabezado.textContent ?? '')
 }
 
-describe('contador y secciones por grupo', () => {
-  it('muestra el contador n/20 teams', async () => {
+function nombresDePilasSueltas(): string[] {
+  return within(screen.getByRole('region', { name: 'Teams sueltos' }))
+    .getAllByRole('button', { name: /^Team / })
+    .map((pila) => /^Team (.*), \d de 4 Aniimo$/.exec(pila.getAttribute('aria-label') ?? '')?.[1] ?? '')
+}
+
+describe('contador y grupos en el mazo', () => {
+  it('muestra el contador completo', async () => {
     await montar()
     expect(screen.getByText('6/20 teams')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (_, elemento) =>
+          elemento?.tagName === 'P' &&
+          elemento.textContent === '6/20 teams · 2 de 4 grupos · 2 teams sueltos'
+      )
+    ).toBeInTheDocument()
   })
 
   it('con cero teams el contador es 0/20 teams y no hay secciones', async () => {
     await montar({ teams: [], grupos: [] })
     expect(screen.getByText('0/20 teams')).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Sin grupo' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Teams sueltos' })).toBeNull()
   })
 
-  it('con cuatro teams propone Team 5', async () => {
-    const cuatro = [1, 2, 3, 4].map((n) => teamDePrueba(`T${n}`, n))
-    await montar({ teams: cuatro, grupos: [] })
-    fireEvent.click(screen.getByRole('button', { name: 'Crear team' }))
-    expect((screen.getByLabelText('Nombre del team') as HTMLInputElement).value).toBe('Team 5')
-    expect(screen.getByText('4/20 teams')).toBeInTheDocument()
-  })
-
-  it('con veinte teams no ofrece Crear team y avisa del maximo', async () => {
+  it('con veinte teams no ofrece Nuevo team y avisa del maximo', async () => {
     const veinte = Array.from({ length: 20 }, (_, i) => teamDePrueba(`Team ${i + 1}`, i + 1))
     await montar({ teams: veinte, grupos: [] })
-    expect(screen.queryByRole('button', { name: 'Crear team' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Nuevo team' })).toBeNull()
     expect(screen.getByText('Llegaste al máximo de 20 teams.')).toBeInTheDocument()
     expect(screen.getByText('20/20 teams')).toBeInTheDocument()
   })
@@ -110,34 +138,124 @@ describe('contador y secciones por grupo', () => {
     ).toBeInTheDocument()
   })
 
-  it('muestra una seccion por grupo en orden y Sin grupo al final', async () => {
+  it('muestra un grupo en abanico por grupo en orden y las pilas de Teams sueltos', async () => {
     await montar()
-    const titulos = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-    expect(titulos).toEqual(['Buildeado', 'Homeland', 'Sin grupo'])
-    const buildeado = within(region('Buildeado'))
-    expect(buildeado.getByText('3/5 teams')).toBeInTheDocument()
-    expect(nombresDeTeams(region('Buildeado'))).toEqual(['Principal', 'Raid', 'Jefes'])
-    expect(within(region('Homeland')).getByText('1/5 teams')).toBeInTheDocument()
-    expect(nombresDeTeams(region('Sin grupo'))).toEqual(['Farmeo', 'Eventos'])
+    const grupos = screen
+      .getAllByRole('region')
+      .map((r) => r.getAttribute('aria-label') ?? '')
+      .filter((nombre) => nombre.startsWith('Grupo '))
+    expect(grupos).toEqual(['Grupo Buildeado', 'Grupo Homeland'])
+    expect(botonDelGrupo('Buildeado')).toHaveTextContent('3 teams · portada «Principal»')
+    expect(botonDelGrupo('Homeland')).toHaveTextContent('1 team · portada «Casa»')
+    expect(nombresDePilasSueltas()).toEqual(['Farmeo', 'Eventos'])
   })
 
   it('ordena los grupos por orden aunque lleguen desordenados', async () => {
     const datos = datosBase()
     await montar({ teams: datos.teams, grupos: [...datos.grupos].reverse() })
-    const titulos = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
-    expect(titulos.slice(0, 2)).toEqual(['Buildeado', 'Homeland'])
+    const grupos = screen
+      .getAllByRole('region')
+      .map((r) => r.getAttribute('aria-label') ?? '')
+      .filter((nombre) => nombre.startsWith('Grupo '))
+    expect(grupos).toEqual(['Grupo Buildeado', 'Grupo Homeland'])
   })
 
-  it('sin grupos pero con teams sueltos muestra solo Sin grupo', async () => {
+  it('sin grupos pero con teams sueltos muestra solo las pilas sueltas', async () => {
     await montar({ teams: [FARMEO], grupos: [] })
-    expect(nombresDeTeams(region('Sin grupo'))).toEqual(['Farmeo'])
+    expect(nombresDePilasSueltas()).toEqual(['Farmeo'])
+    expect(screen.queryByRole('region', { name: /^Grupo / })).toBeNull()
+  })
+
+  it('muestra la ayuda del teclado cuando hay grupos', async () => {
+    await montar()
+    expect(
+      screen.getByText(
+        'Pasá el puntero sobre un grupo, o enfocalo con Tab y apretá T, para desplegar sus teams. 1-5 abre un team · Esc cierra.',
+        { exact: false }
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('en modo mazo ninguna pila ni grupo es draggable y no hay Subir ni Bajar', async () => {
+    await montar()
+    expect(document.querySelectorAll('[draggable="true"]')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: /^(Subir|Bajar) / })).toBeNull()
   })
 
   it('no usa atributos style', async () => {
     instalarApi({ teams: { listar: async () => ({ ok: true, ...datosBase() }) } })
     const { container } = render(<App />)
-    await screen.findByRole('region', { name: 'Buildeado' })
+    await screen.findByRole('region', { name: 'Grupo Buildeado' })
     expect(container.querySelectorAll('[style]')).toHaveLength(0)
+  })
+})
+
+describe('modo Organizar', () => {
+  it('Organizar alterna aria-pressed y Listo vuelve al mazo', async () => {
+    await montar()
+    const boton = screen.getByRole('button', { name: 'Organizar' })
+    expect(boton).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(boton)
+    expect(screen.getByRole('button', { name: 'Organizar' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Listo' }))
+    expect(screen.getByRole('button', { name: 'Organizar' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('button', { name: 'Listo' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Grupo Buildeado' })).toBeInTheDocument()
+  })
+
+  it('muestra una seccion por grupo en orden y Sin grupo al final', async () => {
+    await organizar()
+    const titulos = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+    expect(titulos).toEqual(['Buildeado', 'Homeland', 'Sin grupo'])
+    expect(within(region('Buildeado')).getByText('3/5 teams')).toBeInTheDocument()
+    expect(nombresDeTeams(region('Buildeado'))).toEqual(['Principal', 'Raid', 'Jefes'])
+    expect(within(region('Homeland')).getByText('1/5 teams')).toBeInTheDocument()
+    expect(nombresDeTeams(region('Sin grupo'))).toEqual(['Farmeo', 'Eventos'])
+  })
+
+  it('sin grupos pero con teams sueltos muestra solo Sin grupo', async () => {
+    await organizar({ teams: [FARMEO], grupos: [] })
+    expect(nombresDeTeams(region('Sin grupo'))).toEqual(['Farmeo'])
+  })
+
+  it('cambiar de modo con un abanico abierto lo pliega', async () => {
+    await montar()
+    fireEvent.click(botonDelGrupo('Buildeado'))
+    expect(botonDelGrupo('Buildeado')).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Organizar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Listo' }))
+    expect(botonDelGrupo('Buildeado')).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('no usa atributos style', async () => {
+    await organizar()
+    expect(document.querySelectorAll('[style]')).toHaveLength(0)
+  })
+
+  it('Borrar grupo pide confirmacion y Cancelar no llama a la API', async () => {
+    const api = await organizar()
+    fireEvent.click(screen.getByRole('button', { name: 'Borrar grupo Homeland' }))
+    expect(
+      screen.getByText(/Los teams quedan sin grupo/, { selector: '[role="alertdialog"] *' })
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(api.grupos.borrar).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('confirmar borra el grupo y sus teams aparecen en Sin grupo', async () => {
+    const api = await organizar()
+    fireEvent.click(screen.getByRole('button', { name: 'Borrar grupo Homeland' }))
+    const datos = datosBase()
+    api.teams.listar.mockResolvedValueOnce({
+      ok: true,
+      teams: datos.teams.map((team) => (team.id === CASA.id ? { ...team, grupoId: null } : team)),
+      grupos: [datos.grupos[0]!]
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar borrado' }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Homeland' })).toBeNull())
+    expect(api.grupos.borrar).toHaveBeenCalledWith({ grupoId: datos.grupos[1]!.id })
+    expect(nombresDeTeams(region('Sin grupo'))).toContain('Casa')
   })
 })
 
@@ -153,7 +271,7 @@ describe('nuevo grupo', () => {
   })
 
   it('crea el grupo con el nombre escrito y recarga con la respuesta', async () => {
-    const homeland = armarGrupo('Mi grupo', 3, [])
+    const nuevo = armarGrupo('Mi grupo', 3, [])
     const api = await montar()
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo grupo' }))
     fireEvent.change(screen.getByLabelText('Nombre del grupo'), { target: { value: ' Mi grupo ' } })
@@ -161,10 +279,10 @@ describe('nuevo grupo', () => {
     api.grupos.crear.mockResolvedValueOnce({
       ok: true,
       teams: datos.teams,
-      grupos: [...datos.grupos, homeland.grupo]
+      grupos: [...datos.grupos, nuevo.grupo]
     })
     fireEvent.click(screen.getByRole('button', { name: 'Crear grupo' }))
-    expect(await screen.findByRole('heading', { name: 'Mi grupo' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Grupo Mi grupo' })).toBeInTheDocument()
     expect(api.grupos.crear).toHaveBeenCalledWith({ nombre: 'Mi grupo' })
     expect(screen.queryByLabelText('Nombre del grupo')).toBeNull()
   })
@@ -217,10 +335,10 @@ describe('nuevo grupo', () => {
   })
 })
 
-describe('renombrar y borrar grupo', () => {
-  it('renombra el grupo y muestra el nombre de la respuesta', async () => {
+describe('renombrar grupo en el mazo', () => {
+  it('renombra el grupo y el boton del grupo muestra el nombre de la respuesta', async () => {
     const api = await montar()
-    fireEvent.click(screen.getByRole('button', { name: 'Renombrar grupo Buildeado' }))
+    fireEvent.click(within(grupoEnMazo('Buildeado')).getByRole('button', { name: 'Renombrar' }))
     const datos = datosBase()
     api.grupos.renombrar.mockResolvedValueOnce({
       ok: true,
@@ -231,52 +349,176 @@ describe('renombrar y borrar grupo', () => {
       target: { value: 'Principales' }
     })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar nombre del grupo' }))
-    expect(await screen.findByRole('heading', { name: 'Principales' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Grupo Principales' })).toBeInTheDocument()
+    expect(botonDelGrupo('Principales')).toHaveTextContent('Principales')
     expect(api.grupos.renombrar).toHaveBeenCalledWith({
       grupoId: datos.grupos[0]!.id,
       nombre: 'Principales'
     })
   })
 
-  it('con datos-invalidos muestra el mensaje en la seccion y conserva el nombre', async () => {
+  it('con datos-invalidos muestra el mensaje junto al grupo y conserva el nombre', async () => {
     await montar(datosBase(), {
       grupos: { renombrar: async () => ({ ok: false, error: 'datos-invalidos' }) }
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Renombrar grupo Homeland' }))
+    fireEvent.click(within(grupoEnMazo('Homeland')).getByRole('button', { name: 'Renombrar' }))
     fireEvent.change(screen.getByLabelText('Nuevo nombre del grupo'), { target: { value: 'x' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar nombre del grupo' }))
     expect(
-      await within(region('Homeland')).findByText(
+      await within(grupoEnMazo('Homeland')).findByText(
         'El nombre del grupo debe tener entre 1 y 50 caracteres'
       )
     ).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Homeland' })).toBeInTheDocument()
+    expect(botonDelGrupo('Homeland')).toBeInTheDocument()
   })
 
-  it('cancelar el borrado no llama a la API', async () => {
+  it('Cancelar cierra el formulario sin llamar a la API', async () => {
     const api = await montar()
-    fireEvent.click(screen.getByRole('button', { name: 'Borrar grupo Homeland' }))
-    expect(
-      screen.getByText(/Los teams quedan sin grupo/, { selector: '[role="alertdialog"] *' })
-    ).toBeInTheDocument()
+    fireEvent.click(within(grupoEnMazo('Homeland')).getByRole('button', { name: 'Renombrar' }))
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
-    expect(api.grupos.borrar).not.toHaveBeenCalled()
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByLabelText('Nuevo nombre del grupo')).toBeNull()
+    expect(api.grupos.renombrar).not.toHaveBeenCalled()
+  })
+})
+
+describe('Agrupar un team suelto desde el mazo', () => {
+  function selectorDe(nombre: string): HTMLSelectElement {
+    return within(sueltoEnMazo(nombre)).getByLabelText('Grupo') as HTMLSelectElement
+  }
+
+  function abrirAgrupar(nombre: string): void {
+    fireEvent.click(within(sueltoEnMazo(nombre)).getByRole('button', { name: 'Agrupar' }))
+  }
+
+  it('el selector aparece al tocar Agrupar con Sin grupo y los grupos con lugar', async () => {
+    await montar()
+    expect(within(sueltoEnMazo('Farmeo')).queryByLabelText('Grupo')).toBeNull()
+    abrirAgrupar('Farmeo')
+    expect(Array.from(selectorDe('Farmeo').options).map((o) => o.text)).toEqual([
+      'Sin grupo',
+      'Buildeado',
+      'Homeland'
+    ])
   })
 
-  it('confirmar borra el grupo y sus teams aparecen en Sin grupo', async () => {
-    const api = await montar()
-    fireEvent.click(screen.getByRole('button', { name: 'Borrar grupo Homeland' }))
+  it('un grupo con cinco teams no se ofrece', async () => {
+    const lleno = armarGrupo('Lleno', 1, [1, 2, 3, 4, 5].map((n) => teamDePrueba(`L${n}`, n)))
+    await montar({ teams: [...lleno.teams, teamDePrueba('Suelto', 6)], grupos: [lleno.grupo] })
+    abrirAgrupar('Suelto')
+    expect(Array.from(selectorDe('Suelto').options).map((o) => o.text)).toEqual(['Sin grupo'])
+  })
+
+  it('elegir un grupo llama a agregarTeam, espera deshabilitado y usa la respuesta', async () => {
+    const { promesa, resolver } = promesaManual()
+    const api = await montar(datosBase(), { grupos: { agregarTeam: () => promesa } })
     const datos = datosBase()
-    api.teams.listar.mockResolvedValueOnce({
-      ok: true,
-      teams: datos.teams.map((team) => (team.id === CASA.id ? { ...team, grupoId: null } : team)),
-      grupos: [datos.grupos[0]!]
+    abrirAgrupar('Farmeo')
+    fireEvent.change(selectorDe('Farmeo'), { target: { value: datos.grupos[1]!.id } })
+    expect(api.grupos.agregarTeam).toHaveBeenCalledWith({
+      grupoId: datos.grupos[1]!.id,
+      teamId: FARMEO.id
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar borrado' }))
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Homeland' })).toBeNull())
-    expect(api.grupos.borrar).toHaveBeenCalledWith({ grupoId: datos.grupos[1]!.id })
-    expect(nombresDeTeams(region('Sin grupo'))).toContain('Casa')
+    await waitFor(() => expect(selectorDe('Farmeo')).toBeDisabled())
+    const homeland = armarGrupo('Homeland', 2, [CASA, FARMEO])
+    resolver({
+      ok: true,
+      teams: [
+        ...datos.teams.filter((t) => t.grupoId === datos.grupos[0]!.id),
+        ...homeland.teams,
+        EVENTOS
+      ],
+      grupos: [datos.grupos[0]!, homeland.grupo]
+    })
+    await waitFor(() => expect(nombresDePilasSueltas()).toEqual(['Eventos']))
+    expect(botonDelGrupo('Homeland')).toHaveTextContent('2 teams')
+  })
+
+  it('con grupo-lleno muestra el mensaje junto al team y no lo mueve', async () => {
+    await montar(datosBase(), {
+      grupos: { agregarTeam: async () => ({ ok: false, error: 'grupo-lleno' }) }
+    })
+    abrirAgrupar('Farmeo')
+    fireEvent.change(selectorDe('Farmeo'), { target: { value: datosBase().grupos[1]!.id } })
+    expect(
+      await within(sueltoEnMazo('Farmeo')).findByText('Ese grupo ya tiene el máximo de 5 teams')
+    ).toBeInTheDocument()
+    expect(nombresDePilasSueltas()).toContain('Farmeo')
+  })
+
+  it('con sesion-vencida vuelve al login', async () => {
+    await montar(datosBase(), {
+      grupos: { agregarTeam: async () => ({ ok: false, error: 'sesion-vencida' }) }
+    })
+    abrirAgrupar('Farmeo')
+    fireEvent.change(selectorDe('Farmeo'), { target: { value: datosBase().grupos[1]!.id } })
+    await screen.findByRole('button', { name: 'Iniciar sesión' })
+  })
+})
+
+describe('portada del grupo', () => {
+  function abrirPortada(nombre: string): HTMLSelectElement {
+    fireEvent.click(within(grupoEnMazo(nombre)).getByRole('button', { name: 'Elegir portada' }))
+    return within(grupoEnMazo(nombre)).getByLabelText('Portada del grupo') as HTMLSelectElement
+  }
+
+  it('Elegir portada muestra el selector con Automatica y los teams del grupo', async () => {
+    const api = await montar()
+    expect(within(grupoEnMazo('Buildeado')).queryByLabelText('Portada del grupo')).toBeNull()
+    const selector = abrirPortada('Buildeado')
+    expect(Array.from(selector.options).map((o) => o.text)).toEqual([
+      'Automática',
+      'Principal',
+      'Raid',
+      'Jefes'
+    ])
+    expect(selector.value).toBe('')
+    fireEvent.change(selector, { target: { value: JEFES.id } })
+    expect(api.grupos.elegirPortada).toHaveBeenCalledWith({
+      grupoId: datosBase().grupos[0]!.id,
+      teamId: JEFES.id
+    })
+  })
+
+  it('volver a Automatica llama con teamId null y el selector muestra la elegida', async () => {
+    const datos = datosBase()
+    const grupos = [{ ...datos.grupos[0]!, portadaTeamId: RAID.id }, datos.grupos[1]!]
+    const api = await montar({ teams: datos.teams, grupos })
+    const selector = abrirPortada('Buildeado')
+    expect(selector.value).toBe(RAID.id)
+    fireEvent.change(selector, { target: { value: '' } })
+    expect(api.grupos.elegirPortada).toHaveBeenCalledWith({
+      grupoId: datos.grupos[0]!.id,
+      teamId: null
+    })
+  })
+
+  it('la portada elegida es la que se ve al cerrar el grupo', async () => {
+    const datos = datosBase()
+    const api = await montar()
+    const selector = abrirPortada('Buildeado')
+    api.grupos.elegirPortada.mockResolvedValueOnce({
+      ok: true,
+      teams: datos.teams,
+      grupos: [
+        { ...datos.grupos[0]!, portadaTeamId: JEFES.id, portadaEfectivaTeamId: JEFES.id },
+        datos.grupos[1]!
+      ]
+    })
+    fireEvent.change(selector, { target: { value: JEFES.id } })
+    await waitFor(() => expect(botonDelGrupo('Buildeado')).toHaveTextContent('portada «Jefes»'))
+  })
+
+  it('con error muestra el mensaje junto al grupo', async () => {
+    await montar(datosBase(), {
+      grupos: { elegirPortada: async () => ({ ok: false, error: 'no-encontrado' }) }
+    })
+    const selector = abrirPortada('Homeland')
+    fireEvent.change(selector, { target: { value: CASA.id } })
+    expect(
+      await within(grupoEnMazo('Homeland')).findByText(
+        'No se encontró el elemento, volvé a cargar la lista'
+      )
+    ).toBeInTheDocument()
   })
 })
 
@@ -290,7 +532,7 @@ describe('selector Grupo de cada team', () => {
   }
 
   it('ofrece Sin grupo, el grupo actual y los grupos con lugar', async () => {
-    await montar()
+    await organizar()
     expect(opciones(selectorDe('Raid'))).toEqual(['Sin grupo', 'Buildeado', 'Homeland'])
     expect(selectorDe('Raid').value).toBe(datosBase().grupos[0]!.id)
     expect(selectorDe('Farmeo').value).toBe('')
@@ -300,14 +542,14 @@ describe('selector Grupo de cada team', () => {
     const cinco = [1, 2, 3, 4, 5].map((n) => teamDePrueba(`Lleno ${n}`, n))
     const lleno = armarGrupo('Lleno', 1, cinco)
     const suelto = teamDePrueba('Suelto', 6)
-    await montar({ teams: [...lleno.teams, suelto], grupos: [lleno.grupo] })
+    await organizar({ teams: [...lleno.teams, suelto], grupos: [lleno.grupo] })
     expect(opciones(selectorDe('Suelto'))).toEqual(['Sin grupo'])
     expect(opciones(selectorDe('Lleno 1'))).toEqual(['Sin grupo', 'Lleno'])
   })
 
   it('agregar a un grupo llama a grupos.agregarTeam, espera deshabilitado y usa la respuesta', async () => {
     const { promesa, resolver } = promesaManual()
-    const api = await montar(datosBase(), { grupos: { agregarTeam: () => promesa } })
+    const api = await organizar(datosBase(), { grupos: { agregarTeam: () => promesa } })
     const datos = datosBase()
     fireEvent.change(selectorDe('Farmeo'), { target: { value: datos.grupos[1]!.id } })
     expect(api.grupos.agregarTeam).toHaveBeenCalledWith({
@@ -330,7 +572,7 @@ describe('selector Grupo de cada team', () => {
   })
 
   it('mover entre grupos llama a agregarTeam con el grupo destino', async () => {
-    const api = await montar()
+    const api = await organizar()
     const datos = datosBase()
     fireEvent.change(selectorDe('Raid'), { target: { value: datos.grupos[1]!.id } })
     expect(api.grupos.agregarTeam).toHaveBeenCalledWith({
@@ -341,7 +583,7 @@ describe('selector Grupo de cada team', () => {
   })
 
   it('elegir Sin grupo llama a sacarTeam con el grupo actual y recarga la lista', async () => {
-    const api = await montar()
+    const api = await organizar()
     const datos = datosBase()
     api.teams.listar.mockResolvedValueOnce({
       ok: true,
@@ -358,7 +600,7 @@ describe('selector Grupo de cada team', () => {
   })
 
   it('con grupo-lleno muestra el mensaje en el team y no lo mueve', async () => {
-    await montar(datosBase(), {
+    await organizar(datosBase(), {
       grupos: { agregarTeam: async () => ({ ok: false, error: 'grupo-lleno' }) }
     })
     fireEvent.change(selectorDe('Farmeo'), { target: { value: datosBase().grupos[1]!.id } })
@@ -367,99 +609,6 @@ describe('selector Grupo de cada team', () => {
     ).toBeInTheDocument()
     expect(nombresDeTeams(region('Sin grupo'))).toContain('Farmeo')
     expect(selectorDe('Farmeo').value).toBe('')
-  })
-})
-
-describe('portadas', () => {
-  it('el selector Portada del grupo ofrece Automatica y los teams del grupo', async () => {
-    const api = await montar()
-    const selector = within(region('Buildeado')).getByLabelText('Portada del grupo') as HTMLSelectElement
-    expect(Array.from(selector.options).map((o) => o.text)).toEqual([
-      'Automática',
-      'Principal',
-      'Raid',
-      'Jefes'
-    ])
-    expect(selector.value).toBe('')
-    fireEvent.change(selector, { target: { value: JEFES.id } })
-    expect(api.grupos.elegirPortada).toHaveBeenCalledWith({
-      grupoId: datosBase().grupos[0]!.id,
-      teamId: JEFES.id
-    })
-  })
-
-  it('volver a Automatica llama con teamId null y muestra la portada elegida', async () => {
-    const datos = datosBase()
-    const grupos = [{ ...datos.grupos[0]!, portadaTeamId: RAID.id }, datos.grupos[1]!]
-    const api = await montar({ teams: datos.teams, grupos })
-    const selector = within(region('Buildeado')).getByLabelText('Portada del grupo') as HTMLSelectElement
-    expect(selector.value).toBe(RAID.id)
-    fireEvent.change(selector, { target: { value: '' } })
-    expect(api.grupos.elegirPortada).toHaveBeenCalledWith({
-      grupoId: datos.grupos[0]!.id,
-      teamId: null
-    })
-  })
-
-  it('el selector Portada del team ofrece Automatica y los slots ocupados por nombre', async () => {
-    const api = await montar()
-    const selector = within(region('Principal')).getByLabelText('Portada') as HTMLSelectElement
-    expect(Array.from(selector.options).map((o) => o.text)).toEqual(['Automática', 'Irisalis', 'Orcus'])
-    expect(selector.value).toBe('')
-    fireEvent.change(selector, { target: { value: '3' } })
-    expect(api.teams.elegirPortada).toHaveBeenCalledWith({ teamId: PRINCIPAL.id, slot: 3 })
-  })
-
-  it('el selector Portada del team muestra la elegida y vuelve a Automatica con null', async () => {
-    const datos = datosBase()
-    const api = await montar({
-      teams: datos.teams.map((team) =>
-        team.id === PRINCIPAL.id ? { ...team, portadaSlot: 3, portadaEfectivaSlot: 3 } : team
-      ),
-      grupos: datos.grupos
-    })
-    const selector = within(region('Principal')).getByLabelText('Portada') as HTMLSelectElement
-    expect(selector.value).toBe('3')
-    fireEvent.change(selector, { target: { value: '' } })
-    expect(api.teams.elegirPortada).toHaveBeenCalledWith({ teamId: PRINCIPAL.id, slot: null })
-  })
-
-  it('marca como Portada la tarjeta efectiva y ninguna otra', async () => {
-    const datos = datosBase()
-    await montar({
-      teams: datos.teams.map((team) =>
-        team.id === PRINCIPAL.id ? { ...team, portadaEfectivaSlot: 3 } : team
-      ),
-      grupos: datos.grupos
-    })
-    const tarjetas = within(region('Principal')).getAllByRole('button', { name: /Nivel|Agregar Aniimo/ })
-    const marcadas = tarjetas.filter((tarjeta) => within(tarjeta).queryByText('Portada') !== null)
-    expect(marcadas).toHaveLength(1)
-    expect(within(marcadas[0]!).getByText('Orcus')).toBeInTheDocument()
-  })
-
-  it('un team vacio no ofrece el selector Portada ni marca', async () => {
-    await montar()
-    expect(within(region('Raid')).queryByLabelText('Portada')).toBeNull()
-    expect(within(region('Raid')).queryByText('Portada')).toBeNull()
-  })
-
-  it('elegir portada recarga con la respuesta del listado', async () => {
-    const api = await montar()
-    const datos = datosBase()
-    api.teams.listar.mockResolvedValueOnce({
-      ok: true,
-      teams: datos.teams.map((team) =>
-        team.id === PRINCIPAL.id ? { ...team, portadaSlot: 3, portadaEfectivaSlot: 3 } : team
-      ),
-      grupos: datos.grupos
-    })
-    fireEvent.change(within(region('Principal')).getByLabelText('Portada'), {
-      target: { value: '3' }
-    })
-    await waitFor(() =>
-      expect((within(region('Principal')).getByLabelText('Portada') as HTMLSelectElement).value).toBe('3')
-    )
   })
 })
 
@@ -492,7 +641,7 @@ function ningunCanalDeOrden(api: Awaited<ReturnType<typeof montar>>): void {
 
 describe('arrastrar y soltar', () => {
   it('soltar un grupo sobre otro llama a grupos.ordenar con la lista completa', async () => {
-    const api = await montar()
+    const api = await organizar()
     const datos = datosBase()
     arrastrar(encabezadoDe('Homeland'), region('Buildeado'), TIPO_GRUPO)
     await waitFor(() =>
@@ -503,7 +652,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('la vista muestra el orden de la respuesta', async () => {
-    const api = await montar()
+    const api = await organizar()
     const datos = datosBase()
     api.grupos.ordenar.mockResolvedValueOnce({
       ok: true,
@@ -524,7 +673,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('soltar un team sobre otro de su grupo llama a ordenarTeams con la lista completa', async () => {
-    const api = await montar()
+    const api = await organizar()
     arrastrar(encabezadoDe('Jefes'), region('Principal'), TIPO_TEAM)
     await waitFor(() =>
       expect(api.grupos.ordenarTeams).toHaveBeenCalledWith({
@@ -535,7 +684,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('soltar un team suelto sobre otro llama a ordenarSueltos', async () => {
-    const api = await montar()
+    const api = await organizar()
     arrastrar(encabezadoDe('Eventos'), region('Farmeo'), TIPO_TEAM)
     await waitFor(() =>
       expect(api.grupos.ordenarSueltos).toHaveBeenCalledWith({ teamIds: [EVENTOS.id, FARMEO.id] })
@@ -543,7 +692,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('soltar un team suelto sobre la seccion de un grupo llama a agregarTeam', async () => {
-    const api = await montar()
+    const api = await organizar()
     arrastrar(encabezadoDe('Farmeo'), region('Homeland'), TIPO_TEAM)
     await waitFor(() =>
       expect(api.grupos.agregarTeam).toHaveBeenCalledWith({
@@ -556,7 +705,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('soltar un team de un grupo sobre Sin grupo llama a sacarTeam con su grupo', async () => {
-    const api = await montar()
+    const api = await organizar()
     arrastrar(encabezadoDe('Raid'), region('Sin grupo'), TIPO_TEAM)
     await waitFor(() =>
       expect(api.grupos.sacarTeam).toHaveBeenCalledWith({
@@ -570,7 +719,7 @@ describe('arrastrar y soltar', () => {
     const cinco = [1, 2, 3, 4, 5].map((n) => teamDePrueba(`Lleno ${n}`, n))
     const lleno = armarGrupo('Lleno', 1, cinco)
     const suelto = teamDePrueba('Suelto', 6)
-    const api = await montar({ teams: [...lleno.teams, suelto], grupos: [lleno.grupo] })
+    const api = await organizar({ teams: [...lleno.teams, suelto], grupos: [lleno.grupo] })
     const dataTransfer = transferencia(TIPO_TEAM)
     fireEvent.dragStart(encabezadoDe('Suelto'), { dataTransfer })
     fireEvent.dragOver(region('Lleno'), { dataTransfer })
@@ -580,7 +729,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('marca el destino valido con una clase y sin style', async () => {
-    await montar()
+    await organizar()
     const dataTransfer = transferencia(TIPO_TEAM)
     fireEvent.dragStart(encabezadoDe('Farmeo'), { dataTransfer })
     fireEvent.dragOver(region('Homeland'), { dataTransfer })
@@ -591,14 +740,14 @@ describe('arrastrar y soltar', () => {
   })
 
   it('soltar sobre si mismo no llama a nada', async () => {
-    const api = await montar()
+    const api = await organizar()
     arrastrar(encabezadoDe('Raid'), region('Raid'), TIPO_TEAM)
     arrastrar(encabezadoDe('Homeland'), region('Homeland'), TIPO_GRUPO)
     ningunCanalDeOrden(api)
   })
 
   it('un archivo soltado no llama a nada', async () => {
-    const api = await montar()
+    const api = await organizar()
     const archivo = new File(['x'], 'imagen.png', { type: 'image/png' })
     const dataTransfer = { types: ['Files'], files: [archivo], dropEffect: '' }
     fireEvent.dragOver(region('Homeland'), { dataTransfer })
@@ -609,7 +758,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('un link o texto soltado no llama a nada', async () => {
-    const api = await montar()
+    const api = await organizar()
     const dataTransfer = { types: ['text/uri-list', 'text/plain'], dropEffect: '' }
     fireEvent.drop(region('Homeland'), { dataTransfer })
     fireEvent.drop(region('Sin grupo'), { dataTransfer })
@@ -617,13 +766,13 @@ describe('arrastrar y soltar', () => {
   })
 
   it('un tipo propio sin haber empezado el arrastre desde la app tampoco hace nada', async () => {
-    const api = await montar()
+    const api = await organizar()
     fireEvent.drop(region('Homeland'), { dataTransfer: transferencia(TIPO_TEAM) })
     ningunCanalDeOrden(api)
   })
 
   it('un team arrastrado no se acepta como grupo y viceversa', async () => {
-    const api = await montar()
+    const api = await organizar()
     const dataTransfer = transferencia(TIPO_GRUPO)
     fireEvent.dragStart(encabezadoDe('Farmeo'), { dataTransfer: transferencia(TIPO_TEAM) })
     fireEvent.drop(region('Homeland'), { dataTransfer })
@@ -632,7 +781,7 @@ describe('arrastrar y soltar', () => {
 
   it('mientras guarda no se puede arrastrar ni soltar', async () => {
     const { promesa, resolver } = promesaManual()
-    const api = await montar(datosBase(), { grupos: { ordenar: () => promesa } })
+    const api = await organizar(datosBase(), { grupos: { ordenar: () => promesa } })
     arrastrar(encabezadoDe('Homeland'), region('Buildeado'), TIPO_GRUPO)
     await waitFor(() => expect(encabezadoDe('Homeland').draggable).toBe(false))
     expect(encabezadoDe('Raid').draggable).toBe(false)
@@ -644,7 +793,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('con conflicto muestra el mensaje y recarga la lista', async () => {
-    const api = await montar(datosBase(), {
+    const api = await organizar(datosBase(), {
       grupos: { ordenar: async () => ({ ok: false, error: 'conflicto' }) }
     })
     arrastrar(encabezadoDe('Homeland'), region('Buildeado'), TIPO_GRUPO)
@@ -655,7 +804,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('con grupo-lleno al soltar muestra el mensaje en la seccion destino', async () => {
-    await montar(datosBase(), {
+    await organizar(datosBase(), {
       grupos: { agregarTeam: async () => ({ ok: false, error: 'grupo-lleno' }) }
     })
     arrastrar(encabezadoDe('Farmeo'), region('Homeland'), TIPO_TEAM)
@@ -665,7 +814,7 @@ describe('arrastrar y soltar', () => {
   })
 
   it('con sesion-vencida vuelve al login', async () => {
-    await montar(datosBase(), {
+    await organizar(datosBase(), {
       grupos: { ordenar: async () => ({ ok: false, error: 'sesion-vencida' }) }
     })
     arrastrar(encabezadoDe('Homeland'), region('Buildeado'), TIPO_GRUPO)
@@ -679,7 +828,7 @@ describe('Subir y Bajar con teclado', () => {
   }
 
   it('cada grupo y cada team tienen botones con nombre accesible', async () => {
-    await montar()
+    await organizar()
     for (const nombre of [
       'Subir grupo Buildeado',
       'Bajar grupo Buildeado',
@@ -692,7 +841,7 @@ describe('Subir y Bajar con teclado', () => {
   })
 
   it('estan deshabilitados en los extremos de su ambito', async () => {
-    await montar()
+    await organizar()
     expect(screen.getByRole('button', { name: 'Subir grupo Buildeado' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Bajar grupo Buildeado' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Bajar grupo Homeland' })).toBeDisabled()
@@ -704,7 +853,7 @@ describe('Subir y Bajar con teclado', () => {
   })
 
   it('se alcanzan con Tab y Bajar team llama a ordenarTeams con el par intercambiado', async () => {
-    const api = await montar()
+    const api = await organizar()
     const datos = datosBase()
     const boton = screen.getByRole('button', { name: 'Bajar team Principal' })
     boton.focus()
@@ -726,7 +875,7 @@ describe('Subir y Bajar con teclado', () => {
   })
 
   it('si el elemento queda en un extremo el foco pasa al otro boton', async () => {
-    const api = await montar()
+    const api = await organizar()
     const datos = datosBase()
     api.grupos.ordenarTeams.mockResolvedValueOnce({
       ok: true,
@@ -738,7 +887,7 @@ describe('Subir y Bajar con teclado', () => {
   })
 
   it('Subir grupo llama a ordenar con la lista intercambiada y el foco pasa al otro boton del grupo', async () => {
-    const api = await montar()
+    const api = await organizar()
     const datos = datosBase()
     api.grupos.ordenar.mockResolvedValueOnce({
       ok: true,
@@ -758,7 +907,7 @@ describe('Subir y Bajar con teclado', () => {
   })
 
   it('Bajar un team suelto llama a ordenarSueltos', async () => {
-    const api = await montar()
+    const api = await organizar()
     fireEvent.click(screen.getByRole('button', { name: 'Bajar team Farmeo' }))
     await waitFor(() =>
       expect(api.grupos.ordenarSueltos).toHaveBeenCalledWith({ teamIds: [EVENTOS.id, FARMEO.id] })
@@ -767,7 +916,7 @@ describe('Subir y Bajar con teclado', () => {
 
   it('mientras guarda los botones quedan deshabilitados', async () => {
     const { promesa, resolver } = promesaManual()
-    await montar(datosBase(), { grupos: { ordenarSueltos: () => promesa } })
+    await organizar(datosBase(), { grupos: { ordenarSueltos: () => promesa } })
     fireEvent.click(screen.getByRole('button', { name: 'Bajar team Farmeo' }))
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Bajar team Principal' })).toBeDisabled()
@@ -781,7 +930,7 @@ describe('Subir y Bajar con teclado', () => {
   })
 
   it('con conflicto muestra el mensaje y recarga', async () => {
-    const api = await montar(datosBase(), {
+    const api = await organizar(datosBase(), {
       grupos: { ordenarTeams: async () => ({ ok: false, error: 'conflicto' }) }
     })
     fireEvent.click(screen.getByRole('button', { name: 'Bajar team Principal' }))

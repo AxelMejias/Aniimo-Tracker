@@ -39,7 +39,7 @@ export type ResultadoDeConversion =
 
 const TOPE_GRANDE = 9_999_999
 const TOPE_DE_GANANCIAS = 9_999
-const POTENCIAL_MAXIMO = 20
+export const POTENCIAL_MAXIMO = 20
 
 export const MENSAJE_DE_NOMBRE = `El nombre debe tener entre 1 y ${LARGO_MAXIMO_NOMBRE_CORTO} caracteres`
 export const MENSAJE_DE_POTENCIAL = `El potencial debe estar entre 0 y ${POTENCIAL_MAXIMO}`

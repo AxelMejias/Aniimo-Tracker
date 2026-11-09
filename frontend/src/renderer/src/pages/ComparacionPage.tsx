@@ -47,6 +47,7 @@ type Resultado =
       readonly tipo: 'fichas'
       readonly izquierda: string
       readonly derecha: string
+      readonly nombres: Nombres
       readonly filas: readonly FilaDeComparacion[]
     }
   | {
@@ -59,6 +60,11 @@ type Resultado =
 type Veredicto =
   | { readonly tipo: 'listo'; readonly resultado: Resultado }
   | { readonly tipo: 'fallo'; readonly izquierda: string | null; readonly derecha: string | null }
+
+interface Nombres {
+  readonly izquierda: string
+  readonly derecha: string
+}
 
 interface Etiquetas {
   readonly izquierda: string
@@ -112,6 +118,7 @@ async function resolverFichas(
       tipo: 'fichas',
       izquierda: `${etiquetas.izquierda}: ${a.valor.nombre}`,
       derecha: `${etiquetas.derecha}: ${b.valor.nombre}`,
+      nombres: { izquierda: a.valor.nombre, derecha: b.valor.nombre },
       filas: compararFichas(a.valor, b.valor)
     }
   }
@@ -243,14 +250,21 @@ export default function ComparacionPage({
       <div className="comparacion__lados">
         <SelectorDeLado
           titulo="Lado izquierdo"
+          letra="A"
+          aniimo={resultado.tipo === 'fichas' ? resultado.nombres.izquierda : null}
           seleccion={izquierda}
           duenios={duenios}
           alCambiar={setIzquierda}
           alSinAcceso={() => sinAcceso('izquierda')}
           alSesionVencida={alSesionVencida}
         />
+        <span className="comparacion__vs" aria-hidden="true">
+          VS
+        </span>
         <SelectorDeLado
           titulo="Lado derecho"
+          letra="B"
+          aniimo={resultado.tipo === 'fichas' ? resultado.nombres.derecha : null}
           seleccion={derecha}
           duenios={duenios}
           alCambiar={setDerecha}

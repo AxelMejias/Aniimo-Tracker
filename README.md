@@ -147,6 +147,28 @@ npm install
 npm run dev
 ```
 
+## Install it (Windows)
+
+For using the app day to day, without the repo or a terminal. It needs Docker Desktop (set it to start with Windows; if it is closed the app shows a dialog asking you to open it and has a "Reintentar" button).
+
+```powershell
+# Build the installer (needs backend/.venv with requirements-build.txt and frontend/node_modules)
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-build.txt
+powershell -ExecutionPolicy Bypass -File scripts\empaquetar.ps1
+```
+
+The installer is `frontend\release\Aniimo-Team-Tracker-Setup-<version>.exe` (the version is the one in `frontend/package.json`; raise it by hand before building a new one). It installs for your user only, without administrator rights, in `%LOCALAPPDATA%\Programs\Aniimo Team Tracker\`, with shortcuts on the desktop and in the Start menu.
+
+- **SmartScreen**: the installer is not signed, so Windows shows "Windows protegio su PC" the first time. Click "Mas informacion" and then "Ejecutar de todas formas".
+- **First start**: the app creates `%APPDATA%\Aniimo Team Tracker\` with `compose.env` and `backend\.env` (a random database password, never committed or logged), starts its own database in Docker (project `aniimo-app`, `127.0.0.1:5436`), migrates it and starts the backend on `127.0.0.1:8001`. The first time Docker also downloads the Postgres image, so it can take a few minutes.
+- **Starts empty**: the installed app does not share data with the development one (`levantar.ps1`, ports 8000 and 5434); both can run at the same time.
+- **Logs**: `%APPDATA%\Aniimo Team Tracker\logs\backend.log` (the previous run is `backend.anterior.log`). Error dialogs tell you where it is.
+- **Before updating**: installing a newer version on top keeps your data and migrates the database on start. A migration can fail on real data, so take a backup first: `docker exec <container of the aniimo-app db> pg_dump -U aniimo aniimo > backup.sql` (`docker ps` shows the container name).
+- **Uninstall** keeps your data. To delete everything by hand, run `docker compose -p aniimo-app -f "%LOCALAPPDATA%\Programs\Aniimo Team Tracker\resources\docker-compose.app.yml" --env-file "%APPDATA%\Aniimo Team Tracker\compose.env" down -v` before uninstalling, then delete `%APPDATA%\Aniimo Team Tracker\`. If you already uninstalled, `docker rm -f <container>` and `docker volume rm aniimo-app-db-data` do the same.
+- **Open the app when Aniimo starts (optional, off by default)**: in "Ajustes" you can turn on "Abrir la app cuando arranca Aniimo". While it is on, every 5 seconds the app asks Windows for the list of running programs (the same list Task Manager shows) filtered by `Aniimo.exe`, and when the game appears it shows its window without taking the keyboard from the game. It does not read, touch or hook the game. Turn the option off and the polling stops completely.
+- **Start with Windows in the background (optional, off by default)**: "Arrancar con Windows en segundo plano" makes the app start when you log in, with no window and an icon in the notification area ("Abrir Aniimo Team Tracker" / "Salir"). Closing the window then hides it; "Salir" stops the app and its backend. Turning it off removes the entry from Windows "Aplicaciones de inicio". Only available in the installed app.
+- If `compose.env` or `backend\.env` goes missing but the volume still exists, the app refuses to invent a new password: restore the missing file from a copy, or delete the volume (this erases the teams) and start again.
+
 ## Tests
 
 ```bash

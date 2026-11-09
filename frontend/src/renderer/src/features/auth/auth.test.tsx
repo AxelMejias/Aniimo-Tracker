@@ -113,7 +113,7 @@ describe('arranque', () => {
   it('con sesion activa entra directo a la pantalla inicial', async () => {
     instalarApi({ obtenerSesion: async () => ({ ok: true, nombreUsuario: 'axel' }) })
     render(<App />)
-    expect(await screen.findByText('axel')).toBeInTheDocument()
+    expect(await screen.findByText('Sesión: axel')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument()
   })
 
@@ -137,7 +137,7 @@ describe('login', () => {
     const auth = instalarApi()
     render(<App />)
     await enviarLogin('Axel', 'una-clave-larga')
-    expect(await screen.findByText('axel')).toBeInTheDocument()
+    expect(await screen.findByText('Sesión: axel')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument()
     expect(auth.iniciarSesion).toHaveBeenCalledWith({
       nombreUsuario: 'Axel',
@@ -217,7 +217,7 @@ describe('registro', () => {
     const auth = instalarApi()
     render(<App />)
     await enviarRegistro('Axel', 'una-clave-larga')
-    expect(await screen.findByText('axel')).toBeInTheDocument()
+    expect(await screen.findByText('Sesión: axel')).toBeInTheDocument()
     expect(auth.registrarse).toHaveBeenCalledWith({
       nombreUsuario: 'Axel',
       contrasena: 'una-clave-larga'
@@ -287,7 +287,51 @@ describe('cerrar sesion', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Cerrar sesión' }))
     await verLogin()
     expect(auth.cerrarSesion).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText('axel')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sesión: axel')).not.toBeInTheDocument()
+  })
+})
+
+describe('panel de marca', () => {
+  const AVISO = 'Herramienta de fans no oficial. Sin afiliación con los desarrolladores de Aniimo.'
+
+  it('el login muestra el titulo de la app una sola vez y el aviso de no afiliacion', async () => {
+    instalarApi()
+    render(<App />)
+    await verLogin()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 1, name: 'Aniimo Team Tracker' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Iniciar sesión' })).toBeInTheDocument()
+    expect(screen.getByText(AVISO)).toBeInTheDocument()
+  })
+
+  it('el registro conserva el panel de marca y el aviso', async () => {
+    instalarApi()
+    render(<App />)
+    await irARegistro()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 2, name: 'Crear cuenta' })).toBeInTheDocument()
+    expect(screen.getByText(AVISO)).toBeInTheDocument()
+  })
+
+  it('el abanico de cartas es decorativo, sin imagenes y sin atributo style', async () => {
+    instalarApi()
+    const { container } = render(<App />)
+    await verLogin()
+    const abanico = container.querySelector('.auth-marca__abanico')
+    expect(abanico).not.toBeNull()
+    expect(abanico).toHaveAttribute('aria-hidden', 'true')
+    expect(container.querySelectorAll('img')).toHaveLength(0)
+    expect(container.querySelectorAll('[style]')).toHaveLength(0)
+  })
+
+  it('el panel de marca esta fuera del formulario', async () => {
+    instalarApi()
+    const { container } = render(<App />)
+    await verLogin()
+    const marca = container.querySelector('.auth-marca')
+    expect(marca).not.toBeNull()
+    expect(marca?.querySelector('form')).toBeNull()
+    expect(container.querySelector('form')?.contains(marca)).toBe(false)
   })
 })
 
@@ -318,7 +362,7 @@ describe('formularios', () => {
     instalarApi()
     render(<App />)
     await enviarLogin()
-    await screen.findByText('axel')
+    await screen.findByText('Sesión: axel')
     expect(window.localStorage.length).toBe(0)
     expect(window.sessionStorage.length).toBe(0)
   })
@@ -338,6 +382,6 @@ describe('formularios', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Iniciando sesión…' }))
     expect(auth.iniciarSesion).toHaveBeenCalledTimes(1)
     terminar(ENTRA_AXEL)
-    await screen.findByText('axel')
+    await screen.findByText('Sesión: axel')
   })
 })

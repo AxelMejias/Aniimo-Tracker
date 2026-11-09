@@ -44,6 +44,7 @@ async function abrirEditor(): Promise<void> {
 }
 
 async function abrirPanel(): Promise<void> {
+  fireEvent.click(screen.getByRole('tab', { name: 'Potencial' }))
   fireEvent.click(screen.getByRole('button', { name: 'Potencial y Despertar' }))
   await screen.findByRole('button', { name: 'Calcular potencial' })
 }
@@ -88,6 +89,7 @@ describe('apertura de la seccion', () => {
   it('esta plegada y no pide el catalogo hasta abrirla', async () => {
     const api = instalarApi({ teams: conFicha() })
     await abrirEditor()
+    fireEvent.click(screen.getByRole('tab', { name: 'Potencial' }))
 
     expect(screen.getByRole('button', { name: 'Potencial y Despertar' })).toHaveAttribute(
       'aria-expanded',
@@ -102,6 +104,7 @@ describe('apertura de la seccion', () => {
     await abrirEditor()
     await abrirPanel()
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Stats' }))
     fireEvent.click(screen.getByRole('button', { name: 'Sugerencia de stats' }))
     await screen.findByLabelText('Especie del catálogo')
 
@@ -124,6 +127,7 @@ describe('apertura de la seccion', () => {
       calculo: { obtenerCatalogo: async () => ({ ok: false, error: 'no-disponible' }) }
     })
     await abrirEditor()
+    fireEvent.click(screen.getByRole('tab', { name: 'Potencial' }))
     fireEvent.click(screen.getByRole('button', { name: 'Potencial y Despertar' }))
 
     expect(await screen.findByText(/El cálculo no está disponible/)).toBeInTheDocument()

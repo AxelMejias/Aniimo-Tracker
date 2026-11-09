@@ -41,8 +41,9 @@ from app.domain.crecimiento import (
     Redondeo,
     TipoDeModificador,
 )
+from app.recursos import carpeta_de_recursos
 
-RUTA_POR_DEFECTO = Path(__file__).resolve().parents[2] / "datos" / "catalogo_crecimiento.json"
+RUTA_POR_DEFECTO = carpeta_de_recursos() / "datos" / "catalogo_crecimiento.json"
 TAMANO_MAXIMO = 1024 * 1024
 
 StatClave = Literal["ps", "atq", "def_fisica", "def_magica", "regen", "quiebre"]

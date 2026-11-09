@@ -25,3 +25,12 @@ def test_requirements_dev_pin_exact_versions() -> None:
     assert lines, "requirements-dev.txt no tiene dependencias"
     for line in lines:
         assert "==" in line, f"Dependencia sin versión exacta: {line}"
+
+
+def test_requirements_build_pin_exact_versions_y_reusa_las_de_produccion() -> None:
+    ruta = BACKEND_DIR / "requirements-build.txt"
+    assert "-r requirements.txt" in ruta.read_text(encoding="utf-8").splitlines()
+    lines = _dependency_lines(ruta)
+    assert any(line.lower().startswith("pyinstaller==") for line in lines)
+    for line in lines:
+        assert "==" in line, f"Dependencia sin versión exacta: {line}"

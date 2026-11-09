@@ -42,31 +42,20 @@ export interface PropsDeBloque {
   readonly alCambiar: (siguiente: FormularioDeFicha) => void
 }
 
-function Bloque({ titulo, children }: { titulo: string; children: ReactNode }): ReactElement {
-  return (
-    <fieldset className="bloque">
-      <legend className="bloque__titulo">{titulo}</legend>
-      <div className="bloque__contenido">{children}</div>
-    </fieldset>
-  )
-}
-
-interface PropsDeDatosGenerales extends PropsDeBloque {
-  readonly imagen: ReactNode
+function Bloque({ children }: { children: ReactNode }): ReactElement {
+  return <div className="bloque bloque__contenido">{children}</div>
 }
 
 export function DatosGenerales({
   formulario,
   errores,
   deshabilitado,
-  alCambiar,
-  imagen
-}: PropsDeDatosGenerales): ReactElement {
+  alCambiar
+}: PropsDeBloque): ReactElement {
   const cambiar = (parcial: Partial<FormularioDeFicha>): void =>
     alCambiar({ ...formulario, ...parcial })
   return (
-    <Bloque titulo="Datos generales">
-      {imagen}
+    <Bloque>
       <CampoDeTexto
         etiqueta="Nombre"
         valor={formulario.nombre}
@@ -165,7 +154,7 @@ export function BloqueDeStats({
   alSesionVencida
 }: PropsDeBloqueDeStats): ReactElement {
   return (
-    <Bloque titulo="Stats">
+    <Bloque>
       {STATS.map(({ codigo, etiqueta }) => {
         const stat = formulario.stats[codigo]
         const cambiar = (parcial: Partial<FormularioDeStat>): void =>
@@ -217,6 +206,19 @@ export function BloqueDeStats({
         alCambiar={alCambiar}
         alSesionVencida={alSesionVencida}
       />
+    </Bloque>
+  )
+}
+
+export function BloqueDePotencial({
+  formulario,
+  deshabilitado,
+  alCambiar,
+  catalogo,
+  alSesionVencida
+}: PropsDeBloqueDeStats): ReactElement {
+  return (
+    <Bloque>
       <PanelDePotencial
         formulario={formulario}
         deshabilitado={deshabilitado}
@@ -246,7 +248,7 @@ export function BloqueDeEntrenamiento({
     alCambiar({ ...formulario, ...parcial })
   const restantes = despertaresRestantes(formulario)
   return (
-    <Bloque titulo="Entrenamiento">
+    <Bloque>
       <CampoDeTexto
         etiqueta="Estrella actual"
         numerico
@@ -356,7 +358,7 @@ export function BloqueDeObjetos({
   alCambiar
 }: PropsDeBloque): ReactElement {
   return (
-    <Bloque titulo="Objetos transportados">
+    <Bloque>
       {formulario.objetos.map((objeto, indice) => {
         const posicion = POSICIONES_DE_OBJETO_EN_ORDEN[indice] ?? 'equipado'
         const nombreDePosicion =
@@ -423,7 +425,7 @@ export function BloqueDeNotas({
   alCambiar
 }: PropsDeBloque): ReactElement {
   return (
-    <Bloque titulo="Habilidades y notas">
+    <Bloque>
       <CampoDeArea
         etiqueta="Notas de habilidades"
         valor={formulario.notasHabilidades}

@@ -1,4 +1,6 @@
 import type { ReactElement } from 'react'
+import BarraSvg from '../../shared/components/BarraSvg'
+import { largosDeFila } from './barras'
 import type { FilaDeComparacion, Mayor, ParDeSlots } from './comparar'
 
 const SIN_DATO = '—'
@@ -22,6 +24,41 @@ interface TablaDeComparacionProps {
   readonly filas: readonly FilaDeComparacion[]
 }
 
+interface LadoDeFilaProps {
+  readonly valor: number | string | null
+  readonly largo: number | null
+  readonly lado: 'izquierda' | 'derecha'
+}
+
+function LadoDeFila({ valor, largo, lado }: LadoDeFilaProps): ReactElement {
+  const numero = <span className="comparacion__valor">{valor ?? SIN_DATO}</span>
+  const barra =
+    largo === null ? null : (
+      <span className="comparacion__barra">
+        <BarraSvg
+          largo={largo}
+          sentido={lado}
+          lado={lado === 'izquierda' ? 'a' : 'b'}
+        />
+      </span>
+    )
+  return (
+    <td className={`comparacion__lado-de-fila comparacion__lado-de-fila--${lado}`}>
+      {lado === 'izquierda' ? (
+        <>
+          {numero}
+          {barra}
+        </>
+      ) : (
+        <>
+          {barra}
+          {numero}
+        </>
+      )}
+    </td>
+  )
+}
+
 export function TablaDeComparacion({
   izquierda,
   derecha,
@@ -31,25 +68,31 @@ export function TablaDeComparacion({
     <table className="comparacion__tabla" aria-label="Comparación de Aniimo">
       <thead>
         <tr>
-          <th scope="col">Campo</th>
           <th scope="col">{izquierda}</th>
+          <th scope="col">Campo</th>
           <th scope="col">{derecha}</th>
-          <th scope="col">Diferencia</th>
-          <th scope="col">Mayor</th>
         </tr>
       </thead>
       <tbody>
-        {filas.map((fila) => (
-          <tr key={fila.clave}>
-            <th scope="row">{fila.etiqueta}</th>
-            <td>{fila.izquierda ?? SIN_DATO}</td>
-            <td>{fila.derecha ?? SIN_DATO}</td>
-            <td>{fila.tipo === 'numero' ? diferenciaComoTexto(fila.diferencia) : ''}</td>
-            <td>
-              {fila.tipo === 'numero' && fila.mayor !== null ? ETIQUETA_DE_MAYOR[fila.mayor] : ''}
-            </td>
-          </tr>
-        ))}
+        {filas.map((fila) => {
+          const largos =
+            fila.tipo === 'numero' ? largosDeFila(fila.izquierda, fila.derecha) : null
+          return (
+            <tr key={fila.clave}>
+              <LadoDeFila valor={fila.izquierda} largo={largos?.izquierda ?? null} lado="izquierda" />
+              <th scope="row" className="comparacion__centro">
+                <span className="comparacion__campo">{fila.etiqueta}</span>
+                {fila.tipo === 'numero' && fila.diferencia !== null && (
+                  <span className="comparacion__diferencia">{diferenciaComoTexto(fila.diferencia)}</span>
+                )}
+                {fila.tipo === 'numero' && fila.mayor !== null && (
+                  <span className="comparacion__mayor">{ETIQUETA_DE_MAYOR[fila.mayor]}</span>
+                )}
+              </th>
+              <LadoDeFila valor={fila.derecha} largo={largos?.derecha ?? null} lado="derecha" />
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )

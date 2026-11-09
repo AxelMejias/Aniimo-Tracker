@@ -239,6 +239,38 @@ describe('resultados traducidos', () => {
     expect(JSON.stringify(resultado)).not.toContain('portadaEfectiva')
   })
 
+  it('listarTeams traduce elemento y rol del resumen con el mismo mapeo', async () => {
+    const aniimo = {
+      nombre: 'Irisalis',
+      elemento: 'hielo',
+      rol: 'curacion',
+      nivel: 60,
+      cp: 3475,
+      personalidad: 'ENFJ',
+      estrella_actual: 2,
+      despertares_usados: 28,
+      despertares_total: 43,
+      tiene_imagen: false
+    }
+    const team = { ...teamApi, slots: [{ slot: 1, aniimo }, ...teamApi.slots.slice(1)] }
+    const duenio = { id: USUARIO_ID, nombre_usuario: 'bruno' }
+    const { cliente } = preparar(json(200, { usuario: duenio, teams: [team], grupos: [] }))
+    const resultado = await cliente.listarTeams({ usuarioId: USUARIO_ID })
+    expect(resultado).toMatchObject({ ok: true })
+    if (resultado.ok) {
+      expect(resultado.teams[0]?.slots[0]?.aniimo).toMatchObject({
+        elemento: 'hielo',
+        rol: 'curacion'
+      })
+    }
+    const fuera = { ...team, slots: [{ slot: 1, aniimo: { ...aniimo, elemento: 'lava' } }] }
+    const invalido = preparar(json(200, { usuario: duenio, teams: [fuera], grupos: [] }))
+    expect(await invalido.cliente.listarTeams({ usuarioId: USUARIO_ID })).toEqual({
+      ok: false,
+      error: 'error-inesperado'
+    })
+  })
+
   it('listarTeams con un equipo sin grupo_id o sin lista de grupos es error-inesperado', async () => {
     const duenio = { id: USUARIO_ID, nombre_usuario: 'bruno' }
     const sinGrupoId = { ...teamApi, grupo_id: undefined }

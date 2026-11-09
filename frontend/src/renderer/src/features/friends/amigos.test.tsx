@@ -88,6 +88,19 @@ describe('pantalla Amigos: contenido', () => {
     expect(api.amigos.listar).toHaveBeenCalledTimes(1)
   })
 
+  it('organiza busqueda y solicitudes en una columna y los amigos en otra', async () => {
+    await abrirAmigos({ amigos: { listar: async () => TODO } })
+    await within(seccion('Recibidas')).findByText('carla')
+    const columnas = Array.from(document.querySelectorAll<HTMLElement>('.amigos__columna'))
+    expect(columnas).toHaveLength(2)
+    const [izquierda, derecha] = columnas as [HTMLElement, HTMLElement]
+    expect(within(izquierda).getByLabelText('Nombre de usuario')).toBeInTheDocument()
+    expect(within(izquierda).getByRole('region', { name: 'Recibidas' })).toBeInTheDocument()
+    expect(within(izquierda).getByRole('region', { name: 'Enviadas' })).toBeInTheDocument()
+    expect(within(derecha).getByRole('region', { name: 'Tus amigos' })).toBeInTheDocument()
+    expect(within(derecha).queryByRole('region', { name: 'Recibidas' })).toBeNull()
+  })
+
   it('no usa atributos style', async () => {
     await abrirAmigos({ amigos: { listar: async () => TODO } })
     await within(seccion('Recibidas')).findByText('carla')

@@ -122,6 +122,8 @@ export interface Ficha extends FichaEntrada {
 
 export interface ResumenDeAniimo {
   readonly nombre: string
+  readonly elemento: CodigoDeElemento | null
+  readonly rol: CodigoDeRol | null
   readonly nivel: number
   readonly cp: number
   readonly personalidad: string | null

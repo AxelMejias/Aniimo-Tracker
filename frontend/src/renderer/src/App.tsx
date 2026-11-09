@@ -3,6 +3,7 @@ import AuthScreen from './features/auth/AuthScreen'
 import { useAuth } from './features/auth/useAuth'
 import Principal from './pages/Principal'
 import './shared/styles/tokens.css'
+import './shared/styles/base.css'
 
 export default function App(): ReactElement {
   const { estado, iniciarSesion, registrarse, cerrarSesion, sesionVencida } = useAuth()

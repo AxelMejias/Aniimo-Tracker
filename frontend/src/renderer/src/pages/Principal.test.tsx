@@ -37,14 +37,20 @@ async function verMisTeams(): Promise<void> {
   await waitFor(() => expect(screen.queryByText('Cargando teams…')).toBeNull())
 }
 
-describe('encabezado compartido y navegacion', () => {
-  it('muestra el usuario, cerrar sesion y las tres secciones con Mis teams activa', async () => {
+function barra(): HTMLElement {
+  return screen.getByRole('complementary')
+}
+
+describe('barra lateral', () => {
+  it('muestra el nombre de la app, las tres secciones, la sesion y cerrar sesion', async () => {
     instalarApi()
     render(<App />)
     await verMisTeams()
-    expect(screen.getByRole('heading', { name: 'Aniimo Team Tracker' })).toBeInTheDocument()
-    expect(screen.getByText('axel')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument()
+    expect(
+      within(barra()).getByRole('heading', { level: 1, name: 'Aniimo Team Tracker' })
+    ).toBeInTheDocument()
+    expect(within(barra()).getByText('Sesión: axel')).toBeInTheDocument()
+    expect(within(barra()).getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument()
     const botones = within(navegacion()).getAllByRole('button')
     expect(botones.map((b) => b.textContent)).toEqual(['Mis teams', 'Amigos', 'Comparar'])
     expect(within(navegacion()).getByRole('button', { name: 'Mis teams' })).toHaveAttribute(
@@ -56,6 +62,68 @@ describe('encabezado compartido y navegacion', () => {
     )
   })
 
+  it('el contenido de la vista queda fuera de la barra con su titulo de nivel 2', async () => {
+    instalarApi()
+    render(<App />)
+    await verMisTeams()
+    expect(within(barra()).queryByRole('heading', { level: 2 })).toBeNull()
+    expect(screen.getByRole('main')).toContainElement(
+      screen.getByRole('heading', { level: 2, name: 'Mis teams' })
+    )
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+  })
+
+  it('con una solicitud recibida muestra el boton Solicitudes (1) en la barra', async () => {
+    instalarApi({ amigos: { listar: async () => CON_SOLICITUD } })
+    render(<App />)
+    await verMisTeams()
+    expect(
+      await within(barra()).findByRole('button', { name: 'Solicitudes (1)' })
+    ).toBeInTheDocument()
+    expect(within(barra()).getByText('Sesión: axel')).toBeInTheDocument()
+  })
+
+  it('con dos solicitudes muestra Solicitudes (2)', async () => {
+    instalarApi({
+      amigos: {
+        listar: async () => ({
+          ok: true,
+          amigos: [],
+          recibidas: [SOLICITUD_DE_CARLA, SOLICITUD_DE_CARLA],
+          enviadas: []
+        })
+      }
+    })
+    render(<App />)
+    await verMisTeams()
+    expect(
+      await within(barra()).findByRole('button', { name: 'Solicitudes (2)' })
+    ).toBeInTheDocument()
+  })
+
+  it('sin solicitudes no muestra el boton Solicitudes', async () => {
+    const api = instalarApi()
+    render(<App />)
+    await verMisTeams()
+    await waitFor(() => expect(api.amigos.listar).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: /Solicitudes/ })).toBeNull()
+  })
+
+  it('Solicitudes abre Amigos con el foco en su titulo', async () => {
+    instalarApi({ amigos: { listar: async () => CON_SOLICITUD } })
+    render(<App />)
+    await verMisTeams()
+    fireEvent.click(await within(barra()).findByRole('button', { name: 'Solicitudes (1)' }))
+    const titulo = await screen.findByRole('heading', { level: 2, name: 'Amigos' })
+    expect(titulo).toHaveFocus()
+    expect(within(navegacion()).getByRole('button', { name: 'Amigos' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+  })
+})
+
+describe('encabezado compartido y navegacion', () => {
   it('cada seccion muestra su titulo y marca su boton como activo', async () => {
     instalarApi()
     render(<App />)
@@ -107,11 +175,14 @@ describe('estado de amigos centralizado', () => {
     await verMisTeams()
     await waitFor(() => expect(api.amigos.listar).toHaveBeenCalled())
     api.amigos.listar.mockClear()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Agregar Aniimo' })[0] as HTMLElement)
+    fireEvent.click(screen.getByRole('button', { name: /^Team Principal, / }))
+    await waitFor(() => expect(api.amigos.listar).toHaveBeenCalledTimes(1))
+    api.amigos.listar.mockClear()
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Agregar Aniimo' }))[0] as HTMLElement)
     await screen.findByRole('heading', { name: /Ficha del Aniimo/ })
     await waitFor(() => expect(api.amigos.listar).toHaveBeenCalledTimes(1))
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
-    await verMisTeams()
+    await screen.findByRole('heading', { level: 2, name: 'Principal' })
     await waitFor(() => expect(api.amigos.listar).toHaveBeenCalledTimes(2))
   })
 
@@ -245,7 +316,7 @@ describe('cambio de cuenta', () => {
 
     expect(await screen.findByText('Equipo de Carla')).toBeInTheDocument()
     expect(await screen.findByText('Solicitudes (1)')).toBeInTheDocument()
-    expect(screen.getByText('carla')).toBeInTheDocument()
+    expect(screen.getByText('Sesión: carla')).toBeInTheDocument()
     expect(screen.queryByText('Equipo de Axel')).toBeNull()
     expect(screen.queryByText('Irisalis')).toBeNull()
     expect(screen.queryByText('Solicitudes (2)')).toBeNull()

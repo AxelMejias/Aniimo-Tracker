@@ -27,8 +27,8 @@ export interface ClienteGrupos {
   ordenarSueltos(pedido: PedidoOrdenarSueltos): Promise<ResultadoGrupos>
 }
 
-export function crearClienteGrupos(fetchFn: FetchFn, sesion: SesionEnMemoria): ClienteGrupos {
-  const pedir: Peticion = crearPeticion(fetchFn, sesion)
+export function crearClienteGrupos(fetchFn: FetchFn, sesion: SesionEnMemoria, urlBase?: string): ClienteGrupos {
+  const pedir: Peticion = crearPeticion(fetchFn, sesion, urlBase)
   const ejecutar = crearEjecutor(pedir, sesion)
 
   const conLista = async (respuesta: Response): Promise<ResultadoGrupos> => ({

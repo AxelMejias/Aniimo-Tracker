@@ -22,6 +22,8 @@ interface EquipoElegible {
 
 interface SelectorDeLadoProps {
   readonly titulo: string
+  readonly letra: 'A' | 'B'
+  readonly aniimo: string | null
   readonly seleccion: SeleccionDeLado
   readonly duenios: readonly OpcionDeDuenio[]
   readonly alCambiar: (siguiente: SeleccionDeLado) => void
@@ -48,6 +50,8 @@ async function equiposDe(duenio: string): Promise<EquipoElegible[] | 'sin-acceso
 
 export default function SelectorDeLado({
   titulo,
+  letra,
+  aniimo,
   seleccion,
   duenios,
   alCambiar,
@@ -83,8 +87,14 @@ export default function SelectorDeLado({
   }, [seleccion.duenio])
 
   return (
-    <fieldset className="comparacion__lado" aria-label={titulo}>
-      <legend className="comparacion__titulo">{titulo}</legend>
+    <fieldset className={`comparacion__lado comparacion__lado--${letra.toLowerCase()}`} aria-label={titulo}>
+      <legend className="comparacion__titulo">Lado {letra}</legend>
+      <p className="comparacion__aniimo">
+        <span className="comparacion__inicial" aria-hidden="true">
+          {aniimo === null ? '?' : aniimo.charAt(0).toUpperCase()}
+        </span>
+        <span className="comparacion__nombre">{aniimo ?? 'Sin Aniimo elegido'}</span>
+      </p>
       <CampoDeSeleccion
         etiqueta="Dueño"
         valor={seleccion.duenio}

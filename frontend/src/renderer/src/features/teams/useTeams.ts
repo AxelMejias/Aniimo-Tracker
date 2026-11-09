@@ -35,6 +35,7 @@ export interface UseTeams {
   borrarGrupo(grupoId: string): Resultado
   agregarTeam(grupoId: string, teamId: string): Resultado
   sacarTeam(grupoId: string, teamId: string): Resultado
+  cambiarDeGrupo(team: Pick<TeamResumen, 'id' | 'grupoId'>, grupoId: string | null): Resultado
   ordenarGrupos(grupoIds: readonly string[]): Resultado
   ordenarTeamsDelGrupo(grupoId: string, teamIds: readonly string[]): Resultado
   ordenarSueltos(teamIds: readonly string[]): Resultado
@@ -138,6 +139,15 @@ export function useTeams(alSesionVencida: () => void): UseTeams {
       ejecutar(() => window.aniimo.grupos.sacarTeam({ grupoId, teamId })),
     [ejecutar]
   )
+  const cambiarDeGrupo = useCallback(
+    (team: Pick<TeamResumen, 'id' | 'grupoId'>, grupoId: string | null): Resultado => {
+      if (grupoId !== null) {
+        return agregarTeam(grupoId, team.id)
+      }
+      return team.grupoId === null ? Promise.resolve(null) : sacarTeam(team.grupoId, team.id)
+    },
+    [agregarTeam, sacarTeam]
+  )
   const ordenarGrupos = useCallback(
     (grupoIds: readonly string[]) => ejecutar(() => window.aniimo.grupos.ordenar({ grupoIds })),
     [ejecutar]
@@ -167,6 +177,7 @@ export function useTeams(alSesionVencida: () => void): UseTeams {
     borrarGrupo,
     agregarTeam,
     sacarTeam,
+    cambiarDeGrupo,
     ordenarGrupos,
     ordenarTeamsDelGrupo,
     ordenarSueltos

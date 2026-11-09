@@ -63,6 +63,8 @@ def test_teams_del_amigo(red: Red, team_de_b: str) -> None:
     assert set(team) == {"id", "nombre", "orden", "grupo_id", "portada_slot", "slots"}
     assert team["slots"][0]["aniimo"] == {
         "nombre": "Irisalis",
+        "elemento": "hielo",
+        "rol": "curacion",
         "nivel": 60,
         "cp": 3475,
         "personalidad": "ENFJ",
@@ -77,6 +79,18 @@ def test_teams_del_amigo(red: Red, team_de_b: str) -> None:
         for k, v in red.b.api.get("/api/teams").json()["teams"][0].items()
         if k in {"id", "nombre", "orden", "grupo_id", "slots"}
     } | {"portada_slot": 1}
+
+
+def test_el_resumen_del_amigo_trae_elemento_y_rol_de_su_ficha_aun_con_notas_privadas(
+    red: Red, team_de_b: str
+) -> None:
+    _con_notas_en_los_cuatro_campos(red.b, team_de_b, privadas=True)
+    resumen = _teams(red.a, red.b).json()["teams"][0]["slots"][0]["aniimo"]
+    ficha = _ficha(red.a, red.b.id, team_de_b).json()["aniimo"]
+    assert (resumen["elemento"], resumen["rol"]) == ("hielo", "curacion")
+    assert (resumen["elemento"], resumen["rol"]) == (ficha["elemento"], ficha["rol"])
+    assert all(resumen[c] == ficha[c] for c in ("nombre", "nivel", "personalidad"))
+    assert "notas" not in resumen and "notas_privadas" not in resumen
 
 
 def test_amigo_sin_teams(red: Red) -> None:

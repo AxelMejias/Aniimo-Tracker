@@ -1,26 +1,210 @@
+/*
+ * Unico archivo con valores literales de diseno (C-11). Los demas css solo usan var(--...).
+ * Valores PROVISORIOS tomados de Tokens.dc.html (D11 Mazo); el ajuste fino va en la tarea 15.9.
+ */
 :root {
-  --color-background: #0f1115;
-  --color-surface: #1a1d24;
-  --color-text: #f2f3f5;
-  --color-text-muted: #9aa0ac;
-  --color-accent: #5b8cff;
-  --color-border: #2c313b;
-  --color-error: #ff7b7b;
+  color-scheme: light dark;
 
-  --font-family-base:
-    system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Color: tema claro (marfil) */
+  --color-background: #f7f3e8;
+  --color-surface: #fffdf7;
+  --color-surface-elevated: #efe7d2;
+  --color-text: #1b2433;
+  --color-text-muted: #3a4556;
+  --color-title: #1f3a5f;
+  --color-border: #d9cba6;
+  --color-border-control: #7a8594;
+  --color-accent: #1f3a5f;
+  --color-accent-hover: #142842;
+  --color-on-accent: #f7f3e8;
+  --color-gold: #a8873a;
+  --color-focus: #b7791f;
+  --color-error: #a61b1b;
+  --color-success: #2f6b3a;
+  --color-warning: #7a5e1e;
+  --color-disabled: #5b6370;
+  --color-disabled-background: #e3d8bc;
+  --color-sombra: #c8b78c;
+
+  /* Barras proporcionales: lado A, lado B y fondo */
+  --color-barra: var(--color-accent);
+  --color-barra-b: var(--color-gold);
+  --color-barra-fondo: var(--color-surface-elevated);
+
+  /* Barra lateral */
+  --color-lateral: #1f3a5f;
+  --color-lateral-texto: #f7f3e8;
+  --color-lateral-texto-muted: #d6dee9;
+  --color-nav-activa: #f7f3e8;
+  --color-nav-activa-texto: #1f3a5f;
+
+  /* Carta */
+  --color-carta-marco: #1f3a5f;
+  --color-carta-banda: #1f3a5f;
+  --color-carta-texto: #f7f3e8;
+  --color-carta-placa: #fffdf7;
+  --color-portada: #e6c77a;
+  --color-disco-inicial: #0e15208c;
+
+  /* Relleno de la carta sin imagen: extremos por elemento y degradado armado con ellos */
+  --relleno-neutro-a: #1f3a5f;
+  --relleno-neutro-b: #4a5f80;
+  --relleno-fuego-a: #8a2e1c;
+  --relleno-fuego-b: #d9772b;
+  --relleno-viento-a: #2f5d5a;
+  --relleno-viento-b: #7fb3a0;
+  --relleno-hielo-a: #23476b;
+  --relleno-hielo-b: #7fa9c9;
+  --relleno-sagrado-a: #6b5418;
+  --relleno-sagrado-b: #c9a75a;
+  --relleno-electrico-a: #3b3a78;
+  --relleno-electrico-b: #c9a227;
+  --relleno-roca-a: #4a3f35;
+  --relleno-roca-b: #8c7a62;
+  --relleno-agua-a: #1d4e6b;
+  --relleno-agua-b: #4fa3c7;
+  --relleno-planta-a: #2e5a2a;
+  --relleno-planta-b: #7baf5a;
+  --relleno-oscuro-a: #2a2236;
+  --relleno-oscuro-b: #6a5a86;
+  --relleno-neutro: linear-gradient(160deg, var(--relleno-neutro-a) 0%, var(--relleno-neutro-b) 100%);
+  --relleno-fuego: linear-gradient(160deg, var(--relleno-fuego-a) 0%, var(--relleno-fuego-b) 100%);
+  --relleno-viento: linear-gradient(160deg, var(--relleno-viento-a) 0%, var(--relleno-viento-b) 100%);
+  --relleno-hielo: linear-gradient(160deg, var(--relleno-hielo-a) 0%, var(--relleno-hielo-b) 100%);
+  --relleno-sagrado: linear-gradient(160deg, var(--relleno-sagrado-a) 0%, var(--relleno-sagrado-b) 100%);
+  --relleno-electrico: linear-gradient(160deg, var(--relleno-electrico-a) 0%, var(--relleno-electrico-b) 100%);
+  --relleno-roca: linear-gradient(160deg, var(--relleno-roca-a) 0%, var(--relleno-roca-b) 100%);
+  --relleno-agua: linear-gradient(160deg, var(--relleno-agua-a) 0%, var(--relleno-agua-b) 100%);
+  --relleno-planta: linear-gradient(160deg, var(--relleno-planta-a) 0%, var(--relleno-planta-b) 100%);
+  --relleno-oscuro: linear-gradient(160deg, var(--relleno-oscuro-a) 0%, var(--relleno-oscuro-b) 100%);
+
+  /* Tipografia: fuentes del sistema, base 16px, minimo 14px */
+  --font-family-base: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-family-mono: ui-monospace, Consolas, monospace;
+  --font-size-display: 2.125rem;
   --font-size-heading: 1.75rem;
-  --font-size-title: 1.25rem;
+  --font-size-title: 1.375rem;
   --font-size-body: 1rem;
   --font-size-small: 0.875rem;
+  --font-weight-bold: 800;
+  --font-weight-strong: 600;
+  --letter-spacing-rotulo: 0.12em;
 
-  --radius-md: 0.5rem;
-
+  /* Espaciado */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
+  --space-3: 0.75rem;
   --space-md: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
   --space-lg: 2rem;
 
-  --overlay-alto-barra: 2rem;
-  --overlay-ancho-slot: 7rem;
+  /* Radios y elevacion */
+  --radius-md: 0.5rem;
+  --radius-carta: 0.75rem;
+  --radius-panel: 0.875rem;
+  --sombra-solida: 0 3px 0 var(--color-sombra);
+
+  /* Foco y estados */
+  --foco-ancho: 2px;
+  --foco-offset: 2px;
+  --opacidad-deshabilitado: 0.5;
+
+  /* Movimiento */
+  --movimiento-abanico-duracion: 280ms;
+  --movimiento-abanico-curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Carta: mazo, team abierto y ficha */
+  --carta-ancho-mazo: 168px;
+  --carta-alto-mazo: 236px;
+  --carta-ancho-team: 220px;
+  --carta-alto-team: 340px;
+  --carta-ancho-ficha: 300px;
+  --carta-proporcion-ficha: 220 / 340;
+  --carta-marco-ancho: 3px;
+
+  /* Pila: capas detras de la portada */
+  --pila-capa-1-transform: rotate(-6deg) translate(-10px, 4px);
+  --pila-capa-2-transform: rotate(5deg) translate(10px, 2px);
+  --pila-capa-3-transform: rotate(-2deg) translate(3px, -7px);
+
+  /* Abanico: cerrado (corrimiento y giro por capa) y abierto (por cantidad de teams y posicion) */
+  --mazo-margen-lateral: 5.5rem;
+  --mazo-margen-superior: 4.5rem;
+  --mazo-margen-inferior: 9.5rem;
+  --abanico-ancho: 14.5rem;
+  --abanico-alto: 22rem;
+  --abanico-cerrado-desplazamiento: 7px;
+  --abanico-cerrado-giro: 2deg;
+  --abanico-escala-portada: 0.92;
+  --abanico-escala-resto: 0.8;
+  --abanico-portada-transform: translate(0, -12px) scale(var(--abanico-escala-portada));
+  --abanico-n5-p1-transform: translate(-168px, -46px) rotate(-11deg) scale(var(--abanico-escala-resto));
+  --abanico-n5-p2-transform: translate(168px, -46px) rotate(11deg) scale(var(--abanico-escala-resto));
+  --abanico-n5-p3-transform: translate(-146px, 150px) rotate(-7deg) scale(var(--abanico-escala-resto));
+  --abanico-n5-p4-transform: translate(146px, 150px) rotate(7deg) scale(var(--abanico-escala-resto));
+  --abanico-n4-p1-transform: translate(-168px, -30px) rotate(-10deg) scale(var(--abanico-escala-resto));
+  --abanico-n4-p2-transform: translate(168px, -30px) rotate(10deg) scale(var(--abanico-escala-resto));
+  --abanico-n4-p3-transform: translate(0, 170px) rotate(0deg) scale(var(--abanico-escala-resto));
+  --abanico-n3-p1-transform: translate(-168px, 0) rotate(-9deg) scale(var(--abanico-escala-resto));
+  --abanico-n3-p2-transform: translate(168px, 0) rotate(9deg) scale(var(--abanico-escala-resto));
+  --abanico-n2-p1-transform: translate(176px, 10px) rotate(8deg) scale(var(--abanico-escala-resto));
+
+  /* Abanico de cartas de un team: cartas full art repartidas alrededor de la pila */
+  --abanico-team-escala: 0.72;
+  --abanico-team-sombra: 0 10px 22px var(--color-sombra);
+  --abanico-team-vacia-opacidad: 0.55;
+  --abanico-team-margen-lateral: 10rem;
+  --abanico-team-margen-superior: 4.5rem;
+  --abanico-team-n4-c1-transform: translate(-250px, -30px) rotate(-16deg) scale(var(--abanico-team-escala));
+  --abanico-team-n4-c2-transform: translate(-90px, -100px) rotate(-6deg) scale(var(--abanico-team-escala));
+  --abanico-team-n4-c3-transform: translate(90px, -100px) rotate(6deg) scale(var(--abanico-team-escala));
+  --abanico-team-n4-c4-transform: translate(250px, -30px) rotate(16deg) scale(var(--abanico-team-escala));
+  --abanico-team-n3-c1-transform: translate(-170px, -50px) rotate(-12deg) scale(var(--abanico-team-escala));
+  --abanico-team-n3-c2-transform: translate(0px, -105px) rotate(0deg) scale(var(--abanico-team-escala));
+  --abanico-team-n3-c3-transform: translate(170px, -50px) rotate(12deg) scale(var(--abanico-team-escala));
+  --abanico-team-n2-c1-transform: translate(-110px, -70px) rotate(-8deg) scale(var(--abanico-team-escala));
+  --abanico-team-n2-c2-transform: translate(110px, -70px) rotate(8deg) scale(var(--abanico-team-escala));
+  --abanico-team-n1-c1-transform: translate(0px, -105px) rotate(0deg) scale(var(--abanico-team-escala));
+
+  /* Estructura */
+  --barra-lateral-ancho: 14.5rem;
+  --pestana-alto: 2.875rem;
+  --pestana-subrayado: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #121a26;
+    --color-surface: #1b2535;
+    --color-surface-elevated: #243045;
+    --color-text: #eef2f7;
+    --color-text-muted: #b8c2d1;
+    --color-title: #eef2f7;
+    --color-border: #2e3b52;
+    --color-border-control: #7a8ca8;
+    --color-accent: #8db4e2;
+    --color-accent-hover: #a9c6ea;
+    --color-on-accent: #0e1520;
+    --color-gold: #c9a75a;
+    --color-focus: #e6c77a;
+    --color-error: #f49a9a;
+    --color-success: #8fd19e;
+    --color-warning: #e6c77a;
+    --color-disabled: #8a96a8;
+    --color-disabled-background: #243045;
+    --color-sombra: #0a0f17;
+
+    --color-lateral: #0e1520;
+    --color-lateral-texto: #eef2f7;
+    --color-lateral-texto-muted: #b8c2d1;
+    --color-nav-activa: #8db4e2;
+    --color-nav-activa-texto: #0e1520;
+
+    --color-carta-marco: #c9a75a;
+    --color-carta-banda: #0e1520;
+    --color-carta-texto: #eef2f7;
+    --color-carta-placa: #1b2535;
+  }
 }

@@ -57,8 +57,8 @@ function aBase64(bytes: ArrayBuffer): string {
   return Buffer.from(bytes).toString('base64')
 }
 
-export function crearClienteAmigos(fetchFn: FetchFn, sesion: SesionEnMemoria): ClienteAmigos {
-  const pedir: Peticion = crearPeticion(fetchFn, sesion)
+export function crearClienteAmigos(fetchFn: FetchFn, sesion: SesionEnMemoria, urlBase?: string): ClienteAmigos {
+  const pedir: Peticion = crearPeticion(fetchFn, sesion, urlBase)
 
   function errorDeRespuesta(respuesta: Response): ErrorDeAmigos {
     if (respuesta.status === 401) {

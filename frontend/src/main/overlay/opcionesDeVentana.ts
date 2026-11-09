@@ -15,6 +15,7 @@ export function getOverlayWindowOptions(
     resizable: true,
     show: false,
     title: 'Aniimo Overlay',
+    autoHideMenuBar: true,
     webPreferences: getWebPreferences(preloadPath)
   }
 }

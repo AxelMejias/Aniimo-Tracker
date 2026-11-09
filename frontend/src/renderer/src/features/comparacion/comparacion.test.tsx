@@ -120,12 +120,12 @@ describe('Comparar: Aniimo contra Aniimo', () => {
     const tabla = await screen.findByRole('table', { name: 'Comparación de Aniimo' })
     expect(within(tabla).getByRole('columnheader', { name: 'Yo: Irisalis' })).toBeInTheDocument()
     expect(within(tabla).getByRole('columnheader', { name: 'bruno: Voltix' })).toBeInTheDocument()
-    const filaCp = within(tabla).getByRole('row', { name: /^CP/ })
+    const filaCp = filaDe(tabla, 'CP')
     expect(within(filaCp).getByText('3475')).toBeInTheDocument()
     expect(within(filaCp).getByText('3600')).toBeInTheDocument()
     expect(within(filaCp).getByText('+125')).toBeInTheDocument()
     expect(within(filaCp).getByText('Derecha')).toBeInTheDocument()
-    expect(within(tabla).getByRole('row', { name: /^Nivel requerido/ })).toBeInTheDocument()
+    expect(filaDe(tabla, 'Nivel requerido de la siguiente etapa')).toBeInTheDocument()
     expect(within(tabla).queryByText(/Notas/)).toBeNull()
   })
 
@@ -153,6 +153,124 @@ describe('Comparar: Aniimo contra Aniimo', () => {
     await elegir('derecho', { duenio: 'bruno', team: 'Raid', slot: 'Slot 3' })
     expect(await screen.findByText('El slot elegido no tiene un Aniimo')).toBeInTheDocument()
     expect(screen.queryByRole('table')).toBeNull()
+  })
+})
+
+async function compararFichasConDerecha(
+  derecha: ReturnType<typeof fichaDeAmigoDePrueba>,
+  izquierda = fichaGuardadaDeReferencia()
+): Promise<HTMLElement> {
+  await abrirComparar(
+    apiBase(
+      { obtenerFicha: async () => ({ ok: true, ficha: derecha }) },
+      { obtenerFicha: async () => ({ ok: true, ficha: izquierda }) }
+    )
+  )
+  await elegir('izquierdo', { duenio: 'Yo', team: 'Principal', slot: 'Slot 1' })
+  await elegir('derecho', { duenio: 'bruno', team: 'Raid', slot: 'Slot 2' })
+  return screen.findByRole('table', { name: 'Comparación de Aniimo' })
+}
+
+function filaDe(tabla: HTMLElement, campo: string): HTMLElement {
+  const fila = within(tabla).getByText(campo, { selector: '.comparacion__campo' }).closest('tr')
+  expect(fila).not.toBeNull()
+  return fila as HTMLElement
+}
+
+function anchos(fila: HTMLElement): string[] {
+  return Array.from(fila.querySelectorAll('rect.barra__relleno')).map(
+    (rect) => rect.getAttribute('width') ?? ''
+  )
+}
+
+describe('Comparar: cara a cara', () => {
+  it('encabezado con Lado A, VS y Lado B y los tres selectores por lado', async () => {
+    await abrirComparar()
+    const encabezado = screen.getByRole('group', { name: 'Lado izquierdo' }).closest('.comparacion__lados')
+    expect(encabezado).not.toBeNull()
+    const texto = (encabezado as HTMLElement).textContent ?? ''
+    expect(texto).toContain('Lado A')
+    expect(texto).toContain('VS')
+    expect(texto).toContain('Lado B')
+    for (const nombre of ['izquierdo', 'derecho'] as const) {
+      const grupo = lado(nombre)
+      expect(within(grupo).getByLabelText('Dueño')).toBeInTheDocument()
+      expect(within(grupo).getByLabelText('Team')).toBeInTheDocument()
+      expect(within(grupo).getByLabelText('Slot')).toBeInTheDocument()
+    }
+  })
+
+  it('con un Aniimo elegido muestra su nombre y su inicial en el lado', async () => {
+    await compararFichasConDerecha(fichaDeAmigoDePrueba({ nombre: 'Voltix', cp: 3600, slot: 2 }))
+    expect(within(lado('izquierdo')).getByText('Irisalis')).toBeInTheDocument()
+    expect(within(lado('izquierdo')).getByText('I')).toBeInTheDocument()
+    expect(within(lado('derecho')).getByText('Voltix')).toBeInTheDocument()
+    expect(within(lado('derecho')).getByText('V')).toBeInTheDocument()
+  })
+
+  it('fila numerica: valores, barras y centro con campo, diferencia y mayor', async () => {
+    const tabla = await compararFichasConDerecha(
+      fichaDeAmigoDePrueba({ nombre: 'Voltix', cp: 3600, slot: 2 })
+    )
+    const fila = filaDe(tabla, 'CP')
+    expect(anchos(fila)).toEqual(['97', '100'])
+    expect(within(fila).getByText('3475')).toBeInTheDocument()
+    expect(within(fila).getByText('3600')).toBeInTheDocument()
+    expect(within(fila).getByText('+125')).toBeInTheDocument()
+    expect(within(fila).getByText('Derecha')).toBeInTheDocument()
+  })
+
+  it('una diferencia a favor de la izquierda se muestra con signo menos', async () => {
+    const tabla = await compararFichasConDerecha(
+      fichaDeAmigoDePrueba({ nombre: 'Voltix', cp: 3445, slot: 2 })
+    )
+    const fila = filaDe(tabla, 'CP')
+    expect(within(fila).getByText('-30')).toBeInTheDocument()
+    expect(within(fila).getByText('Izquierda')).toBeInTheDocument()
+    expect(anchos(fila)).toEqual(['100', '99'])
+  })
+
+  it('iguales: ambas barras completas y centro con 0 e Igual', async () => {
+    const tabla = await compararFichasConDerecha(
+      fichaDeAmigoDePrueba({ nombre: 'Voltix', nivel: 60, slot: 2 })
+    )
+    const fila = filaDe(tabla, 'Nivel')
+    expect(anchos(fila)).toEqual(['100', '100'])
+    expect(within(fila).getByText('0')).toBeInTheDocument()
+    expect(within(fila).getByText('Igual')).toBeInTheDocument()
+  })
+
+  it('valor ausente: guion sin barra y el centro sin diferencia ni mayor', async () => {
+    const base = fichaDeAmigoDePrueba({ nombre: 'Voltix', slot: 2 })
+    const derecha = {
+      ...base,
+      entrenamiento: { ...base.entrenamiento, nivelRequeridoSiguienteEtapa: null }
+    }
+    const tabla = await compararFichasConDerecha(derecha)
+    const fila = filaDe(tabla, 'Nivel requerido de la siguiente etapa')
+    expect(within(fila).getByText('65')).toBeInTheDocument()
+    expect(within(fila).getByText('—')).toBeInTheDocument()
+    expect(anchos(fila)).toEqual(['100'])
+    expect(within(fila).queryByText('Igual')).toBeNull()
+    expect(within(fila).queryByText('Derecha')).toBeNull()
+    expect(within(fila).queryByText('Izquierda')).toBeNull()
+  })
+
+  it('las filas de texto no llevan barras', async () => {
+    const tabla = await compararFichasConDerecha(
+      fichaDeAmigoDePrueba({ nombre: 'Voltix', slot: 2 })
+    )
+    expect(anchos(filaDe(tabla, 'Personalidad'))).toEqual([])
+  })
+
+  it('sin estilos inline y con todas las barras ocultas a lectores de pantalla', async () => {
+    const tabla = await compararFichasConDerecha(
+      fichaDeAmigoDePrueba({ nombre: 'Voltix', cp: 3600, slot: 2 })
+    )
+    expect(document.querySelectorAll('[style]')).toHaveLength(0)
+    const barras = tabla.querySelectorAll('svg.barra')
+    expect(barras.length).toBeGreaterThan(0)
+    barras.forEach((barra) => expect(barra.getAttribute('aria-hidden')).toBe('true'))
   })
 })
 
@@ -320,6 +438,8 @@ describe('Comparar: llegada desde la ficha de un amigo', () => {
     await screen.findByRole('heading', { level: 2, name: 'Mis teams' })
     navegar('Amigos')
     fireEvent.click(await screen.findByRole('button', { name: 'Ver teams' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Team Raid/ }))
+    await screen.findByRole('heading', { level: 2, name: 'Raid' })
     fireEvent.click((await screen.findAllByRole('button', { name: /Voltix/ }))[0] as HTMLElement)
     await screen.findByRole('heading', { name: /Ficha de solo lectura/ })
     const botones = screen.getAllByRole('button', { name: 'Comparar' })

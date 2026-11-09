@@ -1,0 +1,120 @@
+.pantalla-de-team {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.pantalla-de-team__migas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.pantalla-de-team__migas button {
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.pantalla-de-team__migas [aria-current='page'] {
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+}
+
+.pantalla-de-team__datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body);
+}
+
+.pantalla-de-team__grupo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.pantalla-de-team__salto[aria-current='true'] {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--font-weight-bold);
+}
+
+.pantalla-de-team__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.pantalla-de-team__visibilidad {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.pantalla-de-team__peligro {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.pantalla-de-team__portada,
+.pantalla-de-team__renombrar label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  align-self: flex-start;
+}
+
+.pantalla-de-team__renombrar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.pantalla-de-team__mensaje {
+  margin: 0;
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+}
+
+.pantalla-de-team__cartas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.pantalla-de-team__carta {
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-carta);
+}
+
+.pantalla-de-team__vacio {
+  width: var(--carta-ancho-team);
+  height: var(--carta-alto-team);
+  padding: var(--space-md);
+  border: var(--carta-marco-ancho) dashed var(--color-border-control);
+  border-radius: var(--radius-carta);
+  box-sizing: border-box;
+  color: var(--color-text-muted);
+}
+
+.pantalla-de-team__vacio--fijo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-small);
+}

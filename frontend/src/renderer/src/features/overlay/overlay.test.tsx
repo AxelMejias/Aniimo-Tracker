@@ -41,11 +41,18 @@ describe('team compacto', () => {
     render(<OverlayApp />)
     expect(await screen.findByRole('heading', { name: 'Principal' })).toBeInTheDocument()
     expect(screen.getByText('Irisalis')).toBeInTheDocument()
-    expect(screen.getByText('Nivel 60')).toBeInTheDocument()
-    expect(screen.getByText('CP 3475')).toBeInTheDocument()
+    expect(screen.getByText('Nv 60 · CP 3475')).toBeInTheDocument()
     expect(screen.getByText('Estrella 2')).toBeInTheDocument()
-    expect(screen.getAllByText('Vacío')).toHaveLength(3)
+    expect(screen.getAllByText('Slot vacío')).toHaveLength(3)
     expect(screen.queryByRole('button', { name: /Agregar Aniimo/ })).toBeNull()
+  })
+
+  it('muestra otro Aniimo con sus propios datos y la inicial como marcador', async () => {
+    conSeleccion(SECUNDARIO)
+    render(<OverlayApp />)
+    expect(await screen.findByText('Orcus')).toBeInTheDocument()
+    expect(screen.getByText('O')).toBeInTheDocument()
+    expect(screen.getAllByText('Slot vacío')).toHaveLength(3)
   })
 
   it('muestra el team elegido y no otro', async () => {
@@ -68,7 +75,7 @@ describe('ficha en solo lectura', () => {
     expect(screen.queryByRole('button', { name: /guardar|borrar|vaciar/i })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Volver al team' }))
     expect(await screen.findByRole('heading', { name: 'Principal' })).toBeInTheDocument()
-    expect(screen.getAllByText('Vacío')).toHaveLength(3)
+    expect(screen.getAllByText('Slot vacío')).toHaveLength(3)
   })
 
   it('no ofrece la sugerencia de stats ni pide el catalogo de calculo', async () => {
@@ -161,8 +168,24 @@ describe('acciones y estructura', () => {
     const api = conSeleccion()
     render(<OverlayApp />)
     await screen.findByText('Irisalis')
-    fireEvent.click(screen.getByRole('button', { name: 'Cerrar overlay' }))
+    const cerrar = screen.getByRole('button', { name: 'Cerrar overlay' })
+    expect(cerrar).toHaveTextContent(/^Cerrar$/)
+    fireEvent.click(cerrar)
     expect(api.overlay.cerrar).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignora las teclas del abanico: no registra keydown y el team no cambia', async () => {
+    const api = conSeleccion()
+    const agregar = vi.spyOn(window, 'addEventListener')
+    render(<OverlayApp />)
+    await screen.findByText('Irisalis')
+    for (const key of ['1', '2', '5', 't', 'T', 'Escape']) {
+      fireEvent.keyDown(document.body, { key })
+    }
+    expect(agregar.mock.calls.some(([tipo]) => tipo === 'keydown')).toBe(false)
+    expect(screen.getByRole('heading', { name: 'Principal' })).toBeInTheDocument()
+    expect(api.overlay.cerrar).not.toHaveBeenCalled()
+    expect(api.overlay.seleccionar).not.toHaveBeenCalled()
   })
 
   it('no usa estilos inline ni controles de edicion en el team ni en la ficha', async () => {
@@ -314,7 +337,7 @@ describe('selector de team', () => {
   }
 
   function selector(): HTMLSelectElement {
-    return screen.getByLabelText('Team') as HTMLSelectElement
+    return screen.getByLabelText('Team en pantalla') as HTMLSelectElement
   }
 
   function grupos(): { etiqueta: string; opciones: string[] }[] {
@@ -419,7 +442,7 @@ describe('selector de team', () => {
     instalarApi()
     render(<OverlayApp />)
     await screen.findByText('Elegí un team desde «Mis teams» con «Abrir en overlay»')
-    expect(screen.queryByLabelText('Team')).toBeNull()
+    expect(screen.queryByLabelText('Team en pantalla')).toBeNull()
   })
 
   it('es el unico select, sin input ni textarea ni style', async () => {

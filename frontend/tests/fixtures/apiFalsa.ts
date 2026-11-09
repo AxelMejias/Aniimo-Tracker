@@ -5,6 +5,7 @@ import type {
   CalculoApi,
   GruposApi,
   OverlayApi,
+  PreferenciasApi,
   TeamsApi
 } from '../../src/preload/api'
 import type {
@@ -26,6 +27,7 @@ import type {
 } from '../../src/shared/calculo'
 import type { ResultadoGrupos } from '../../src/shared/grupos'
 import type { ResultadoOverlay, ResultadoSeleccion } from '../../src/shared/overlay'
+import type { ResultadoPreferencias } from '../../src/shared/preferencias'
 import type {
   FichaDeAmigo,
   GrupoDeAmigo,
@@ -61,6 +63,8 @@ export const SOLICITUD_DE_CARLA: Solicitud = {
 
 export const RESUMEN_DE_IRISALIS: ResumenDeAniimo = {
   nombre: 'Irisalis',
+  elemento: 'hielo',
+  rol: 'curacion',
   nivel: 60,
   cp: 3475,
   personalidad: 'ENFJ',
@@ -154,6 +158,7 @@ export interface ApiFalsa {
   readonly grupos: Record<keyof GruposApi, Mock>
   readonly amigos: Record<keyof AmigosApi, Mock>
   readonly overlay: Record<keyof OverlayApi, Mock>
+  readonly preferencias: Record<keyof PreferenciasApi, Mock>
   readonly calculo: Record<keyof CalculoApi, Mock>
 }
 
@@ -163,6 +168,7 @@ interface Sobrescrituras {
   readonly grupos?: Partial<GruposApi>
   readonly amigos?: Partial<AmigosApi>
   readonly overlay?: Partial<OverlayApi>
+  readonly preferencias?: Partial<PreferenciasApi>
   readonly calculo?: Partial<CalculoApi>
 }
 
@@ -254,6 +260,25 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     obtenerSeleccion: async (): Promise<ResultadoSeleccion> => ({ ok: true, seleccion: null }),
     ...sobrescribir.overlay
   })
+  const preferencias = comoMocks<PreferenciasApi>({
+    obtener: async (): Promise<ResultadoPreferencias> => ({
+      ok: true,
+      preferencias: {
+        abrirAppConElJuego: false,
+        arrancarConWindows: false,
+        segundoPlanoDisponible: true
+      }
+    }),
+    cambiar: async (): Promise<ResultadoPreferencias> => ({
+      ok: true,
+      preferencias: {
+        abrirAppConElJuego: false,
+        arrancarConWindows: false,
+        segundoPlanoDisponible: true
+      }
+    }),
+    ...sobrescribir.preferencias
+  })
   const calculo = comoMocks<CalculoApi>({
     obtenerCatalogo: async (): Promise<ResultadoCatalogo> => ({
       ok: true,
@@ -270,9 +295,16 @@ export function instalarApi(sobrescribir: Sobrescrituras = {}): ApiFalsa {
     ...sobrescribir.calculo
   })
   Object.defineProperty(window, 'aniimo', {
-    value: { appName: 'Aniimo Team Tracker', auth, teams, grupos, amigos, overlay, calculo },
+    value: { appName: 'Aniimo Team Tracker', auth,
+      teams,
+      grupos,
+      amigos,
+      overlay,
+      preferencias,
+      calculo
+    },
     configurable: true,
     writable: true
   })
-  return { auth, teams, grupos, amigos, overlay, calculo }
+  return { auth, teams, grupos, amigos, overlay, preferencias, calculo }
 }

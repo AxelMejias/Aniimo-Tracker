@@ -1,0 +1,61 @@
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background-color: var(--color-surface-elevated);
+}
+
+input,
+select,
+textarea {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-3);
+}
+
+:focus-visible {
+  outline: var(--foco-ancho) solid var(--color-focus);
+  outline-offset: var(--foco-offset);
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: var(--color-disabled-background);
+  color: var(--color-disabled);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

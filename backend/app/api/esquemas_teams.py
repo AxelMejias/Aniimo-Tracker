@@ -252,6 +252,8 @@ class FichaRespuesta(BaseModel):
 
 class ResumenDeAniimoSalida(BaseModel):
     nombre: str
+    elemento: Elemento | None
+    rol: Rol | None
     nivel: int
     cp: int
     personalidad: str | None
@@ -274,6 +276,8 @@ class SlotSalida(BaseModel):
             if aniimo is None
             else ResumenDeAniimoSalida(
                 nombre=aniimo.nombre,
+                elemento=aniimo.elemento,
+                rol=aniimo.rol,
                 nivel=aniimo.nivel,
                 cp=aniimo.cp,
                 personalidad=aniimo.personalidad,

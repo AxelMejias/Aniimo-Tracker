@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16.4-alpine
+    ports:
+      - "127.0.0.1:5436:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aniimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en compose.env}
+      POSTGRES_DB: ${POSTGRES_DB:-aniimo}
+    volumes:
+      - aniimo-app-db-data:/var/lib/postgresql/data
+
+volumes:
+  aniimo-app-db-data:

@@ -103,3 +103,9 @@ describe('denyPermission', () => {
     expect(denyPermission()).toBe(false)
   })
 })
+
+describe('barra de menu de la ventana principal', () => {
+  it('queda oculta', () => {
+    expect(getMainWindowOptions('/p/preload.js').autoHideMenuBar).toBe(true)
+  })
+})

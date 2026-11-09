@@ -16,7 +16,7 @@ export default function SelectorDeTeam({
   const { grupos, sueltos } = armarSecciones(opciones.teams, opciones.grupos)
   return (
     <label className="overlay__selector">
-      Team
+      Team en pantalla
       <select value={teamId ?? ''} onChange={(e) => alElegir(e.target.value)}>
         {teamId === null && (
           <option value="" disabled>

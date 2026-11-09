@@ -25,14 +25,12 @@ export default function ImagenDelAniimo({
 
   return (
     <div className="imagen-del-aniimo">
-      {src === null ? (
+      {src === null && (
         <p className="imagen-del-aniimo__ayuda">Pegá una imagen (Ctrl+V) o elegí un archivo</p>
-      ) : (
-        <img className="imagen-del-aniimo__vista" src={src} alt="Vista previa del Aniimo" />
       )}
       <div className="imagen-del-aniimo__acciones">
         <label className="imagen-del-aniimo__elegir">
-          Elegir imagen
+          {src === null ? 'Elegir imagen' : 'Cambiar imagen'}
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"

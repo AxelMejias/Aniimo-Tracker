@@ -45,6 +45,11 @@ import {
   type ResultadoSeleccion
 } from '../shared/overlay'
 import {
+  CANALES_PREFERENCIAS,
+  type PedidoCambiarPreferencia,
+  type ResultadoPreferencias
+} from '../shared/preferencias'
+import {
   CANALES_TEAMS,
   type PedidoCambiarVisibilidad,
   type PedidoCrear,
@@ -115,6 +120,11 @@ export interface OverlayApi {
   obtenerSeleccion(): Promise<ResultadoSeleccion>
 }
 
+export interface PreferenciasApi {
+  obtener(): Promise<ResultadoPreferencias>
+  cambiar(pedido: PedidoCambiarPreferencia): Promise<ResultadoPreferencias>
+}
+
 export interface CalculoApi {
   obtenerCatalogo(): Promise<ResultadoCatalogo>
   calcular(pedido: PedidoCalcular): Promise<ResultadoCalcular>
@@ -128,6 +138,7 @@ export interface AniimoApi {
   readonly grupos: Readonly<GruposApi>
   readonly amigos: Readonly<AmigosApi>
   readonly overlay: Readonly<OverlayApi>
+  readonly preferencias: Readonly<PreferenciasApi>
   readonly calculo: Readonly<CalculoApi>
 }
 
@@ -186,6 +197,10 @@ export function buildExposedApi(invocar: Invocar): Readonly<AniimoApi> {
     cerrar: () => tipado(invocar(CANALES_OVERLAY.cerrar)),
     obtenerSeleccion: () => tipado(invocar(CANALES_OVERLAY.obtenerSeleccion))
   }
+  const preferencias: PreferenciasApi = {
+    obtener: () => tipado(invocar(CANALES_PREFERENCIAS.obtener)),
+    cambiar: (pedido) => tipado(invocar(CANALES_PREFERENCIAS.cambiar, pedido))
+  }
   const calculo: CalculoApi = {
     obtenerCatalogo: () => tipado(invocar(CANALES_CALCULO.obtenerCatalogo)),
     calcular: (pedido) => tipado(invocar(CANALES_CALCULO.calcular, pedido)),
@@ -198,6 +213,7 @@ export function buildExposedApi(invocar: Invocar): Readonly<AniimoApi> {
     grupos: Object.freeze(grupos),
     amigos: Object.freeze(amigos),
     overlay: Object.freeze(overlay),
+    preferencias: Object.freeze(preferencias),
     calculo: Object.freeze(calculo)
   })
 }

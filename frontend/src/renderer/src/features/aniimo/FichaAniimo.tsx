@@ -3,6 +3,7 @@ import type { ErrorDeTeams, Ficha } from '../../../../shared/teams'
 import { mensajeDeErrorDeTeams } from '../teams/mensajes'
 import EditorDeFicha from './EditorDeFicha'
 import { recodificarImagen, type Recodificador } from './recodificarImagen'
+import type { NavegacionDeFicha } from './UbicacionDeFicha'
 
 interface FichaAniimoProps {
   readonly teamId: string
@@ -11,6 +12,7 @@ interface FichaAniimoProps {
   readonly alSesionVencida: () => void
   readonly alCambiarSinGuardar?: (hayCambios: boolean) => void
   readonly recodificar?: Recodificador
+  readonly migas?: NavegacionDeFicha
 }
 
 type EstadoDeCarga =
@@ -24,7 +26,8 @@ export default function FichaAniimo({
   alVolver,
   alSesionVencida,
   alCambiarSinGuardar,
-  recodificar = recodificarImagen
+  recodificar = recodificarImagen,
+  migas
 }: FichaAniimoProps): ReactElement {
   const [estado, setEstado] = useState<EstadoDeCarga>({ tipo: 'cargando' })
   const sesionVencida = useRef(alSesionVencida)
@@ -71,6 +74,7 @@ export default function FichaAniimo({
       alVolver={alVolver}
       alSesionVencida={alSesionVencida}
       {...(alCambiarSinGuardar === undefined ? {} : { alCambiarSinGuardar })}
+      {...(migas === undefined ? {} : { migas })}
     />
   )
 }

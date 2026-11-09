@@ -40,8 +40,7 @@ export default function LoginForm({ alEnviar, aviso }: LoginFormProps): ReactEle
 
   return (
     <form className="auth-form" onSubmit={(evento) => void enviar(evento)} noValidate>
-      <h1 className="auth-form__title">Aniimo Team Tracker</h1>
-      <h2 className="auth-form__subtitle">Iniciar sesión</h2>
+      <h2 className="auth-form__title">Iniciar sesión</h2>
       <label className="auth-form__field">
         Usuario
         <input

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   instalarApi,
   RESUMEN_DE_IRISALIS,
+  SOLICITUD_DE_CARLA,
   teamDePrueba
 } from '../../../../tests/fixtures/apiFalsa'
 import { fichaGuardadaDeReferencia } from '../../../../tests/fixtures/ficha'
@@ -32,8 +33,15 @@ async function verMisTeams(): Promise<void> {
   await waitFor(() => expect(screen.queryByText('Cargando teams…')).toBeNull())
 }
 
+async function verPantallaDelTeam(): Promise<void> {
+  await screen.findByRole('heading', { level: 2, name: 'Principal' })
+  await screen.findByRole('button', { name: /Irisalis/ })
+}
+
 async function abrirFichaDeIrisalis(): Promise<void> {
   await verMisTeams()
+  fireEvent.click(screen.getByRole('button', { name: /^Team Principal, / }))
+  await verPantallaDelTeam()
   fireEvent.click(screen.getByRole('button', { name: /Irisalis/ }))
   await screen.findByLabelText('Nombre')
 }
@@ -75,12 +83,12 @@ describe('foco al navegar', () => {
 })
 
 describe('ficha guardada', () => {
-  it('guardar con exito vuelve a Mis teams y muestra Ficha guardada', async () => {
+  it('guardar con exito vuelve a la pantalla del team y muestra Ficha guardada', async () => {
     API_CON_FICHA()
     render(<App />)
     await abrirFichaDeIrisalis()
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
-    await verMisTeams()
+    await verPantallaDelTeam()
     expect(screen.getByRole('status')).toHaveTextContent('Ficha guardada')
   })
 
@@ -100,7 +108,7 @@ describe('ficha guardada', () => {
     render(<App />)
     await abrirFichaDeIrisalis()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
-    await verMisTeams()
+    await verPantallaDelTeam()
     expect(screen.queryByText('Ficha guardada')).toBeNull()
   })
 })
@@ -123,14 +131,14 @@ describe('descartar cambios de la ficha', () => {
     expect((screen.getByLabelText('Nivel') as HTMLInputElement).value).toBe('61')
   })
 
-  it('confirmar vuelve a Mis teams sin guardar', async () => {
+  it('confirmar vuelve a la pantalla del team sin guardar', async () => {
     const api = API_CON_FICHA()
     render(<App />)
     await abrirFichaDeIrisalis()
     tocarNivel()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     fireEvent.click(screen.getByRole('button', { name: 'Descartar cambios' }))
-    await verMisTeams()
+    await verPantallaDelTeam()
     expect(api.teams.guardarFicha).not.toHaveBeenCalled()
     expect(screen.queryByText('Ficha guardada')).toBeNull()
   })
@@ -161,6 +169,28 @@ describe('descartar cambios de la ficha', () => {
     }
   )
 
+  it('las migas de la ficha con cambios piden confirmacion y sin cambios salen directo', async () => {
+    API_CON_FICHA()
+    render(<App />)
+    await abrirFichaDeIrisalis()
+    const migas = screen.getByRole('navigation', { name: 'Ubicación' })
+    tocarNivel()
+    fireEvent.click(within(migas).getByRole('button', { name: 'Mis teams' }))
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar cambios' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Mis teams' })).toBeInTheDocument()
+  })
+
+  it('la miga del team vuelve a la pantalla del team sin confirmar si no hay cambios', async () => {
+    API_CON_FICHA()
+    render(<App />)
+    await abrirFichaDeIrisalis()
+    const migas = screen.getByRole('navigation', { name: 'Ubicación' })
+    fireEvent.click(await within(migas).findByRole('button', { name: 'Principal' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    await verPantallaDelTeam()
+  })
+
   it('cancelar la confirmacion de la navegacion deja la ficha con sus cambios', async () => {
     API_CON_FICHA()
     render(<App />)
@@ -183,6 +213,39 @@ describe('descartar cambios de la ficha', () => {
     expect(api.auth.cerrarSesion).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Descartar cambios' }))
     await waitFor(() => expect(api.auth.cerrarSesion).toHaveBeenCalledTimes(1))
+  })
+
+  it('Solicitudes con cambios pide confirmacion y confirmar abre Amigos', async () => {
+    const api = API_CON_FICHA()
+    api.amigos.listar.mockResolvedValue({
+      ok: true,
+      amigos: [],
+      recibidas: [SOLICITUD_DE_CARLA],
+      enviadas: []
+    })
+    render(<App />)
+    await abrirFichaDeIrisalis()
+    tocarNivel()
+    fireEvent.click(await screen.findByRole('button', { name: 'Solicitudes (1)' }))
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Amigos' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar cambios' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Amigos' })).toBeInTheDocument()
+  })
+
+  it('Solicitudes sin cambios abre Amigos directo', async () => {
+    const api = API_CON_FICHA()
+    api.amigos.listar.mockResolvedValue({
+      ok: true,
+      amigos: [],
+      recibidas: [SOLICITUD_DE_CARLA],
+      enviadas: []
+    })
+    render(<App />)
+    await abrirFichaDeIrisalis()
+    fireEvent.click(await screen.findByRole('button', { name: 'Solicitudes (1)' }))
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Amigos' })).toBeInTheDocument()
   })
 
   it('sin cambios la navegacion y Cerrar sesion salen directo', async () => {

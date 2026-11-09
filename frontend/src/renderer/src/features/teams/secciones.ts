@@ -1,4 +1,8 @@
-import type { GrupoResumen, TeamResumen } from '../../../../shared/teams'
+import {
+  MAXIMO_DE_TEAMS_POR_GRUPO,
+  type GrupoResumen,
+  type TeamResumen
+} from '../../../../shared/teams'
 
 export interface SeccionDeGrupoDatos {
   readonly grupo: GrupoResumen
@@ -23,4 +27,20 @@ export function armarSecciones(
     })),
     sueltos: teams.filter((team) => team.grupoId === null).sort((a, b) => a.orden - b.orden)
   }
+}
+
+export interface OpcionDeGrupo {
+  readonly id: string
+  readonly nombre: string
+}
+
+export function opcionesDeGrupo(
+  secciones: Secciones,
+  grupoIdActual: string | null
+): OpcionDeGrupo[] {
+  return secciones.grupos
+    .filter(
+      ({ grupo, teams }) => grupo.id === grupoIdActual || teams.length < MAXIMO_DE_TEAMS_POR_GRUPO
+    )
+    .map(({ grupo }) => ({ id: grupo.id, nombre: grupo.nombre }))
 }

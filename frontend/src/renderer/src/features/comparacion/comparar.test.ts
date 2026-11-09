@@ -171,6 +171,8 @@ describe('compararFichas: sin notas ni score', () => {
 describe('compararTeams', () => {
   const resumen = (nombre: string): NonNullable<SlotDeTeam['aniimo']> => ({
     nombre,
+    elemento: 'hielo',
+    rol: 'curacion',
     nivel: 60,
     cp: 3475,
     personalidad: 'ENFJ',

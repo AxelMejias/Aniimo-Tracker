@@ -46,8 +46,8 @@ async function esEspecieDesconocida(respuesta: Response): Promise<boolean> {
   }
 }
 
-export function crearClienteCalculo(fetchFn: FetchFn, sesion: SesionEnMemoria): ClienteCalculo {
-  const pedir: Peticion = crearPeticion(fetchFn, sesion)
+export function crearClienteCalculo(fetchFn: FetchFn, sesion: SesionEnMemoria, urlBase?: string): ClienteCalculo {
+  const pedir: Peticion = crearPeticion(fetchFn, sesion, urlBase)
 
   async function errorDeRespuesta(respuesta: Response): Promise<ErrorDeCalculo> {
     if (respuesta.status === 401) {

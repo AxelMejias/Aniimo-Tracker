@@ -11,7 +11,7 @@ export function getWebPreferences(preloadPath: string): WebPreferences {
 }
 
 export function getMainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
-  return { webPreferences: getWebPreferences(preloadPath) }
+  return { autoHideMenuBar: true, webPreferences: getWebPreferences(preloadPath) }
 }
 
 export function isAllowedNavigation(targetUrl: string, appUrl: string): boolean {

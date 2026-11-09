@@ -1,0 +1,30 @@
+{
+  "appId": "com.aniimo.teamtracker",
+  "productName": "Aniimo Team Tracker",
+  "asar": true,
+  "directories": { "output": "release" },
+  "files": ["out/**", "package.json"],
+  "extraResources": [
+    { "from": "../backend/dist/aniimo-backend", "to": "aniimo-backend" },
+    { "from": "../docker-compose.app.yml", "to": "docker-compose.app.yml" }
+  ],
+  "publish": null,
+  "npmRebuild": false,
+  "win": { "target": [{ "target": "nsis", "arch": ["x64"] }] },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Aniimo Team Tracker",
+    "deleteAppDataOnUninstall": false,
+    "artifactName": "Aniimo-Team-Tracker-Setup-${version}.${ext}"
+  },
+  "electronFuses": {
+    "runAsNode": false,
+    "enableNodeOptionsEnvironmentVariable": false,
+    "enableNodeCliInspectArguments": false,
+    "onlyLoadAppFromAsar": true,
+    "enableEmbeddedAsarIntegrityValidation": true
+  }
+}

@@ -62,6 +62,8 @@ def test_el_resumen_de_la_tarjeta_es_exacto(usuario_a: ClienteAutenticado) -> No
     [listado] = _listar(usuario_a)
     assert listado["slots"][0]["aniimo"] == {
         "nombre": "Irisalis",
+        "elemento": "hielo",
+        "rol": "curacion",
         "nivel": 60,
         "cp": 3475,
         "personalidad": "ENFJ",
@@ -70,6 +72,27 @@ def test_el_resumen_de_la_tarjeta_es_exacto(usuario_a: ClienteAutenticado) -> No
         "despertares_total": 43,
         "tiene_imagen": True,
     }
+
+
+def test_un_aniimo_sin_elemento_ni_rol_los_trae_en_null(usuario_a: ClienteAutenticado) -> None:
+    team = _crear(usuario_a, "Principal")
+    _guardar_ficha(usuario_a, team["id"], 1, elemento=None, rol=None)
+    [listado] = _listar(usuario_a)
+    aniimo = listado["slots"][0]["aniimo"]
+    assert aniimo["elemento"] is None
+    assert aniimo["rol"] is None
+
+
+def test_los_snapshots_de_grupos_y_de_sueltos_traen_elemento_y_rol(
+    usuario_a: ClienteAutenticado,
+) -> None:
+    team = _crear(usuario_a, "Principal")
+    _guardar_ficha(usuario_a, team["id"], 1)
+    creado = usuario_a.post("/api/grupos", json={"nombre": "Buildeado"}).json()
+    ordenado = usuario_a.put("/api/teams/sueltos/orden", json={"team_ids": [team["id"]]}).json()
+    for snapshot in (creado, ordenado):
+        aniimo = snapshot["teams"][0]["slots"][0]["aniimo"]
+        assert (aniimo["elemento"], aniimo["rol"]) == ("hielo", "curacion")
 
 
 def test_el_listado_no_incluye_ids_de_usuario(usuario_a: ClienteAutenticado) -> None:

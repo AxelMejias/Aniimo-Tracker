@@ -202,6 +202,8 @@ describe('resultados traducidos', () => {
   it('listar entrega los equipos en camelCase', async () => {
     const aniimo = {
       nombre: 'Irisalis',
+      elemento: 'hielo',
+      rol: 'curacion',
       nivel: 60,
       cp: 3475,
       personalidad: 'ENFJ',
@@ -224,6 +226,8 @@ describe('resultados traducidos', () => {
     expect(resultado).toMatchObject({ ok: true })
     if (resultado.ok) {
       expect(resultado.teams[0]?.slots[0]?.aniimo).toMatchObject({
+        elemento: 'hielo',
+        rol: 'curacion',
         estrellaActual: 2,
         despertaresUsados: 28
       })
@@ -240,6 +244,28 @@ describe('resultados traducidos', () => {
       ])
     }
   })
+
+  it.each([{ elemento: 'lava' }, { rol: 'tanque' }])(
+    'un resumen con un codigo fuera de catalogo (%o) es error-inesperado',
+    async (cambios) => {
+      const aniimo = {
+        nombre: 'Irisalis',
+        elemento: 'hielo',
+        rol: 'curacion',
+        nivel: 60,
+        cp: 3475,
+        personalidad: 'ENFJ',
+        estrella_actual: 2,
+        despertares_usados: 28,
+        despertares_total: 43,
+        tiene_imagen: false,
+        ...cambios
+      }
+      const team = { ...resumenApi, slots: [{ slot: 1, aniimo }, ...resumenApi.slots.slice(1)] }
+      const { cliente } = preparar(json(200, { teams: [team], grupos: [] }))
+      expect(await cliente.listar()).toEqual({ ok: false, error: 'error-inesperado' })
+    }
+  )
 
   it('un listado sin grupos es error-inesperado', async () => {
     const { cliente } = preparar(json(200, { teams: [] }))

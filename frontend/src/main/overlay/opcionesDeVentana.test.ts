@@ -45,3 +45,9 @@ describe('getOverlayWindowOptions', () => {
     expect(prefs?.allowRunningInsecureContent).not.toBe(true)
   })
 })
+
+describe('barra de menu del overlay', () => {
+  it('queda oculta', () => {
+    expect(getOverlayWindowOptions('/p/preload.js', LIMITES).autoHideMenuBar).toBe(true)
+  })
+})

@@ -4,6 +4,7 @@ import { CANALES_AUTH } from '../shared/auth'
 import { CANALES_CALCULO } from '../shared/calculo'
 import { CANALES_GRUPOS } from '../shared/grupos'
 import { CANALES_OVERLAY } from '../shared/overlay'
+import { CANALES_PREFERENCIAS } from '../shared/preferencias'
 import { CANALES_TEAMS } from '../shared/teams'
 import { pedidoDePotencialDeReferencia, pedidoDeReferencia } from '../../tests/fixtures/calculo'
 import { fichaDeReferencia } from '../../tests/fixtures/ficha'
@@ -26,7 +27,7 @@ function valoresRecorridos(raiz: unknown, vistos = new Set<unknown>()): unknown[
 }
 
 describe('buildExposedApi', () => {
-  it('devuelve un objeto congelado con solo appName, auth, teams, grupos, amigos, overlay y calculo', () => {
+  it('devuelve un objeto congelado con solo appName, auth, teams, grupos, amigos, overlay, preferencias y calculo', () => {
     const { api } = construir()
     expect(Object.isFrozen(api)).toBe(true)
     expect(Object.keys(api).sort()).toEqual([
@@ -36,6 +37,7 @@ describe('buildExposedApi', () => {
       'calculo',
       'grupos',
       'overlay',
+      'preferencias',
       'teams'
     ])
     expect(api.appName).toBe('Aniimo Team Tracker')
@@ -231,6 +233,22 @@ describe('buildExposedApi', () => {
       [CANALES_OVERLAY.seleccionar, { teamId: 'u' }],
       [CANALES_OVERLAY.cerrar],
       [CANALES_OVERLAY.obtenerSeleccion]
+    ])
+  })
+
+  it('preferencias esta congelado y tiene solo obtener y cambiar', () => {
+    const { api } = construir()
+    expect(Object.isFrozen(api.preferencias)).toBe(true)
+    expect(Object.keys(api.preferencias).sort()).toEqual(['cambiar', 'obtener'])
+  })
+
+  it('cada funcion de preferencias invoca su canal fijo con el payload', async () => {
+    const { api, invoke } = construir()
+    await api.preferencias.obtener()
+    await api.preferencias.cambiar({ clave: 'abrirAppConElJuego', valor: true })
+    expect(invoke.mock.calls).toEqual([
+      [CANALES_PREFERENCIAS.obtener],
+      [CANALES_PREFERENCIAS.cambiar, { clave: 'abrirAppConElJuego', valor: true }]
     ])
   })
 

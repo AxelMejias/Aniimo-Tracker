@@ -12,4 +12,13 @@ describe('estilos del overlay', () => {
   it('la barra sigue siendo la zona de arrastre', () => {
     expect(css).toMatch(/\.overlay__barra\s*\{[^}]*-webkit-app-region:\s*drag/)
   })
+
+  it('las acciones de la barra quedan fuera de la zona de arrastre', () => {
+    expect(css).toMatch(/\.overlay__acciones\s*\{[^}]*-webkit-app-region:\s*no-drag/)
+  })
+
+  it('no usa tamanos de letra fijos ni colores literales', () => {
+    expect(css).not.toMatch(/font-size:\s*[\d.]+(px|rem)/)
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}/i)
+  })
 })

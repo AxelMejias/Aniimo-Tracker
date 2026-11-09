@@ -106,6 +106,8 @@ const OTRO_GRUPO_ID = '5d7a9c10-2b3e-4c85-8f16-0a4d3e2b1c99'
 describe('teamDeApi', () => {
   const resumen = {
     nombre: 'Irisalis',
+    elemento: 'hielo',
+    rol: 'curacion',
     nivel: 60,
     cp: 3475,
     personalidad: 'ENFJ',
@@ -145,6 +147,8 @@ describe('teamDeApi', () => {
       slot: 1,
       aniimo: {
         nombre: 'Irisalis',
+        elemento: 'hielo',
+        rol: 'curacion',
         nivel: 60,
         cp: 3475,
         personalidad: 'ENFJ',
@@ -161,6 +165,27 @@ describe('teamDeApi', () => {
   it('acepta personalidad nula', () => {
     const conNulo = { ...team, slots: [{ slot: 1, aniimo: { ...resumen, personalidad: null } }] }
     expect(teamDeApi(conNulo).slots[0]?.aniimo?.personalidad).toBeNull()
+  })
+
+  it('traduce elemento y rol nulos a null', () => {
+    const sinDatos = {
+      ...team,
+      slots: [{ slot: 1, aniimo: { ...resumen, elemento: null, rol: null } }]
+    }
+    const aniimo = teamDeApi(sinDatos).slots[0]?.aniimo
+    expect(aniimo?.elemento).toBeNull()
+    expect(aniimo?.rol).toBeNull()
+  })
+
+  it.each([
+    ['elemento fuera de catalogo', { elemento: 'lava' }],
+    ['rol fuera de catalogo', { rol: 'tanque' }],
+    ['elemento numerico', { elemento: 3 }],
+    ['sin elemento', { elemento: undefined }],
+    ['sin rol', { rol: undefined }]
+  ])('rechaza un resumen con %s', (_nombre, cambios) => {
+    const invalido = { ...team, slots: [{ slot: 1, aniimo: { ...resumen, ...cambios } }] }
+    expect(() => teamDeApi(invalido)).toThrow(RespuestaInvalida)
   })
 
   it('rechaza equipos con forma inesperada', () => {

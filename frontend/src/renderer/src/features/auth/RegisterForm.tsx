@@ -38,8 +38,7 @@ export default function RegisterForm({ alEnviar }: RegisterFormProps): ReactElem
 
   return (
     <form className="auth-form" onSubmit={(evento) => void enviar(evento)} noValidate>
-      <h1 className="auth-form__title">Aniimo Team Tracker</h1>
-      <h2 className="auth-form__subtitle">Crear cuenta</h2>
+      <h2 className="auth-form__title">Crear cuenta</h2>
       <label className="auth-form__field">
         Usuario
         <input

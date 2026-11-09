@@ -38,8 +38,8 @@ function aBase64(bytes: ArrayBuffer): string {
   return Buffer.from(bytes).toString('base64')
 }
 
-export function crearClienteTeams(fetchFn: FetchFn, sesion: SesionEnMemoria): ClienteTeams {
-  const pedir: Peticion = crearPeticion(fetchFn, sesion)
+export function crearClienteTeams(fetchFn: FetchFn, sesion: SesionEnMemoria, urlBase?: string): ClienteTeams {
+  const pedir: Peticion = crearPeticion(fetchFn, sesion, urlBase)
 
   const ejecutar = crearEjecutor(pedir, sesion)
 

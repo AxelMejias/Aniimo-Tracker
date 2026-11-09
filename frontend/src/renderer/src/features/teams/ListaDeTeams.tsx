@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent, type ReactElement } from 'react'
-import type { ErrorDeOverlay } from '../../../../shared/overlay'
+import { useAbanicos } from '../mazo/useAbanicos'
+import { useTeclasDelAbanico } from '../mazo/useTeclasDelAbanico'
 import {
+  MAXIMO_DE_GRUPOS,
   MAXIMO_DE_TEAMS,
-  MAXIMO_DE_TEAMS_POR_GRUPO,
   type ErrorDeTeams,
   type TeamResumen
 } from '../../../../shared/teams'
-import ControlesDeGrupo from './ControlesDeGrupo'
 import { idDeBotonDeOrden } from './ControlesDeOrden'
 import {
   destinoDeMovimiento,
@@ -15,10 +15,10 @@ import {
   type Direccion
 } from './destinoDeArrastre'
 import { mensajeDeErrorDeNombreDeTeam, mensajeDeErrorDeTeams } from './mensajes'
+import MazoDeTeams from './MazoDeTeams'
 import NuevoGrupo from './NuevoGrupo'
+import OrganizarTeams from './OrganizarTeams'
 import { armarSecciones, type Secciones } from './secciones'
-import SeccionDeGrupo from './SeccionDeGrupo'
-import TarjetaTeam from './TarjetaTeam'
 import { useArrastre } from './useArrastre'
 import { useTeams } from './useTeams'
 import './teams.css'
@@ -28,7 +28,8 @@ const TEXTO_MAXIMO_DE_TEAMS = `Llegaste al máximo de ${MAXIMO_DE_TEAMS} teams.`
 const SIN_SECCIONES: Secciones = { grupos: [], sueltos: [] }
 
 interface ListaDeTeamsProps {
-  readonly alAbrirSlot: (teamId: string, slot: number) => void
+  readonly grupoDesplegado?: string | null
+  readonly alAbrirTeam: (teamId: string) => void
   readonly alSesionVencida: () => void
 }
 
@@ -66,19 +67,30 @@ function claveDelMensaje(destino: Destino): string {
 }
 
 export default function ListaDeTeams({
-  alAbrirSlot,
+  grupoDesplegado = null,
+  alAbrirTeam,
   alSesionVencida
 }: ListaDeTeamsProps): ReactElement {
   const equipo = useTeams(alSesionVencida)
   const { estado, pendiente, recargar } = equipo
+  const [organizando, setOrganizando] = useState(false)
   const [creando, setCreando] = useState(false)
   const [nombre, setNombre] = useState('')
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [mensajeDeOrden, setMensajeDeOrden] = useState<MensajeDeOrden | null>(null)
   const [foco, setFoco] = useState<FocoPendiente | null>(null)
+  const abanicos = useAbanicos(grupoDesplegado)
 
   const secciones =
     estado.tipo === 'listo' ? armarSecciones(estado.teams, estado.grupos) : SIN_SECCIONES
+
+  useTeclasDelAbanico({
+    activo: !organizando && estado.tipo === 'listo',
+    abanicos,
+    teamIdsDe: (grupoId) =>
+      secciones.grupos.find(({ grupo }) => grupo.id === grupoId)?.teams.map((team) => team.id) ?? [],
+    alAbrirTeam
+  })
 
   function ejecutarDestino(destino: Destino): Promise<ErrorDeTeams | null> {
     switch (destino.tipo) {
@@ -135,17 +147,6 @@ export default function ListaDeTeams({
     setFoco(null)
   }, [foco, pendiente, estado])
 
-  async function abrirEnOverlay(teamId: string): Promise<ErrorDeOverlay | null> {
-    const resultado = await window.aniimo.overlay.abrir({ teamId })
-    if (resultado.ok) {
-      return null
-    }
-    if (resultado.error === 'sesion-vencida') {
-      alSesionVencida()
-    }
-    return resultado
-  }
-
   if (estado.tipo === 'cargando') {
     return <p className="lista-de-teams__estado">Cargando teams…</p>
   }
@@ -161,7 +162,6 @@ export default function ListaDeTeams({
   }
 
   const { teams, grupos } = estado
-  const hayGrupos = secciones.grupos.length > 0
   const mensajeDe = (clave: string): string | null =>
     mensajeDeOrden?.clave === clave ? mensajeDeOrden.texto : null
 
@@ -182,92 +182,70 @@ export default function ListaDeTeams({
     }
   }
 
-  async function cambiarDeGrupo(team: TeamResumen, grupoId: string | null): Promise<ErrorDeTeams | null> {
-    if (grupoId !== null) {
-      return equipo.agregarTeam(grupoId, team.id)
-    }
-    return team.grupoId === null ? null : equipo.sacarTeam(team.grupoId, team.id)
+  function alternarOrganizar(): void {
+    abanicos.plegar()
+    setOrganizando((actual) => !actual)
   }
-
-  function tarjetaDe(team: TeamResumen): ReactElement {
-    const opcionesDeGrupo = secciones.grupos
-      .filter(
-        ({ grupo, teams: delGrupo }) =>
-          grupo.id === team.grupoId || delGrupo.length < MAXIMO_DE_TEAMS_POR_GRUPO
-      )
-      .map(({ grupo }) => ({ id: grupo.id, nombre: grupo.nombre }))
-    const origen: Arrastrado = { tipo: 'team', id: team.id }
-    const objetivo = { tipo: 'team', id: team.id } as const
-    return (
-      <TarjetaTeam
-        key={team.id}
-        team={team}
-        deshabilitado={pendiente}
-        alRenombrar={(nuevo) => equipo.renombrar(team.id, nuevo)}
-        alCambiarVisibilidad={(oculto) => equipo.cambiarVisibilidad(team.id, oculto)}
-        alBorrar={() => equipo.borrar(team.id)}
-        alAbrirSlot={alAbrirSlot}
-        alAbrirEnOverlay={() => abrirEnOverlay(team.id)}
-        opcionesDeGrupo={opcionesDeGrupo}
-        alCambiarGrupo={(grupoId) => cambiarDeGrupo(team, grupoId)}
-        alElegirPortada={(slot) => equipo.elegirPortadaDeTeam(team.id, slot)}
-        puedeSubir={destinoDeMovimiento(secciones, origen, 'subir') !== null}
-        puedeBajar={destinoDeMovimiento(secciones, origen, 'bajar') !== null}
-        alMover={(direccion) => mover(origen, direccion)}
-        esDestino={arrastre.esDestinoMarcado(objetivo)}
-        propsDeLaTarjeta={arrastre.propsDeDestino(objetivo)}
-        propsDelEncabezado={arrastre.propsDeOrigen(origen)}
-      />
-    )
-  }
-
-  const objetivoSinGrupo = { tipo: 'sin-grupo' } as const
 
   return (
     <div className="lista-de-teams">
       <div className="lista-de-teams__barra">
         <p className="lista-de-teams__contador">
-          {teams.length}/{MAXIMO_DE_TEAMS} teams
+          <strong>
+            {teams.length}/{MAXIMO_DE_TEAMS} teams
+          </strong>{' '}
+          · {grupos.length} de {MAXIMO_DE_GRUPOS} grupos · {secciones.sueltos.length}{' '}
+          {secciones.sueltos.length === 1 ? 'team suelto' : 'teams sueltos'}
         </p>
-        {teams.length < MAXIMO_DE_TEAMS &&
-          (creando ? (
-            <form className="lista-de-teams__crear" onSubmit={(e) => void confirmarCreacion(e)}>
-              <label>
-                Nombre del team
-                <input
-                  type="text"
-                  value={nombre}
-                  disabled={pendiente}
-                  onChange={(e) => setNombre(e.target.value)}
-                />
-              </label>
-              <button type="submit" disabled={pendiente}>
-                Crear
+        <div className="lista-de-teams__acciones">
+          {teams.length < MAXIMO_DE_TEAMS &&
+            (creando ? (
+              <form className="lista-de-teams__crear" onSubmit={(e) => void confirmarCreacion(e)}>
+                <label>
+                  Nombre del team
+                  <input
+                    type="text"
+                    value={nombre}
+                    disabled={pendiente}
+                    onChange={(e) => setNombre(e.target.value)}
+                  />
+                </label>
+                <button type="submit" disabled={pendiente}>
+                  Crear
+                </button>
+                <button type="button" disabled={pendiente} onClick={() => setCreando(false)}>
+                  Cancelar
+                </button>
+                {mensaje !== null && (
+                  <p className="lista-de-teams__mensaje" role="alert">
+                    {mensaje}
+                  </p>
+                )}
+              </form>
+            ) : (
+              <button
+                className="lista-de-teams__nuevo"
+                type="button"
+                disabled={pendiente}
+                onClick={abrirFormulario}
+              >
+                Nuevo team
               </button>
-              <button type="button" disabled={pendiente} onClick={() => setCreando(false)}>
-                Cancelar
-              </button>
-              {mensaje !== null && (
-                <p className="lista-de-teams__mensaje" role="alert">
-                  {mensaje}
-                </p>
-              )}
-            </form>
-          ) : (
-            <button
-              className="lista-de-teams__nuevo"
-              type="button"
-              disabled={pendiente}
-              onClick={abrirFormulario}
-            >
-              Crear team
+            ))}
+          <NuevoGrupo
+            cantidadDeGrupos={grupos.length}
+            deshabilitado={pendiente}
+            alCrear={equipo.crearGrupo}
+          />
+          <button type="button" aria-pressed={organizando} onClick={alternarOrganizar}>
+            Organizar
+          </button>
+          {organizando && (
+            <button type="button" onClick={alternarOrganizar}>
+              Listo
             </button>
-          ))}
-        <NuevoGrupo
-          cantidadDeGrupos={grupos.length}
-          deshabilitado={pendiente}
-          alCrear={equipo.crearGrupo}
-        />
+          )}
+        </div>
       </div>
       {teams.length === 0 && <p className="lista-de-teams__estado">{TEXTO_SIN_TEAMS}</p>}
       {teams.length >= MAXIMO_DE_TEAMS && (
@@ -278,47 +256,16 @@ export default function ListaDeTeams({
           {mensajeDe('grupos')}
         </p>
       )}
-      {secciones.grupos.map((seccion) => {
-        const { grupo } = seccion
-        const origen: Arrastrado = { tipo: 'grupo', id: grupo.id }
-        const objetivo = { tipo: 'grupo', id: grupo.id } as const
-        return (
-          <SeccionDeGrupo
-            key={grupo.id}
-            id={grupo.id}
-            nombre={grupo.nombre}
-            cantidad={`${seccion.teams.length}/${MAXIMO_DE_TEAMS_POR_GRUPO} teams`}
-            mensaje={mensajeDe(grupo.id)}
-            esDestino={arrastre.esDestinoMarcado(objetivo)}
-            propsDeLaSeccion={arrastre.propsDeDestino(objetivo)}
-            propsDelEncabezado={arrastre.propsDeOrigen(origen)}
-            acciones={
-              <ControlesDeGrupo
-                seccion={seccion}
-                deshabilitado={pendiente}
-                puedeSubir={destinoDeMovimiento(secciones, origen, 'subir') !== null}
-                puedeBajar={destinoDeMovimiento(secciones, origen, 'bajar') !== null}
-                alRenombrar={(nuevo) => equipo.renombrarGrupo(grupo.id, nuevo)}
-                alElegirPortada={(teamId) => equipo.elegirPortadaDeGrupo(grupo.id, teamId)}
-                alBorrar={() => equipo.borrarGrupo(grupo.id)}
-                alMover={(direccion) => mover(origen, direccion)}
-              />
-            }
-          >
-            {seccion.teams.map(tarjetaDe)}
-          </SeccionDeGrupo>
-        )
-      })}
-      {(hayGrupos || secciones.sueltos.length > 0) && (
-        <SeccionDeGrupo
-          id="sin-grupo"
-          nombre="Sin grupo"
-          mensaje={mensajeDe('sin-grupo')}
-          esDestino={arrastre.esDestinoMarcado(objetivoSinGrupo)}
-          propsDeLaSeccion={arrastre.propsDeDestino(objetivoSinGrupo)}
-        >
-          {secciones.sueltos.map(tarjetaDe)}
-        </SeccionDeGrupo>
+      {organizando ? (
+        <OrganizarTeams
+          secciones={secciones}
+          equipo={equipo}
+          arrastre={arrastre}
+          mensajeDe={mensajeDe}
+          alMover={mover}
+        />
+      ) : (
+        <MazoDeTeams secciones={secciones} abanicos={abanicos} equipo={equipo} alAbrirTeam={alAbrirTeam} />
       )}
     </div>
   )

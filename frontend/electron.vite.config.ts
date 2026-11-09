@@ -23,6 +23,14 @@ export default defineConfig({
       }
     },
     plugins: [react()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/renderer/index.html'),
+          arranque: resolve('src/renderer/arranque.html')
+        }
+      }
+    },
     // El proceso main carga y valida el origen fijo http://localhost:5173; si Vite
     // saltara a otro puerto, la ventana mostraria lo que sea que ocupe el 5173.
     server: { port: 5173, strictPort: true }

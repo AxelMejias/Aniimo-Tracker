@@ -159,7 +159,7 @@ describe('guardar', () => {
     await abrir()
     const opciones = (etiqueta: string): (string | null)[] =>
       within(screen.getByLabelText(etiqueta))
-        .getAllByRole('option')
+        .getAllByRole('option', { hidden: true })
         .filter((o) => (o as HTMLOptionElement).value !== '')
         .map((o) => o.textContent)
     expect(opciones('Rol')).toEqual(['DPS', 'Ayuda', 'Curación', 'Regen', 'Break'])
@@ -241,6 +241,12 @@ describe('guardar', () => {
     guardar()
     await waitFor(() =>
       expect(campo('Despertares usados')).toHaveAccessibleDescription('Valor no válido')
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Entrenamiento' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      )
     )
     expect(campo('Nombre').value).toBe('Editada')
   })
@@ -432,7 +438,7 @@ describe('imagen en el cliente', () => {
     ).toBeInTheDocument()
     expect(recodificar).not.toHaveBeenCalled()
     for (const funcion of Object.values(api.teams)) {
-      if (funcion !== api.teams.obtenerFicha) {
+      if (funcion !== api.teams.obtenerFicha && funcion !== api.teams.listar) {
         expect(funcion).not.toHaveBeenCalled()
       }
     }
@@ -561,12 +567,14 @@ describe('notas privadas', () => {
   it('una ficha nueva la muestra desmarcada', async () => {
     instalarApi()
     await abrir()
+    activar('Notas')
     expect(casillaDeNotasPrivadas().checked).toBe(false)
   })
 
   it('marcarla envia notasPrivadas en true con las notas sin cambios', async () => {
     const api = instalarApi({ teams: conFicha() })
     const { alVolver } = await abrir()
+    activar('Notas')
     fireEvent.click(casillaDeNotasPrivadas())
     guardar()
     await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
@@ -580,8 +588,11 @@ describe('notas privadas', () => {
   it('al reabrir la ficha sigue marcada y las notas se ven completas', async () => {
     instalarApi({ teams: conFicha({ ...fichaGuardadaDeReferencia(), notasPrivadas: true }) })
     await abrir()
+    activar('Notas')
     expect(casillaDeNotasPrivadas().checked).toBe(true)
-    expect(campo('Notas').value).toBe('Aniimo de referencia')
+    expect((screen.getByRole('textbox', { name: 'Notas' }) as HTMLTextAreaElement).value).toBe(
+      'Aniimo de referencia'
+    )
     expect(campo('Notas de habilidades').value).toContain('ataque electrico')
   })
 
@@ -590,6 +601,7 @@ describe('notas privadas', () => {
       teams: conFicha({ ...fichaGuardadaDeReferencia(), notasPrivadas: true })
     })
     const { alVolver } = await abrir()
+    activar('Notas')
     fireEvent.click(casillaDeNotasPrivadas())
     guardar()
     await waitFor(() => expect(alVolver).toHaveBeenCalledTimes(1))
@@ -601,6 +613,7 @@ describe('sugerencia de stats', () => {
   it('el editor de la ficha propia la ofrece plegada', async () => {
     instalarApi({ teams: conFicha() })
     await abrir()
+    activar('Stats')
     expect(screen.getByRole('button', { name: 'Sugerencia de stats' })).toHaveAttribute(
       'aria-expanded',
       'false'
@@ -828,5 +841,229 @@ describe('descartar cambios y foco al primer error', () => {
     await abrir()
     guardar()
     await waitFor(() => expect(campo('Nivel')).toHaveFocus())
+  })
+})
+
+function activar(pestana: string): void {
+  fireEvent.click(screen.getByRole('tab', { name: pestana }))
+}
+
+function barraDe(stat: string): HTMLElement {
+  const lista = screen.getByRole('list', { name: 'Potencial por stat' })
+  const fila = within(lista)
+    .getAllByRole('listitem')
+    .find((li) => li.querySelector('.carta-ficha__stat')?.textContent === stat)
+  if (fila === undefined) {
+    throw new Error(`no hay barra para ${stat}`)
+  }
+  return fila
+}
+
+function ancho(fila: HTMLElement): string | null {
+  return fila.querySelector('rect.barra__relleno')?.getAttribute('width') ?? null
+}
+
+describe('datos conservados entre pestanas', () => {
+  it('el nivel escrito en Generales sigue al pasar por Stats y volver', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    escribir('Nivel', '61')
+    activar('Stats')
+    activar('Generales')
+    expect(campo('Nivel').value).toBe('61')
+  })
+
+  it('cambiar de pestana no pide confirmacion y Cancelar sigue pidiendola', async () => {
+    instalarApi({ teams: conFicha() })
+    const { alVolver } = await abrir()
+    escribir('Nivel', '61')
+    activar('Objetos')
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(alVolver).not.toHaveBeenCalled()
+  })
+
+  it('Guardar, Cancelar y Borrar estan visibles fuera de las pestanas', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    for (const pestana of ['Generales', 'Stats', 'Potencial']) {
+      activar(pestana)
+      for (const nombre of ['Guardar', 'Cancelar', 'Borrar']) {
+        const boton = screen.getByRole('button', { name: nombre })
+        expect(boton.closest('[role="tabpanel"]')).toBeNull()
+      }
+    }
+  })
+})
+
+describe('carta grande de la ficha', () => {
+  it('muestra nombre, nivel, CP, elemento, rol y personalidad de la ficha', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    const carta = document.querySelector('.carta--ficha') as HTMLElement
+    expect(within(carta).getByText('Irisalis')).toBeInTheDocument()
+    expect(within(carta).getByText('Nv 60')).toBeInTheDocument()
+    expect(within(carta).getByText('CP 3475')).toBeInTheDocument()
+    expect(within(carta).getByText(/Hielo · Curación/)).toBeInTheDocument()
+    expect(within(carta).getByText('ENFJ')).toBeInTheDocument()
+  })
+
+  it('la carta sigue lo que se escribe en el formulario', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    escribir('Nombre', 'Otro nombre')
+    const carta = document.querySelector('.carta--ficha') as HTMLElement
+    expect(within(carta).getByText('Otro nombre')).toBeInTheDocument()
+  })
+
+  it('barras de potencial: ATQ al 100% y DEF fisica al 25% con su numero como texto', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    escribir('DEF física potencial', '5')
+    expect(ancho(barraDe('ATQ'))).toBe('100')
+    expect(within(barraDe('ATQ')).getByText('20')).toBeInTheDocument()
+    expect(ancho(barraDe('DEF física'))).toBe('25')
+    expect(within(barraDe('DEF física')).getByText('5')).toBeInTheDocument()
+  })
+
+  it('barra con potencial 0 vacia y con valor no numerico sin barra', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    escribir('ATQ potencial', '0')
+    expect(ancho(barraDe('ATQ'))).toBe('0')
+    expect(within(barraDe('ATQ')).getByText('0')).toBeInTheDocument()
+    escribir('ATQ potencial', 'abc')
+    expect(ancho(barraDe('ATQ'))).toBeNull()
+    expect(within(barraDe('ATQ')).getByText('—')).toBeInTheDocument()
+  })
+
+  it('las barras son decorativas', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    const barras = document.querySelectorAll('.carta--ficha svg.barra')
+    expect(barras).toHaveLength(6)
+    barras.forEach((barra) => expect(barra.getAttribute('aria-hidden')).toBe('true'))
+  })
+
+  it('los controles de imagen estan junto a la carta', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    const columna = document.querySelector('.carta-ficha') as HTMLElement
+    expect(within(columna).getByText('Elegir imagen')).toBeInTheDocument()
+  })
+})
+
+describe('foco al primer error entre pestanas', () => {
+  it('un error en Objetos con Generales activa lleva a esa pestana y enfoca el campo', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    escribir('Objeto equipado nivel', '100')
+    guardar()
+    await waitFor(() => expect(campo('Objeto equipado nivel')).toHaveFocus())
+    expect(screen.getByRole('tab', { name: 'Objetos' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('el nombre vacio desde Stats vuelve a Generales con el foco en Nombre', async () => {
+    instalarApi({ teams: conFicha() })
+    await abrir()
+    escribir('Nombre', '')
+    activar('Stats')
+    guardar()
+    await waitFor(() => expect(campo('Nombre')).toHaveFocus())
+    expect(screen.getByRole('tab', { name: 'Generales' })).toHaveAttribute('aria-selected', 'true')
+    expect(campo('Nombre')).toHaveAccessibleDescription(
+      'El nombre debe tener entre 1 y 50 caracteres'
+    )
+  })
+
+  it('un error del backend en un stat activa la pestana Stats', async () => {
+    instalarApi({
+      teams: {
+        ...conFicha(),
+        guardarFicha: async () => ({
+          ok: false,
+          error: 'datos-invalidos',
+          campos: ['stats.atq.potencial']
+        })
+      }
+    })
+    await abrir()
+    guardar()
+    await waitFor(() => expect(campo('ATQ potencial')).toHaveFocus())
+    expect(screen.getByRole('tab', { name: 'Stats' })).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+describe('sin estilos inline en cada pestana', () => {
+  it.each(['Generales', 'Stats', 'Entrenamiento', 'Objetos', 'Notas', 'Potencial'])(
+    'la pestana %s no usa atributos style',
+    async (pestana) => {
+      instalarApi({ teams: conFicha() })
+      const { container } = render(
+        <FichaAniimo teamId={TEAM_ID} slot={1} alVolver={vi.fn()} alSesionVencida={vi.fn()} />
+      )
+      await screen.findByLabelText('Nombre')
+      activar(pestana)
+      expect(container.querySelectorAll('[style]')).toHaveLength(0)
+    }
+  )
+})
+
+describe('migas de la ficha', () => {
+  it('muestra Mis teams, grupo, team y slot y navega con botones', async () => {
+    instalarApi({
+      teams: {
+        ...conFicha(),
+        listar: async () => ({
+          ok: true,
+          teams: [
+            {
+              id: TEAM_ID,
+              nombre: 'Principal',
+              grupoId: 'g1',
+              orden: 0,
+              ocultoParaAmigos: false,
+              portadaSlot: 1,
+              portadaEfectivaSlot: 1,
+              slots: []
+            }
+          ],
+          grupos: [
+            {
+              id: 'g1',
+              nombre: 'Buildeado',
+              orden: 0,
+              teamIds: [TEAM_ID],
+              portadaTeamId: null,
+              portadaEfectivaTeamId: TEAM_ID
+            }
+          ]
+        })
+      }
+    })
+    const alIrAMisTeams = vi.fn()
+    const alIrAlTeam = vi.fn()
+    render(
+      <FichaAniimo
+        teamId={TEAM_ID}
+        slot={1}
+        alVolver={vi.fn()}
+        alSesionVencida={vi.fn()}
+        migas={{ alIrAMisTeams, alIrAlTeam }}
+      />
+    )
+    await screen.findByLabelText('Nombre')
+    const migas = screen.getByRole('navigation', { name: 'Ubicación' })
+    fireEvent.click(await within(migas).findByRole('button', { name: 'Buildeado' }))
+    expect(alIrAMisTeams).toHaveBeenCalledWith('g1')
+    fireEvent.click(within(migas).getByRole('button', { name: 'Principal' }))
+    expect(alIrAlTeam).toHaveBeenCalledTimes(1)
+    fireEvent.click(within(migas).getByRole('button', { name: 'Mis teams' }))
+    expect(alIrAMisTeams).toHaveBeenLastCalledWith()
+    expect(within(migas).getByText('Slot 1')).toHaveAttribute('aria-current', 'page')
+    expect(
+      within(document.querySelector('.carta--ficha') as HTMLElement).getByText('Portada')
+    ).toBeInTheDocument()
   })
 })

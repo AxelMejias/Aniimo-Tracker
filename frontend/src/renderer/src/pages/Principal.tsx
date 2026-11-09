@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { DuenioDeTeams } from '../../../shared/amigos'
 import FichaAniimo from '../features/aniimo/FichaAniimo'
+import PantallaDeAjustes from '../features/ajustes/PantallaDeAjustes'
+import { mensajeDeErrorDeTeams } from '../features/teams/mensajes'
+import PantallaDeTeam from '../features/teams/PantallaDeTeam'
 import type { Recodificador } from '../features/aniimo/recodificarImagen'
 import { ProveedorDeAmigos, useEstadoDeAmigos } from '../features/friends/EstadoDeAmigos'
 import FichaDeAmigo from '../features/friends/FichaDeAmigo'
 import { MENSAJE_SIN_ACCESO } from '../features/friends/mensajes'
+import PantallaDeTeamDeAmigo from '../features/friends/PantallaDeTeamDeAmigo'
 import TeamsDeAmigo from '../features/friends/TeamsDeAmigo'
 import AmigosPage from './AmigosPage'
 import ComparacionPage, { type LadoInicial } from './ComparacionPage'
@@ -24,10 +28,12 @@ const MENSAJE_FICHA_GUARDADA = 'Ficha guardada'
 type Seccion = 'teams' | 'amigos' | 'comparar'
 
 type Vista =
-  | { readonly tipo: 'teams' }
+  | { readonly tipo: 'teams'; readonly desplegado?: string }
+  | { readonly tipo: 'team'; readonly teamId: string }
   | { readonly tipo: 'ficha-propia'; readonly teamId: string; readonly slot: number }
   | { readonly tipo: 'amigos' }
-  | { readonly tipo: 'teams-de-amigo'; readonly amigo: DuenioDeTeams }
+  | { readonly tipo: 'teams-de-amigo'; readonly amigo: DuenioDeTeams; readonly desplegado?: string }
+  | { readonly tipo: 'team-de-amigo'; readonly amigo: DuenioDeTeams; readonly teamId: string }
   | {
       readonly tipo: 'ficha-de-amigo'
       readonly amigo: DuenioDeTeams
@@ -35,6 +41,7 @@ type Vista =
       readonly slot: number
     }
   | { readonly tipo: 'comparar'; readonly derecho?: LadoInicial }
+  | { readonly tipo: 'ajustes' }
 
 const SECCIONES: readonly { readonly codigo: Seccion; readonly etiqueta: string }[] = [
   { codigo: 'teams', etiqueta: 'Mis teams' },
@@ -42,17 +49,21 @@ const SECCIONES: readonly { readonly codigo: Seccion; readonly etiqueta: string 
   { codigo: 'comparar', etiqueta: 'Comparar' }
 ]
 
-function seccionDe(vista: Vista): Seccion {
+function seccionDe(vista: Vista): Seccion | null {
   switch (vista.tipo) {
     case 'teams':
+    case 'team':
     case 'ficha-propia':
       return 'teams'
     case 'amigos':
     case 'teams-de-amigo':
+    case 'team-de-amigo':
     case 'ficha-de-amigo':
       return 'amigos'
     case 'comparar':
       return 'comparar'
+    case 'ajustes':
+      return null
   }
 }
 
@@ -108,117 +119,175 @@ function Contenido({
   const solicitudes = recibidas.length
 
   return (
-    <main className="principal">
-      <header className="principal__encabezado">
+    <div className="principal">
+      <aside className="principal__barra">
         <h1 className="principal__titulo">Aniimo Team Tracker</h1>
-        <p className="principal__usuario">
-          Sesión iniciada como <span className="principal__nombre">{nombreUsuario}</span>
-        </p>
-        <button type="button" onClick={() => salirSiNoHayCambios(alCerrarSesion)}>
-          Cerrar sesión
-        </button>
-      </header>
-      <nav className="principal__navegacion" aria-label="Secciones">
-        {SECCIONES.map(({ codigo, etiqueta }) => (
-          <span className="principal__item" key={codigo}>
+        <nav className="principal__navegacion" aria-label="Secciones">
+          {SECCIONES.map(({ codigo, etiqueta }) => (
             <button
+              key={codigo}
               type="button"
+              className="principal__item"
               aria-current={activa === codigo ? 'page' : undefined}
               onClick={() => salirSiNoHayCambios(() => navegar({ tipo: codigo }))}
             >
               {etiqueta}
             </button>
-            {codigo === 'amigos' && solicitudes > 0 && (
-              <span className="principal__contador">Solicitudes ({solicitudes})</span>
-            )}
-          </span>
-        ))}
-      </nav>
-      {aviso !== null && (
-        <p className="principal__aviso" role="status">
-          {aviso}
-        </p>
-      )}
-      {salidaPendiente !== null && (
-        <Confirmacion
-          mensaje="¿Descartar los cambios de la ficha?"
-          etiquetaConfirmar="Descartar cambios"
-          deshabilitado={false}
-          alConfirmar={() => salidaPendiente.continuar()}
-          alCancelar={() => setSalidaPendiente(null)}
-        />
-      )}
-      <div className="principal__contenido" ref={contenido} tabIndex={-1}>
-        {vista.tipo === 'teams' && (
-          <MisTeamsPage
-            alAbrirSlot={(teamId, slot) => navegar({ tipo: 'ficha-propia', teamId, slot })}
-            alSesionVencida={alSesionVencida}
+          ))}
+        </nav>
+        {solicitudes > 0 && (
+          <button
+            type="button"
+            className="principal__solicitudes"
+            onClick={() => salirSiNoHayCambios(() => navegar({ tipo: 'amigos' }))}
+          >
+            Solicitudes ({solicitudes})
+          </button>
+        )}
+        <div className="principal__sesion">
+          <p className="principal__usuario">Sesión: {nombreUsuario}</p>
+          <button type="button" onClick={() => salirSiNoHayCambios(() => navegar({ tipo: 'ajustes' }))}>
+            Ajustes
+          </button>
+          <button type="button" onClick={() => salirSiNoHayCambios(alCerrarSesion)}>
+            Cerrar sesión
+          </button>
+        </div>
+      </aside>
+      <main className="principal__vista">
+        {aviso !== null && (
+          <p className="principal__aviso" role="status">
+            {aviso}
+          </p>
+        )}
+        {salidaPendiente !== null && (
+          <Confirmacion
+            mensaje="¿Descartar los cambios de la ficha?"
+            etiquetaConfirmar="Descartar cambios"
+            deshabilitado={false}
+            alConfirmar={() => salidaPendiente.continuar()}
+            alCancelar={() => setSalidaPendiente(null)}
           />
         )}
-        {vista.tipo === 'ficha-propia' && (
-          <FichaAniimo
-            teamId={vista.teamId}
-            slot={vista.slot}
-            alVolver={(guardada) =>
-              navegar({ tipo: 'teams' }, guardada ? MENSAJE_FICHA_GUARDADA : null)
-            }
-            alCambiarSinGuardar={cambiarSinGuardar}
-            alSesionVencida={alSesionVencida}
-            {...(recodificar === undefined ? {} : { recodificar })}
-          />
-        )}
-        {vista.tipo === 'amigos' && (
-          <AmigosPage
-            nombreUsuario={nombreUsuario}
-            alVerTeams={(amigo) =>
-              navegar({
-                tipo: 'teams-de-amigo',
-                amigo: { id: amigo.id, nombreUsuario: amigo.nombreUsuario }
-              })
-            }
-            alSesionVencida={alSesionVencida}
-          />
-        )}
-        {vista.tipo === 'teams-de-amigo' && (
-          <TeamsDeAmigo
-            amigo={vista.amigo}
-            alAbrirSlot={(teamId, slot) =>
-              navegar({ tipo: 'ficha-de-amigo', amigo: vista.amigo, teamId, slot })
-            }
-            alVolver={() => navegar({ tipo: 'amigos' })}
-            alSinAcceso={sinAcceso}
-            alSesionVencida={alSesionVencida}
-          />
-        )}
-        {vista.tipo === 'ficha-de-amigo' && (
-          <FichaDeAmigo
-            amigo={vista.amigo}
-            teamId={vista.teamId}
-            slot={vista.slot}
-            alVolver={() => navegar({ tipo: 'teams-de-amigo', amigo: vista.amigo })}
-            alComparar={() =>
-              navegar({
-                tipo: 'comparar',
-                derecho: {
-                  usuarioId: vista.amigo.id,
-                  nombreUsuario: vista.amigo.nombreUsuario,
-                  teamId: vista.teamId,
-                  slot: vista.slot
-                }
-              })
-            }
-            alSinAcceso={sinAcceso}
-            alSesionVencida={alSesionVencida}
-          />
-        )}
-        {vista.tipo === 'comparar' && (
-          <ComparacionPage
-            {...(vista.derecho === undefined ? {} : { derecho: vista.derecho })}
-            alSesionVencida={alSesionVencida}
-          />
-        )}
-      </div>
-    </main>
+        <div className="principal__contenido" ref={contenido} tabIndex={-1}>
+          {vista.tipo === 'teams' && (
+            <MisTeamsPage
+              grupoDesplegado={vista.desplegado ?? null}
+              alAbrirTeam={(teamId) => navegar({ tipo: 'team', teamId })}
+              alSesionVencida={alSesionVencida}
+            />
+          )}
+          {vista.tipo === 'team' && (
+            <PantallaDeTeam
+              teamId={vista.teamId}
+              alAbrirSlot={(teamId, slot) => navegar({ tipo: 'ficha-propia', teamId, slot })}
+              alCambiarDeTeam={(teamId) => navegar({ tipo: 'team', teamId })}
+              alVolverAMisTeams={(grupoId) =>
+                navegar(grupoId === undefined ? { tipo: 'teams' } : { tipo: 'teams', desplegado: grupoId })
+              }
+              alNoEncontrado={() =>
+                navegar(
+                  { tipo: 'teams' },
+                  mensajeDeErrorDeTeams({ ok: false, error: 'no-encontrado' })
+                )
+              }
+              alSesionVencida={alSesionVencida}
+            />
+          )}
+          {vista.tipo === 'ficha-propia' && (
+            <FichaAniimo
+              teamId={vista.teamId}
+              slot={vista.slot}
+              alVolver={(guardada) =>
+                navegar({ tipo: 'team', teamId: vista.teamId }, guardada ? MENSAJE_FICHA_GUARDADA : null)
+              }
+              alCambiarSinGuardar={cambiarSinGuardar}
+              alSesionVencida={alSesionVencida}
+              migas={{
+                alIrAMisTeams: (grupoId) =>
+                  salirSiNoHayCambios(() =>
+                    navegar(grupoId === undefined ? { tipo: 'teams' } : { tipo: 'teams', desplegado: grupoId })
+                  ),
+                alIrAlTeam: () =>
+                  salirSiNoHayCambios(() => navegar({ tipo: 'team', teamId: vista.teamId }))
+              }}
+              {...(recodificar === undefined ? {} : { recodificar })}
+            />
+          )}
+          {vista.tipo === 'amigos' && (
+            <AmigosPage
+              nombreUsuario={nombreUsuario}
+              alVerTeams={(amigo) =>
+                navegar({
+                  tipo: 'teams-de-amigo',
+                  amigo: { id: amigo.id, nombreUsuario: amigo.nombreUsuario }
+                })
+              }
+              alSesionVencida={alSesionVencida}
+            />
+          )}
+          {vista.tipo === 'teams-de-amigo' && (
+            <TeamsDeAmigo
+              amigo={vista.amigo}
+              grupoDesplegado={vista.desplegado ?? null}
+              alAbrirTeam={(teamId) => navegar({ tipo: 'team-de-amigo', amigo: vista.amigo, teamId })}
+              alVolver={() => navegar({ tipo: 'amigos' })}
+              alSinAcceso={sinAcceso}
+              alSesionVencida={alSesionVencida}
+            />
+          )}
+          {vista.tipo === 'team-de-amigo' && (
+            <PantallaDeTeamDeAmigo
+              amigo={vista.amigo}
+              teamId={vista.teamId}
+              alAbrirSlot={(teamId, slot) =>
+                navegar({ tipo: 'ficha-de-amigo', amigo: vista.amigo, teamId, slot })
+              }
+              alIrAAmigos={() => navegar({ tipo: 'amigos' })}
+              alIrATeams={(grupoId) =>
+                navegar(
+                  grupoId === undefined
+                    ? { tipo: 'teams-de-amigo', amigo: vista.amigo }
+                    : { tipo: 'teams-de-amigo', amigo: vista.amigo, desplegado: grupoId }
+                )
+              }
+              alSinAcceso={sinAcceso}
+              alSesionVencida={alSesionVencida}
+            />
+          )}
+          {vista.tipo === 'ficha-de-amigo' && (
+            <FichaDeAmigo
+              amigo={vista.amigo}
+              teamId={vista.teamId}
+              slot={vista.slot}
+              alVolver={() =>
+                navegar({ tipo: 'team-de-amigo', amigo: vista.amigo, teamId: vista.teamId })
+              }
+              alComparar={() =>
+                navegar({
+                  tipo: 'comparar',
+                  derecho: {
+                    usuarioId: vista.amigo.id,
+                    nombreUsuario: vista.amigo.nombreUsuario,
+                    teamId: vista.teamId,
+                    slot: vista.slot
+                  }
+                })
+              }
+              alSinAcceso={sinAcceso}
+              alSesionVencida={alSesionVencida}
+            />
+          )}
+          {vista.tipo === 'ajustes' && <PantallaDeAjustes />}
+          {vista.tipo === 'comparar' && (
+            <ComparacionPage
+              {...(vista.derecho === undefined ? {} : { derecho: vista.derecho })}
+              alSesionVencida={alSesionVencida}
+            />
+          )}
+        </div>
+      </main>
+    </div>
   )
 }
 

@@ -47,6 +47,7 @@ async function abrirEditor(): Promise<{ alSesionVencida: ReturnType<typeof vi.fn
 }
 
 async function abrirPanel(): Promise<void> {
+  fireEvent.click(screen.getByRole('tab', { name: 'Stats' }))
   fireEvent.click(screen.getByRole('button', { name: 'Sugerencia de stats' }))
   await screen.findByLabelText('Especie del catálogo')
 }
@@ -85,6 +86,7 @@ describe('apertura de la seccion', () => {
   it('esta plegada y no pide el catalogo hasta abrirla', async () => {
     const api = instalarApi({ teams: conFicha() })
     await abrirEditor()
+    fireEvent.click(screen.getByRole('tab', { name: 'Stats' }))
 
     expect(screen.getByRole('button', { name: 'Sugerencia de stats' })).toHaveAttribute(
       'aria-expanded',
@@ -557,6 +559,7 @@ describe('errores', () => {
       }
     })
     await abrirEditor()
+    fireEvent.click(screen.getByRole('tab', { name: 'Stats' }))
     fireEvent.click(screen.getByRole('button', { name: 'Sugerencia de stats' }))
 
     expect(
@@ -576,6 +579,7 @@ describe('errores', () => {
       calculo: { obtenerCatalogo: async () => ({ ok: false, error: 'sin-conexion' }) }
     })
     await abrirEditor()
+    fireEvent.click(screen.getByRole('tab', { name: 'Stats' }))
     fireEvent.click(screen.getByRole('button', { name: 'Sugerencia de stats' }))
 
     expect(await screen.findByText('No se pudo conectar con el servidor. Revisá que el backend esté levantado.')).toBeInTheDocument()
@@ -587,6 +591,7 @@ describe('errores', () => {
       calculo: { obtenerCatalogo: async () => ({ ok: false, error: 'sesion-vencida' }) }
     })
     const { alSesionVencida } = await abrirEditor()
+    fireEvent.click(screen.getByRole('tab', { name: 'Stats' }))
     fireEvent.click(screen.getByRole('button', { name: 'Sugerencia de stats' }))
 
     await waitFor(() => expect(alSesionVencida).toHaveBeenCalledTimes(1))

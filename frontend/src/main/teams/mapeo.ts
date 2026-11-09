@@ -252,6 +252,8 @@ function resumenDeApi(valor: unknown): ResumenDeAniimo {
   const r = registro(valor)
   return {
     nombre: texto(r.nombre),
+    elemento: codigoONulo(ELEMENTOS, r.elemento),
+    rol: codigoONulo(ROLES, r.rol),
     nivel: entero(r.nivel),
     cp: entero(r.cp),
     personalidad: textoONulo(r.personalidad),

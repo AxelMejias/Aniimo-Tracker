@@ -1,0 +1,23 @@
+.barra {
+  display: block;
+  width: 100%;
+  height: 0.5rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.barra--izquierda {
+  transform: scaleX(-1);
+}
+
+.barra__fondo {
+  fill: var(--color-barra-fondo);
+}
+
+.barra__relleno {
+  fill: var(--color-barra);
+}
+
+.barra--b .barra__relleno {
+  fill: var(--color-barra-b);
+}

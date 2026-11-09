@@ -16,21 +16,21 @@ async function verMisTeams(): Promise<void> {
 }
 
 describe('estado vacio y maximo de teams', () => {
-  it('sin teams explica como empezar y ofrece Crear team', async () => {
+  it('sin teams explica como empezar y ofrece Nuevo team', async () => {
     instalarApi()
     render(<App />)
     await verMisTeams()
     expect(screen.getByText(TEXTO_VACIO)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Crear team' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nuevo team' })).toBeInTheDocument()
     expect(screen.queryByText(TEXTO_MAXIMO)).toBeNull()
   })
 
-  it('con veinte teams no hay Crear team y se avisa el maximo', async () => {
+  it('con veinte teams no hay Nuevo team y se avisa el maximo', async () => {
     const veinte = Array.from({ length: 20 }, (_, i) => teamDePrueba(`Team ${i + 1}`, i + 1))
     instalarApi({ teams: { listar: async () => ({ ok: true, grupos: [], teams: veinte }) } })
     render(<App />)
     await verMisTeams()
-    expect(screen.queryByRole('button', { name: 'Crear team' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Nuevo team' })).toBeNull()
     expect(screen.getByText(TEXTO_MAXIMO)).toBeInTheDocument()
     expect(screen.queryByText(TEXTO_VACIO)).toBeNull()
   })
@@ -43,7 +43,7 @@ describe('estado vacio y maximo de teams', () => {
     await verMisTeams()
     expect(screen.queryByText(TEXTO_VACIO)).toBeNull()
     expect(screen.queryByText(TEXTO_MAXIMO)).toBeNull()
-    expect(screen.getByRole('button', { name: 'Crear team' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nuevo team' })).toBeInTheDocument()
   })
 })
 
@@ -52,7 +52,7 @@ describe('nombre de team invalido', () => {
     instalarApi({ teams: { crear: async () => ({ ok: false, error: 'datos-invalidos' }) } })
     render(<App />)
     await verMisTeams()
-    fireEvent.click(screen.getByRole('button', { name: 'Crear team' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo team' }))
     fireEvent.click(screen.getByRole('button', { name: 'Crear' }))
     expect(await screen.findByText(MENSAJE_NOMBRE_DE_TEAM_INVALIDO)).toBeInTheDocument()
     expect(screen.queryByText('Revisá los datos ingresados')).toBeNull()
@@ -62,7 +62,7 @@ describe('nombre de team invalido', () => {
     instalarApi({ teams: { crear: async () => ({ ok: false, error: 'limite-de-teams' }) } })
     render(<App />)
     await verMisTeams()
-    fireEvent.click(screen.getByRole('button', { name: 'Crear team' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo team' }))
     fireEvent.click(screen.getByRole('button', { name: 'Crear' }))
     expect(await screen.findByText('Ya tenés el máximo de 20 teams')).toBeInTheDocument()
   })

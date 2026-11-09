@@ -1,6 +1,10 @@
 import type { SesionEnMemoria } from '../auth/sesionEnMemoria'
 
-export const URL_BASE_BACKEND = 'http://127.0.0.1:8000/api'
+export function urlBaseDelBackend(empaquetado: boolean): string {
+  return `http://127.0.0.1:${empaquetado ? 8001 : 8000}/api`
+}
+
+export const URL_BASE_BACKEND = urlBaseDelBackend(false)
 const TIEMPO_MAXIMO_MS = 10_000
 
 export type FetchFn = (url: string, init: RequestInit) => Promise<Response>
@@ -14,7 +18,11 @@ export type Cuerpo =
 // Devuelve null cuando no hubo respuesta (red caida, tiempo agotado).
 export type Peticion = (metodo: Metodo, ruta: string, cuerpo?: Cuerpo) => Promise<Response | null>
 
-export function crearPeticion(fetchFn: FetchFn, sesion: SesionEnMemoria): Peticion {
+export function crearPeticion(
+  fetchFn: FetchFn,
+  sesion: SesionEnMemoria,
+  urlBase: string = URL_BASE_BACKEND
+): Peticion {
   return async (metodo, ruta, cuerpo) => {
     const cabeceras: Record<string, string> = {}
     let contenido: BodyInit | undefined
@@ -32,7 +40,7 @@ export function crearPeticion(fetchFn: FetchFn, sesion: SesionEnMemoria): Petici
       cabeceras.Authorization = `Bearer ${actual.token}`
     }
     try {
-      return await fetchFn(`${URL_BASE_BACKEND}${ruta}`, {
+      return await fetchFn(`${urlBase}${ruta}`, {
         method: metodo,
         headers: cabeceras,
         body: contenido,

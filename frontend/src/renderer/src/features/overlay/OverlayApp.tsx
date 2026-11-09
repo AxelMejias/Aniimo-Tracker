@@ -4,7 +4,7 @@ import SelectorDeTeam from './SelectorDeTeam'
 import TeamCompacto from './TeamCompacto'
 import { useOverlay } from './useOverlay'
 import '../../shared/styles/tokens.css'
-import '../teams/teams.css'
+import '../../shared/styles/base.css'
 import './overlay.css'
 
 const MENSAJE_SIN_SELECCION = 'Elegí un team desde «Mis teams» con «Abrir en overlay»'
@@ -18,7 +18,22 @@ export default function OverlayApp(): ReactElement {
   return (
     <main className="overlay">
       <header className="overlay__barra">
-        <h1 className="overlay__titulo">{datos.tipo === 'team' ? datos.team.nombre : 'Overlay'}</h1>
+        <div className="overlay__arrastre">
+          <h1 className="overlay__titulo">{datos.tipo === 'team' ? datos.team.nombre : 'Overlay'}</h1>
+          <div className="overlay__acciones">
+            <button type="button" className="overlay__actualizar" onClick={() => void actualizar()}>
+              Actualizar
+            </button>
+            <button
+              type="button"
+              className="overlay__cerrar"
+              aria-label="Cerrar overlay"
+              onClick={cerrar}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
         {opciones !== null && (
           <SelectorDeTeam
             opciones={opciones}
@@ -26,14 +41,6 @@ export default function OverlayApp(): ReactElement {
             alElegir={(teamId) => void seleccionar(teamId)}
           />
         )}
-        <div className="overlay__acciones">
-          <button type="button" onClick={() => void actualizar()}>
-            Actualizar
-          </button>
-          <button type="button" onClick={cerrar}>
-            Cerrar overlay
-          </button>
-        </div>
       </header>
       <div className="overlay__contenido">
         {fallo && (
